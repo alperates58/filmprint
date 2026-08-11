@@ -97,13 +97,21 @@ export async function getIntelligentCalibrationQueue(
     take: 200,
   });
 
-  // Replenish seeding guardrail if unrated candidate pool drops below 30 movies
+  // Replenish seeding guardrail dynamically if unrated candidate pool drops below 30 movies
   if (rawCandidates.length < 30) {
     await tmdbClient.seedAndFetchMovies();
     rawCandidates = await db.movie.findMany({
       where: {
         id: { notIn: Array.from(answeredMovieIds) },
       },
+      orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
+      take: 200,
+    });
+  }
+
+  // Graceful fallback: If candidate pool is still completely empty, fallback to catalog movies
+  if (rawCandidates.length === 0) {
+    rawCandidates = await db.movie.findMany({
       orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
       take: 200,
     });

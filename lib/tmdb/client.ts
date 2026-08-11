@@ -678,8 +678,8 @@ export class TMDBClient {
   }
 
   /**
-   * Synchronizes candidate pool from multiple TMDB endpoints (popular pages 1-3 & top rated pages 1-2)
-   * and returns synced DB movies.
+   * Synchronizes candidate pool dynamically advancing TMDB page offsets.
+   * Ensures candidate pool never runs dry even when users evaluate hundreds of movies.
    */
   public async seedAndFetchMovies(): Promise<CachedMovieData[]> {
     const apiKey = await this.resolveApiKey();
@@ -687,14 +687,18 @@ export class TMDBClient {
     const processedIds = new Set<number>();
 
     if (apiKey) {
-      const [pop1, pop2, top1, top2] = await Promise.all([
-        this.getPopularMovies(1),
-        this.getPopularMovies(2),
-        this.getTopRatedMovies(1),
-        this.getTopRatedMovies(2),
+      // Calculate dynamic page offset based on current total movies in database
+      const existingCount = await db.movie.count();
+      const pageOffset = Math.floor(existingCount / 20) + 1;
+
+      const [popA, popB, topA, topB] = await Promise.all([
+        this.getPopularMovies(pageOffset),
+        this.getPopularMovies(pageOffset + 1),
+        this.getTopRatedMovies(pageOffset),
+        this.getTopRatedMovies(pageOffset + 1),
       ]);
 
-      const combined = [...top1, ...pop1, ...top2, ...pop2];
+      const combined = [...topA, ...popA, ...topB, ...popB];
       for (const m of combined) {
         if (!processedIds.has(m.id)) {
           processedIds.add(m.id);

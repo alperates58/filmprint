@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -11,9 +11,10 @@ interface HeaderProps {
 
 export function Header({ progressCount = 0, progressTarget = 30 }: HeaderProps) {
   const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="w-full border-b border-border/60 bg-background/80 backdrop-blur-md sticky top-0 z-50 transition-all duration-300">
+    <header className="w-full border-b border-border/60 bg-background/90 backdrop-blur-md sticky top-0 z-50 transition-all duration-300">
       <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-3 group">
@@ -25,9 +26,9 @@ export function Header({ progressCount = 0, progressTarget = 30 }: HeaderProps) 
           </span>
         </Link>
 
-        {/* Navigation */}
-        <div className="flex items-center gap-4">
-          <nav className="flex items-center gap-1 overflow-x-auto py-1">
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center gap-4">
+          <nav className="flex items-center gap-1">
             <Link
               href="/"
               className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
@@ -84,13 +85,85 @@ export function Header({ progressCount = 0, progressTarget = 30 }: HeaderProps) 
             </Link>
           </nav>
 
-          {/* Minimal Progress Pill */}
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated border border-border text-xs font-mono font-medium text-text-primary">
+          {/* User Progress Pill */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated border border-border text-xs font-mono font-medium text-text-primary">
             <span className="w-2 h-2 rounded-full bg-accent" />
-            <span className="text-text-secondary">{Math.min(progressCount, progressTarget)} / {progressTarget}</span>
+            <span className="text-text-secondary">{progressCount} film değerlendirildi</span>
           </div>
         </div>
+
+        {/* Mobile Navigation Toggle Button */}
+        <div className="flex items-center gap-2 md:hidden">
+          <div className="px-2.5 py-1 rounded-full bg-surface-elevated border border-border text-[10px] font-mono text-text-secondary">
+            {progressCount} film
+          </div>
+
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-xl bg-surface-elevated border border-border text-text-primary text-xs font-mono"
+            aria-label="Menüyü Aç"
+          >
+            {mobileMenuOpen ? "✕" : "☰"}
+          </button>
+        </div>
       </div>
+
+      {/* Mobile Menu Dropdown Panel */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-b border-border/60 bg-surface p-4 space-y-2 animate-fadeIn">
+          <nav className="flex flex-col gap-2">
+            <Link
+              href="/"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                pathname === "/" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+              }`}
+            >
+              Kalibrasyon
+            </Link>
+
+            <Link
+              href="/profile"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                pathname === "/profile" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+              }`}
+            >
+              Film DNA Profilim
+            </Link>
+
+            <Link
+              href="/recommendations"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                pathname === "/recommendations" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+              }`}
+            >
+              Kişisel Öneriler
+            </Link>
+
+            <Link
+              href="/watch-later"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                pathname === "/watch-later" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+              }`}
+            >
+              Daha Sonra İzlenecekler
+            </Link>
+
+            <Link
+              href="/night"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                pathname.startsWith("/night") ? "bg-accent text-white font-bold" : "text-accent border border-accent/40"
+              }`}
+            >
+              🎬 Movie Night (Ortak Film)
+            </Link>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

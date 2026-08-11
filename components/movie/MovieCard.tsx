@@ -103,21 +103,23 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
               unoptimized
             />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-surface-elevated text-text-muted">
-              <svg
-                className="w-12 h-12 mb-2 text-text-muted/50"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M7 4v16M17 4v16M3 8h18M3 16h18"
-                />
-              </svg>
-              <span className="text-xs font-mono">{movie.title}</span>
+            /* Branded Cinematic Poster Fallback */
+            <div className="w-full h-full flex flex-col justify-between p-5 bg-gradient-to-b from-surface-elevated via-background to-surface border border-accent/20 text-center relative overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-accent/15 border border-accent/30 text-accent font-bold flex items-center justify-center mx-auto mt-4">
+                🎬
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono text-accent uppercase tracking-widest font-semibold">
+                  FILMPRINT
+                </span>
+                <h3 className="font-display text-sm font-bold text-text-primary line-clamp-2 px-1">
+                  {movie.title}
+                </h3>
+                {movie.releaseYear && (
+                  <p className="text-[10px] font-mono text-text-muted">{movie.releaseYear}</p>
+                )}
+              </div>
+              <div className="w-full h-1 bg-accent/20 rounded-full mb-2" />
             </div>
           )}
 

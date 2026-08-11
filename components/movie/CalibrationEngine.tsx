@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import { Header } from "@/components/ui/Header";
 import { MovieCard, MovieItem } from "@/components/movie/MovieCard";
 import { MovieCardSkeleton } from "@/components/movie/MovieCardSkeleton";
@@ -19,11 +20,13 @@ export function CalibrationEngine({
   const [queue, setQueue] = useState<MovieItem[]>(initialMovies);
   const [answeredCount, setAnsweredCount] = useState<number>(initialAnsweredCount);
   const [showMilestoneScreen, setShowMilestoneScreen] = useState<boolean>(initialCompleted);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(initialAnsweredCount === 0);
   const [isLoading, setIsLoading] = useState<boolean>(initialMovies.length === 0);
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isFetchingRef = useRef<boolean>(false);
+  const cardRef = useRef<HTMLDivElement>(null);
   const milestoneTarget = 30;
 
   // Preload poster images for upcoming movies in queue
@@ -87,6 +90,10 @@ export function CalibrationEngine({
   ) => {
     if (queue.length === 0 || isTransitioning) return;
 
+    if (showOnboarding) {
+      setShowOnboarding(false);
+    }
+
     const currentMovie = queue[0];
 
     // 1. Optimistic UI transition (150ms perceived latency)
@@ -142,7 +149,35 @@ export function CalibrationEngine({
     <div className="min-h-screen flex flex-col bg-background selection:bg-accent selection:text-white">
       <Header progressCount={answeredCount} progressTarget={milestoneTarget} />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 md:py-12 flex flex-col items-center justify-center">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 md:py-12 flex flex-col items-center justify-center space-y-8">
+        {/* Minimal First-Use Onboarding Hero Banner */}
+        {showOnboarding && !showMilestoneScreen && (
+          <div className="w-full max-w-4xl mx-auto p-6 md:p-8 rounded-3xl bg-surface border border-accent/30 shadow-cinematic text-center space-y-4 animate-fadeIn relative overflow-hidden">
+            <div className="space-y-2">
+              <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold flex items-center justify-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                İLK GİRİŞ ONAYI
+              </span>
+              <h1 className="font-display text-2xl md:text-4xl font-bold tracking-tight text-text-primary">
+                Film zevkini çözelim.
+              </h1>
+              <p className="text-text-secondary text-sm md:text-base max-w-xl mx-auto leading-relaxed">
+                Sana filmler göstereceğiz. İzlediklerini ve ne düşündüğünü söyle. Film DNA&apos;n zamanla netleşsin.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setShowOnboarding(false);
+                cardRef.current?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="px-6 py-3 rounded-xl bg-accent text-white font-medium text-xs md:text-sm hover:bg-accent-hover transition-all shadow-md"
+            >
+              Başla ↓
+            </button>
+          </div>
+        )}
+
         {isLoading ? (
           <MovieCardSkeleton />
         ) : showMilestoneScreen ? (
@@ -154,7 +189,7 @@ export function CalibrationEngine({
 
             <div className="space-y-2">
               <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
-                İlk Film DNA Profilin İçin Yeterli Sinyali Topladık
+                İlk Film DNA Profilin Hazır
               </h2>
               <p className="text-text-secondary text-sm md:text-base leading-relaxed">
                 Tebrikler! <strong className="text-text-primary">{answeredCount} filmi</strong> başarıyla sınıflandırdınız.
@@ -162,23 +197,23 @@ export function CalibrationEngine({
             </div>
 
             <div className="p-4 rounded-2xl bg-surface-elevated border border-border/60 text-xs font-mono text-text-muted">
-              Profil analiz motoru hazır olduğunda kişisel Film DNA haritanız burada gösterilecektir. İsterseniz daha hassas bir zevk profili için film değerlendirmeye devam edebilirsiniz.
+              Kişisel Film DNA profiliniz hazırlandı. Profil sayfasını inceleyebilir veya zevk profilinizi daha da netleştirmek için sınırsız değerlendirmeye devam edebilirsiniz.
             </div>
 
             <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                disabled
-                className="px-6 py-3.5 rounded-xl bg-surface-elevated border border-border text-text-muted text-sm font-medium opacity-60 cursor-not-allowed"
+              <Link
+                href="/profile"
+                className="px-6 py-3.5 rounded-xl bg-accent text-white font-medium text-sm hover:bg-accent-hover active:scale-[0.98] transition-all shadow-md text-center"
               >
-                Film DNA Profilini Gör (Phase 2)
-              </button>
+                Film DNA Profilini Gör →
+              </Link>
 
               <button
                 onClick={() => {
                   setShowMilestoneScreen(false);
                   if (queue.length <= 2) fetchQueue(5);
                 }}
-                className="px-6 py-3.5 rounded-xl bg-accent text-white font-medium text-sm hover:bg-accent-hover active:scale-[0.98] transition-all shadow-md"
+                className="px-6 py-3.5 rounded-xl bg-surface-elevated border border-border text-text-primary font-medium text-sm hover:bg-border/60 active:scale-[0.98] transition-all shadow-sm"
               >
                 Değerlendirmeye Devam Et
               </button>
@@ -186,11 +221,13 @@ export function CalibrationEngine({
           </div>
         ) : activeMovie ? (
           /* Active Interactive Movie Card */
-          <MovieCard
-            movie={activeMovie}
-            onAnswer={handleAnswer}
-            isTransitioning={isTransitioning}
-          />
+          <div ref={cardRef} className="w-full">
+            <MovieCard
+              movie={activeMovie}
+              onAnswer={handleAnswer}
+              isTransitioning={isTransitioning}
+            />
+          </div>
         ) : (
           /* Queue Empty / Retry Fallback State */
           <div className="w-full max-w-lg mx-auto text-center space-y-5 bg-surface border border-border/80 rounded-3xl p-8 shadow-cinematic">
@@ -218,7 +255,7 @@ export function CalibrationEngine({
       </main>
 
       <footer className="border-t border-border/60 py-6 text-center text-xs text-text-muted font-mono">
-        FILMPRINT &copy; {new Date().getFullYear()} — Movie Taste Calibration Engine
+        FILMPRINT &copy; {new Date().getFullYear()} — Filmprint Taste Engine
       </footer>
     </div>
   );

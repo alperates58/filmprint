@@ -51,6 +51,8 @@ export async function getPersonalizedRecommendations(
     buildUserFeedbackProfile(userId),
   ]);
 
+  const answeredMovieCount = answeredInteractions.length;
+
   const excludedMovieIds = new Set([
     ...answeredInteractions.map((i) => i.movieId),
     ...feedbacks.map((f) => f.movieId),
@@ -61,7 +63,7 @@ export async function getPersonalizedRecommendations(
     where: {
       id: { notIn: Array.from(excludedMovieIds) },
     },
-    orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
+    orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
     take: 300,
   });
 
@@ -72,7 +74,15 @@ export async function getPersonalizedRecommendations(
       where: {
         id: { notIn: Array.from(excludedMovieIds) },
       },
-      orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
+      orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
+      take: 300,
+    });
+  }
+
+  // Graceful fallback if unrated candidate pool is still empty
+  if (rawCandidates.length === 0) {
+    rawCandidates = await db.movie.findMany({
+      orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
       take: 300,
     });
   }
@@ -185,6 +195,8 @@ export async function getPersonalizedRecommendations(
 
   return {
     ready: true,
+    required: targetCount,
+    current: answeredMovieCount,
     profileConfidence: profile.confidence,
     recommendations,
   };

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db/client";
+import { getTMDBApiKey } from "@/lib/config/service";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 
@@ -541,26 +542,31 @@ const FALLBACK_MOVIES: TMDBMovie[] = [
 
 /**
  * Server-side TMDB Client
- * Strictly executed on the server. TMDB_API_KEY is kept private.
+ * Resolves API key dynamically from encrypted Admin DB IntegrationSecret or environment.
  */
 export class TMDBClient {
-  private apiKey: string;
-
-  constructor() {
-    this.apiKey = process.env.TMDB_API_KEY || "";
+  private async resolveApiKey(): Promise<string> {
+    try {
+      const dbKey = await getTMDBApiKey();
+      if (dbKey) return dbKey;
+    } catch (e) {
+      console.error("[TMDB Client] Error resolving API key from config service:", e);
+    }
+    return process.env.TMDB_API_KEY || "";
   }
 
   /**
    * Fetches popular movies from TMDB API server-side.
    */
   public async getPopularMovies(page: number = 1): Promise<TMDBMovie[]> {
-    if (!this.apiKey) {
+    const apiKey = await this.resolveApiKey();
+    if (!apiKey) {
       return FALLBACK_MOVIES;
     }
 
     try {
       const response = await fetch(
-        `${TMDB_API_BASE}/movie/popular?api_key=${this.apiKey}&language=tr-TR&page=${page}`,
+        `${TMDB_API_BASE}/movie/popular?api_key=${apiKey}&language=tr-TR&page=${page}`,
         { next: { revalidate: 3600 } }
       );
 
@@ -580,13 +586,14 @@ export class TMDBClient {
    * Fetches top rated movies across all eras from TMDB API server-side.
    */
   public async getTopRatedMovies(page: number = 1): Promise<TMDBMovie[]> {
-    if (!this.apiKey) {
+    const apiKey = await this.resolveApiKey();
+    if (!apiKey) {
       return FALLBACK_MOVIES;
     }
 
     try {
       const response = await fetch(
-        `${TMDB_API_BASE}/movie/top_rated?api_key=${this.apiKey}&language=tr-TR&page=${page}`,
+        `${TMDB_API_BASE}/movie/top_rated?api_key=${apiKey}&language=tr-TR&page=${page}`,
         { next: { revalidate: 3600 } }
       );
 
@@ -675,10 +682,11 @@ export class TMDBClient {
    * and returns synced DB movies.
    */
   public async seedAndFetchMovies(): Promise<CachedMovieData[]> {
+    const apiKey = await this.resolveApiKey();
     const syncedMovies: CachedMovieData[] = [];
     const processedIds = new Set<number>();
 
-    if (this.apiKey) {
+    if (apiKey) {
       const [pop1, pop2, top1, top2] = await Promise.all([
         this.getPopularMovies(1),
         this.getPopularMovies(2),

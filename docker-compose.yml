@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: filmprint-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: filmprint
+      POSTGRES_PASSWORD: filmprint_dev_secret
+      POSTGRES_DB: filmprint
+    ports:
+      - "5432:5432"
+    volumes:
+      - filmprint_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U filmprint -d filmprint"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  filmprint_pg_data:

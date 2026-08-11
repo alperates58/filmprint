@@ -1,0 +1,75 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum InteractionStatus {
+  WATCHED
+  NOT_WATCHED
+  UNSURE
+}
+
+enum RatingStatus {
+  LOVE
+  LIKE
+  NEUTRAL
+  DISLIKE
+}
+
+model User {
+  id           String             @id @default(uuid())
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  interactions MovieInteraction[]
+  tasteProfile UserTasteProfile?
+}
+
+model Movie {
+  id            String             @id @default(uuid())
+  tmdbId        Int                @unique
+  title         String
+  originalTitle String
+  posterPath    String?
+  backdropPath  String?
+  releaseYear   Int?
+  popularity    Float              @default(0.0)
+  voteAverage   Float              @default(0.0)
+  metadata      Json               @default("{}")
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  interactions  MovieInteraction[]
+
+  @@index([tmdbId])
+  @@index([popularity])
+}
+
+model MovieInteraction {
+  id         String            @id @default(uuid())
+  userId     String
+  movieId    String
+  status     InteractionStatus
+  rating     RatingStatus?
+  answeredAt DateTime          @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+  @@index([userId])
+  @@index([movieId])
+}
+
+model UserTasteProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  version     Int      @default(1)
+  profileJson Json     @default("{}")
+  confidence  Float    @default(0.0)
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

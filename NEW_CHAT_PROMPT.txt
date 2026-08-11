@@ -1,0 +1,24 @@
+Filmprint adında yeni bir proje başlatıyoruz.
+
+Eklediğim başlangıç paketindeki README.md, PHASES.md, DESIGN_SYSTEM.md, ARCHITECTURE.md ve GEMINI_PROMPT.md dosyalarını projenin kaynak gereksinimleri olarak kabul et.
+
+Bu projeyi hızlı ama temiz şekilde geliştireceğiz. Ana hedef ilk aşamada yalnızca şu:
+
+Kullanıcıya TMDB'den sürekli tek film gösterilecek, "Bunu izledin mi?" sorulacak. İzlediyse Çok sevdim / Beğendim / Ortalama / Sevmedim seçeneklerinden biri alınacak. İzlemediyse veya emin değilse bu bilgi kaydedilecek. Sistem bu cevaplarla zaman içinde kullanıcının Film DNA profilini çıkaracak.
+
+İlk sürümde Movie Night, sosyal özellikler, AI chat veya gereksiz özellikler YOK.
+
+Teknik yön:
+- Next.js App Router
+- TypeScript
+- Tailwind
+- PostgreSQL
+- Prisma
+- Docker / Docker Compose
+- TMDB API server-side
+
+Tasarım premium cinematic SaaS seviyesinde olacak; generic admin panel görünümü istemiyorum.
+
+Geliştirmede Gemini 3.6 Flash kullanacağız.
+
+Şimdi önce eklediğim dosyaları oku. Özellikle GEMINI_PROMPT.md içindeki Phase 0 talimatlarını temel al. Mevcut klasörü/repository'yi incele, güvenli şekilde başla ve Phase 0'ı uygula. Push/deploy yapma. Mevcut bir çalışma varsa bozma.

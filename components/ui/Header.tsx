@@ -7,9 +7,10 @@ import { usePathname } from "next/navigation";
 interface HeaderProps {
   progressCount?: number;
   progressTarget?: number;
+  userName?: string;
 }
 
-export function Header({ progressCount = 0, progressTarget = 30 }: HeaderProps) {
+export function Header({ progressCount = 0, progressTarget = 30, userName = "" }: HeaderProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -85,15 +86,27 @@ export function Header({ progressCount = 0, progressTarget = 30 }: HeaderProps) 
             </Link>
           </nav>
 
-          {/* User Progress Pill */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated border border-border text-xs font-mono font-medium text-text-primary">
-            <span className="w-2 h-2 rounded-full bg-accent" />
-            <span className="text-text-secondary">{progressCount} film değerlendirildi</span>
+          {/* User Profile Identity & Progress Pill */}
+          <div className="flex items-center gap-2">
+            {userName && (
+              <span className="px-3 py-1 rounded-full bg-accent/15 border border-accent/30 text-accent font-mono text-xs font-semibold">
+                👤 {userName}
+              </span>
+            )}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated border border-border text-xs font-mono font-medium text-text-primary">
+              <span className="w-2 h-2 rounded-full bg-accent" />
+              <span className="text-text-secondary">{progressCount} film değerlendirildi</span>
+            </div>
           </div>
         </div>
 
         {/* Mobile Navigation Toggle Button */}
         <div className="flex items-center gap-2 md:hidden">
+          {userName && (
+            <span className="px-2 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-accent font-mono text-[10px] font-semibold">
+              👤 {userName}
+            </span>
+          )}
           <div className="px-2.5 py-1 rounded-full bg-surface-elevated border border-border text-[10px] font-mono text-text-secondary">
             {progressCount} film
           </div>

@@ -111,9 +111,10 @@ export function calculateRepetitionPenalty(
 }
 
 export function calculateQualityFloor(candidate: CandidateMovie): number {
+  // Give equal 50/50 weight to high rating (voteAverage 8.0+) & popularity so classic masterpieces rank alongside recent hits
   const popularityScore = Math.min((candidate.popularity || 0) / 100, 1.0);
   const voteScore = Math.min((candidate.voteAverage || 5.0) / 10, 1.0);
-  const quality = popularityScore * 0.6 + voteScore * 0.4;
+  const quality = popularityScore * 0.4 + voteScore * 0.6;
   return Math.round(quality * 100) / 100;
 }
 
@@ -138,7 +139,7 @@ export function scoreCandidateMovie(
   let qualityWeight = ACTIVE_LEARNING_WEIGHTS.QUALITY_FLOOR;
 
   if (totalRated < 10) {
-    // Cold start exploration: prioritize catalog quality & familiarity
+    // Cold start exploration: prioritize catalog quality & familiarity across diverse eras
     qualityWeight *= 1.8;
   } else if (totalRated >= 30) {
     // Refinement stage: heavily weight uncertainty

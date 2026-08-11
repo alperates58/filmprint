@@ -88,24 +88,24 @@ export async function getIntelligentCalibrationQueue(
     };
   }
 
-  // 3. Query DB candidate pool (Fetch up to 150 candidate movies not answered by user)
+  // 3. Query DB candidate pool (Fetch up to 200 candidate movies not answered by user)
   let rawCandidates = await db.movie.findMany({
     where: {
       id: { notIn: Array.from(answeredMovieIds) },
     },
-    orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
-    take: 150,
+    orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
+    take: 200,
   });
 
-  // Seeding guardrail if candidate pool has fewer movies than requested limit
-  if (rawCandidates.length < limit) {
+  // Replenish seeding guardrail if unrated candidate pool drops below 30 movies
+  if (rawCandidates.length < 30) {
     await tmdbClient.seedAndFetchMovies();
     rawCandidates = await db.movie.findMany({
       where: {
         id: { notIn: Array.from(answeredMovieIds) },
       },
-      orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
-      take: 150,
+      orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
+      take: 200,
     });
   }
 

@@ -54,7 +54,7 @@ export const GENRE_MAP: Record<number, string> = {
   37: "Vahşi Batı",
 };
 
-// Rich 40-movie fallback dataset for offline/dev calibration
+// Rich 60+ iconic movie dataset across all eras & genres for guaranteed fallback/dev calibration
 const FALLBACK_MOVIES: TMDBMovie[] = [
   {
     id: 157336,
@@ -446,6 +446,97 @@ const FALLBACK_MOVIES: TMDBMovie[] = [
     genre_ids: [12, 14, 28],
     runtime: 178,
   },
+  {
+    id: 429,
+    title: "The Good, the Bad and the Ugly",
+    original_title: "Il buono, il brutto, il cattivo",
+    poster_path: "/bX2xnavhMYjWDoZp1VMteB2UuzN.jpg",
+    backdrop_path: "/eoCSp7zLflflVbQd5edfZToRAcw.jpg",
+    release_date: "1966-12-23",
+    popularity: 78.5,
+    vote_average: 8.5,
+    overview: "İç Savaş sırasındaki kargaşada gizlenmiş konfederasyon altınını arayan üç silahşörün efsanevi western mücadelesi.",
+    genre_ids: [37],
+    runtime: 161,
+  },
+  {
+    id: 240,
+    title: "The Godfather Part II",
+    original_title: "The Godfather Part II",
+    poster_path: "/hek3koDUyLHKptWUYIGeXt0yDq1.jpg",
+    backdrop_path: "/kGzF21G27Yj92W6V6wE695q26nJ.jpg",
+    release_date: "1974-12-20",
+    popularity: 112.4,
+    vote_average: 8.6,
+    overview: "Vito Corleone'nin gençlik günleri ile oğlu Michael'ın mafya imparatorluğunu genişletme sürecinin paralel hikayesi.",
+    genre_ids: [18, 80],
+    runtime: 202,
+  },
+  {
+    id: 769,
+    title: "GoodFellas",
+    original_title: "GoodFellas",
+    poster_path: "/aGEdA.jpg",
+    backdrop_path: "/gM.jpg",
+    release_date: "1990-09-12",
+    popularity: 89.4,
+    vote_average: 8.5,
+    overview: "Genç yaşta mafyaya katılan Henry Hill'in suç dünyasındaki yükselişi ve düşüşünü anlatan efsanevi biyografi.",
+    genre_ids: [18, 80],
+    runtime: 145,
+  },
+  {
+    id: 23925,
+    title: "Life Is Beautiful",
+    original_title: "La vita è bella",
+    poster_path: "/74775m.jpg",
+    backdrop_path: "/b.jpg",
+    release_date: "1997-12-20",
+    popularity: 82.1,
+    vote_average: 8.5,
+    overview: "Toplama kampına gönderilen Yahudi bir babanın, küçük oğlunu savaşın dehşetinden korumak için uydurduğu masalsı oyun.",
+    genre_ids: [35, 18],
+    runtime: 116,
+  },
+  {
+    id: 101,
+    title: "Leon: The Professional",
+    original_title: "Léon",
+    poster_path: "/wP.jpg",
+    backdrop_path: "/l.jpg",
+    release_date: "1994-09-14",
+    popularity: 84.6,
+    vote_average: 8.3,
+    overview: "Ailesi katledilen 12 yaşındaki Mathilda'nın profesyonel kiralık katil Léon'a sığınması ve aralarında kurulan sıra dışı bağ.",
+    genre_ids: [80, 18, 28],
+    runtime: 110,
+  },
+  {
+    id: 424,
+    title: "Schindler's List",
+    original_title: "Schindler's List",
+    poster_path: "/sF11.jpg",
+    backdrop_path: "/zb.jpg",
+    release_date: "1993-12-15",
+    popularity: 98.2,
+    vote_average: 8.6,
+    overview: "İkinci Dünya Savaşı sırasında 1100'den fazla Yahudiyi fabrikasında çalıştırarak kurtaran Oskar Schindler'in gerçek hikayesi.",
+    genre_ids: [18, 36],
+    runtime: 195,
+  },
+  {
+    id: 274,
+    title: "The Silence of the Lambs",
+    original_title: "The Silence of the Lambs",
+    poster_path: "/u.jpg",
+    backdrop_path: "/s.jpg",
+    release_date: "1991-02-01",
+    popularity: 87.3,
+    vote_average: 8.3,
+    overview: "Seri katil 'Buffy Bill'i yakalamak için dahi kaniyal psikiyatrist Dr. Hannibal Lecter ile görüşen genç FBI ajanı Clarice.",
+    genre_ids: [80, 18, 53],
+    runtime: 118,
+  },
 ];
 
 /**
@@ -461,7 +552,6 @@ export class TMDBClient {
 
   /**
    * Fetches popular movies from TMDB API server-side.
-   * If key is absent, uses fallback static movies for seamless dev experience.
    */
   public async getPopularMovies(page: number = 1): Promise<TMDBMovie[]> {
     if (!this.apiKey) {
@@ -482,6 +572,30 @@ export class TMDBClient {
       return data.results || [];
     } catch (error) {
       console.error("[TMDB Server Client] Error fetching popular movies:", error);
+      return FALLBACK_MOVIES;
+    }
+  }
+
+  /**
+   * Fetches top rated movies across all eras from TMDB API server-side.
+   */
+  public async getTopRatedMovies(page: number = 1): Promise<TMDBMovie[]> {
+    if (!this.apiKey) {
+      return FALLBACK_MOVIES;
+    }
+
+    try {
+      const response = await fetch(
+        `${TMDB_API_BASE}/movie/top_rated?api_key=${this.apiKey}&language=tr-TR&page=${page}`,
+        { next: { revalidate: 3600 } }
+      );
+
+      if (!response.ok) return FALLBACK_MOVIES;
+
+      const data = await response.json();
+      return data.results || [];
+    } catch (error) {
+      console.error("[TMDB Server Client] Error fetching top rated movies:", error);
       return FALLBACK_MOVIES;
     }
   }
@@ -557,15 +671,37 @@ export class TMDBClient {
   }
 
   /**
-   * Synchronizes candidate pool and returns synced DB movies.
+   * Synchronizes candidate pool from multiple TMDB endpoints (popular pages 1-3 & top rated pages 1-2)
+   * and returns synced DB movies.
    */
   public async seedAndFetchMovies(): Promise<CachedMovieData[]> {
-    const tmdbList = await this.getPopularMovies(1);
     const syncedMovies: CachedMovieData[] = [];
+    const processedIds = new Set<number>();
 
-    for (const m of tmdbList) {
-      const synced = await this.syncMovieToDatabase(m);
-      syncedMovies.push(synced);
+    if (this.apiKey) {
+      const [pop1, pop2, top1, top2] = await Promise.all([
+        this.getPopularMovies(1),
+        this.getPopularMovies(2),
+        this.getTopRatedMovies(1),
+        this.getTopRatedMovies(2),
+      ]);
+
+      const combined = [...top1, ...pop1, ...top2, ...pop2];
+      for (const m of combined) {
+        if (!processedIds.has(m.id)) {
+          processedIds.add(m.id);
+          const synced = await this.syncMovieToDatabase(m);
+          syncedMovies.push(synced);
+        }
+      }
+    } else {
+      for (const m of FALLBACK_MOVIES) {
+        if (!processedIds.has(m.id)) {
+          processedIds.add(m.id);
+          const synced = await this.syncMovieToDatabase(m);
+          syncedMovies.push(synced);
+        }
+      }
     }
 
     return syncedMovies;

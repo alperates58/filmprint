@@ -4,12 +4,16 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-filmprint}:${POSTGRES_PASSWORD:-filmprint_dev_secret}@postgres:5432/${POSTGRES_DB:-filmprint}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-filmprint}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-filmprint}?schema=public
       TMDB_API_KEY: ${TMDB_API_KEY:-}
-      SESSION_SECRET: ${SESSION_SECRET:-filmprint_anonymous_session_secret_32chars}
-      NODE_ENV: ${NODE_ENV:-production}
-    ports:
-      - "3000:3000"
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      DEEPSEEK_MODEL_ID: ${DEEPSEEK_MODEL_ID:-deepseek-chat}
+      MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      NODE_ENV: production
+    expose:
+      - "3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -27,9 +31,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-filmprint}
       POSTGRES_USER: ${POSTGRES_USER:-filmprint}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-filmprint_dev_secret}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

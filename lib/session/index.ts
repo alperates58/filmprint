@@ -1,56 +1,60 @@
 import { cookies } from "next/headers";
 import { db } from "@/lib/db/client";
 
-const SESSION_COOKIE_NAME = "filmprint_session";
+export const SESSION_COOKIE_NAME = "filmprint_session";
 
-export interface SessionUser {
-  id: string;
-  createdAt: Date;
-  updatedAt: Date;
+export interface SessionInfo {
+  sessionId: string;
+  userId: string;
 }
 
 /**
- * Retrieves the current anonymous user session from HttpOnly cookie,
- * or provisions a new anonymous User record in PostgreSQL and sets the cookie.
+ * Retrieves existing anonymous session from request cookie or provisions a new User in DB.
  */
-export async function getOrCreateSession(): Promise<{ userId: string; created: boolean }> {
+export async function getOrCreateSession(): Promise<SessionInfo> {
   const cookieStore = await cookies();
-  const existingSessionId = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  let sessionId = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
-  if (existingSessionId) {
-    try {
-      const user = await db.user.findUnique({
-        where: { id: existingSessionId },
-        select: { id: true },
-      });
-
-      if (user) {
-        return { userId: user.id, created: false };
-      }
-    } catch (err) {
-      console.warn("Error verifying existing session user, creating new session:", err);
-    }
-  }
-
-  // Create new anonymous user in PostgreSQL database
-  const newUser = await db.user.create({
-    data: {},
-    select: { id: true },
-  });
-
-  // Set persistent HttpOnly cookie (1 year duration)
-  try {
-    cookieStore.set(SESSION_COOKIE_NAME, newUser.id, {
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    cookieStore.set(SESSION_COOKIE_NAME, sessionId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 365 * 24 * 60 * 60, // 1 year
       path: "/",
+      maxAge: 60 * 60 * 24 * 365,
     });
-  } catch (err) {
-    // In read-only contexts (e.g. static rendering), cookie setting might be deferred
-    console.warn("Could not set session cookie directly in current context:", err);
   }
 
-  return { userId: newUser.id, created: true };
+  // Look up user in PostgreSQL by id
+  let user = await db.user.findUnique({
+    where: { id: sessionId },
+    select: { id: true, lastSeenAt: true },
+  });
+
+  const now = new Date();
+
+  if (!user) {
+    user = await db.user.create({
+      data: {
+        id: sessionId,
+        lastSeenAt: now,
+      },
+      select: { id: true, lastSeenAt: true },
+    });
+  } else {
+    // Throttled lastSeenAt update (only if older than 10 minutes)
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+    if (!user.lastSeenAt || user.lastSeenAt < tenMinutesAgo) {
+      await db.user.update({
+        where: { id: sessionId },
+        data: { lastSeenAt: now },
+      }).catch(() => {});
+    }
+  }
+
+  return {
+    sessionId,
+    userId: user.id,
+  };
 }

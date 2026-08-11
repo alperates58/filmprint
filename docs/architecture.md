@@ -1,129 +1,51 @@
-# Filmprint — System Architecture (Phase 0)
+# Filmprint — System Architecture (Phase 1.5 Admin Console)
 
 ## Overview
-Filmprint is a high-performance, single-movie taste calibration engine designed to build a user's **Film DNA** profile through rapid single-item interactions.
+Filmprint is a single-movie taste calibration engine designed to build a user's **Film DNA** profile through rapid single-item interactions.
 
-This document defines the architectural principles, component structure, data models, session management, and server-side TMDB integration boundaries for Phase 0 and beyond.
-
----
-
-## Technical Stack
-- **Framework**: Next.js 15 (App Router, Server Components & Route Handlers)
-- **Language**: TypeScript (Strict mode enabled)
-- **Styling**: Tailwind CSS + Custom CSS Design Tokens
-- **Database**: PostgreSQL 16
-- **ORM**: Prisma ORM
-- **Containerization**: Docker & Docker Compose (Local development environment)
-- **External API**: TMDB API v3 (Strictly server-side access)
+Phase 1.5 introduces an isolated, secure **Admin Console** (`/admin`) for operational metrics, anonymous user management, AES-256-GCM encrypted external integrations (TMDB & DeepSeek AI), system settings, and audit logs.
 
 ---
 
-## System Boundaries & Directory Structure
+## Technical Stack & Production Deployment Model
 
 ```text
-filmprint/
-├── app/                        # Next.js App Router pages and API routes
-│   ├── api/
-│   │   ├── health/             # Health check endpoint (/api/health)
-│   │   ├── movies/
-│   │   │   └── next/           # GET next movie for user
-│   │   └── interactions/       # POST movie watched/rating interaction
-│   ├── layout.tsx              # Root layout with dark theme & design tokens
-│   ├── page.tsx                # Minimal product shell / landing discover experience
-│   └── globals.css             # Semantic CSS variables and design tokens
-├── components/                 # UI components
-│   ├── movie/                  # Movie display & action components (MovieCard, Skeleton)
-│   ├── profile/                # Taste profile components (future Phase 2)
-│   └── ui/                     # Reusable design primitives (Buttons, Pills, Cards)
-├── lib/                        # Core server and domain logic
-│   ├── db/                     # Prisma client singleton
-│   ├── tmdb/                   # Server-side TMDB API client & mapping
-│   ├── session/                # Anonymous user session management (Cookie-based)
-│   ├── scoring/                # Scoring & candidate selection algorithms
-│   └── profile/                # Profile aggregation engine
-├── prisma/
-│   ├── schema.prisma           # Prisma schema definition
-│   └── migrations/             # Database migration history
-├── docs/                       # Project documentation
-│   ├── architecture.md
-│   ├── design-system.md
-│   └── implementation-plan.md
-├── docker-compose.yml          # PostgreSQL service container definition
-├── .env.example                # Template for required environment variables
-└── README.md
+GitHub (main) ──> Coolify ──> Docker Compose ──> [ web container (Next.js Standalone :3000) ]
+                                                       │
+                                                       └──> [ postgres container (:5432 internal) ]
+                                                                 │
+                                                                 └──> postgres_data (volume)
 ```
 
----
-
-## Data Architecture & Database Models
-
-The database schema is designed in `prisma/schema.prisma` with 4 core entities:
-
-### 1. `User`
-Represents an anonymous or authenticated user session.
-- `id` (String / UUID, Primary Key)
-- `createdAt` (DateTime)
-- `updatedAt` (DateTime)
-
-### 2. `Movie`
-Local cache of TMDB movie metadata to minimize external latency and rate limits.
-- `id` (String / UUID, Primary Key)
-- `tmdbId` (Int, Unique Index)
-- `title` (String)
-- `originalTitle` (String)
-- `posterPath` (String, Nullable)
-- `backdropPath` (String, Nullable)
-- `releaseYear` (Int, Nullable)
-- `popularity` (Float)
-- `voteAverage` (Float)
-- `metadata` (Json, extra fields: genres, runtime, overview)
-- `createdAt` / `updatedAt` (DateTime)
-
-### 3. `MovieInteraction`
-User decisions recorded per movie.
-- `id` (String / UUID, Primary Key)
-- `userId` (String, Foreign Key -> User.id)
-- `movieId` (String, Foreign Key -> Movie.id)
-- `status` (Enum: `WATCHED`, `NOT_WATCHED`, `UNSURE`)
-- `rating` (Enum: `LOVE`, `LIKE`, `NEUTRAL`, `DISLIKE`, Nullable)
-- `answeredAt` (DateTime)
-- **Constraint**: `@@unique([userId, movieId])` — Prevents duplicate answers per movie for the same user.
-
-### 4. `UserTasteProfile`
-Calculated Film DNA aggregate profile.
-- `id` (String / UUID, Primary Key)
-- `userId` (String, Unique Foreign Key -> User.id)
-- `version` (Int)
-- `profileJson` (Json, stores genres preference, decade distribution, archetype)
-- `confidence` (Float)
-- `updatedAt` (DateTime)
+- **Framework**: Next.js 15 (App Router, Standalone Output mode)
+- **Language**: TypeScript (Strict mode)
+- **Styling**: Tailwind CSS + Custom Dark Design Tokens
+- **Database**: PostgreSQL 16
+- **ORM**: Prisma ORM with versioned SQL migrations (`prisma/migrations/`)
+- **Encryption**: AES-256-GCM (Master Key via `MASTER_ENCRYPTION_KEY` env var)
+- **Password Hashing**: Node.js `scrypt` with random salt
+- **Admin Session**: Separate HttpOnly cookie `filmprint_admin_session`
 
 ---
 
-## Server-Side TMDB Integration & Local Metadata Caching
+## Security Architecture & Secret Management
 
-1. **Security Layer**: `TMDB_API_KEY` is loaded strictly on the server side in `lib/tmdb/client.ts`. It is never exposed via `NEXT_PUBLIC_*` environment variables.
-2. **Metadata Sync**: When fetching candidates, the server fetches trending/popular movies from TMDB, normalizes the payload, and upserts them into the PostgreSQL `Movie` table.
-3. **Optimistic Pre-fetching**: Future candidate selection queries pull directly from cached `Movie` records in PostgreSQL for ultra-low latency (<200ms).
-
----
-
-## Anonymous Session Strategy
-
-1. **Zero-Friction Access**: Users visit the site without mandatory registration.
-2. **Cookie Provisioning**: A secure HTTP-Only cookie `filmprint_session` stores an opaque UUID string.
-3. **Cookie Configuration**:
-   - `HttpOnly`: True (Inaccessible via JavaScript DOM)
-   - `SameSite`: Lax
-   - `Secure`: True in production environments
-   - `MaxAge`: 1 year (31,536,000 seconds)
-4. **Migration Path**: The `User` model can easily link to an `auth` table in future phases without breaking user interaction history.
+1. **AES-256-GCM Encrypted Storage**: External API keys (TMDB, DeepSeek) are encrypted in PostgreSQL using `IntegrationSecret`. Format: `${ivHex}:${authTagHex}:${ciphertextHex}`.
+2. **Master Encryption Key**: Loaded strictly on server from `MASTER_ENCRYPTION_KEY` env variable. Never exposed to browser or saved in database.
+3. **Secret Masking**: Admin APIs return masked strings (`••••••••••••91ab`) or `lastFour`. Raw secrets are NEVER sent to the client.
+4. **Resolution Hierarchy**:
+   - Encrypted DB `IntegrationSecret` (Highest priority)
+   - Environment variable fallback (`TMDB_API_KEY`, `DEEPSEEK_API_KEY`)
+   - Not configured
+5. **Initial Bootstrap**: Automatic creation of initial `AdminUser` from `ADMIN_EMAIL` and `ADMIN_INITIAL_PASSWORD` env vars if no admin exists.
 
 ---
 
-## Health Monitoring
+## Admin Endpoints & Routes
 
-The `/api/health` route handler evaluates:
-1. Application status (`status: "ok"` or `"degraded"`)
-2. Database connection status via Prisma query (`SELECT 1`)
-3. Environment variables verification (without revealing secret values)
+- `/admin/login` — Isolated admin authentication screen.
+- `/admin` — System & calibration overview metrics dashboard.
+- `/admin/users` & `/admin/users/[id]` — Anonymous user list and interaction detail.
+- `/admin/integrations` — TMDB and DeepSeek configuration & test connection buttons.
+- `/admin/settings` — System settings (calibration threshold default 30, queue preloading count, AI toggle).
+- `/admin/system` — Health, database status, runtime uptime, and migration information.

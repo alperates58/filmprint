@@ -20,28 +20,54 @@ enum RatingStatus {
   DISLIKE
 }
 
+enum RecommendationAction {
+  WATCH_LATER
+  NOT_INTERESTED
+  ALREADY_WATCHED
+  WATCHED_FROM_RECOMMENDATION
+}
+
+enum MovieNightStatus {
+  LOBBY
+  READY
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+}
+
 model User {
-  id           String             @id @default(uuid())
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  interactions MovieInteraction[]
-  tasteProfile UserTasteProfile?
+  id                      String                   @id @default(uuid())
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  lastSeenAt              DateTime                 @default(now())
+  interactions            MovieInteraction[]
+  tasteProfile            UserTasteProfile?
+  recommendationFeedbacks  RecommendationFeedback[]
+  hostedMovieNights       MovieNightSession[]      @relation("HostedMovieNights")
+  movieNightMemberships   MovieNightMember[]
 }
 
 model Movie {
-  id            String             @id @default(uuid())
-  tmdbId        Int                @unique
-  title         String
-  originalTitle String
-  posterPath    String?
-  backdropPath  String?
-  releaseYear   Int?
-  popularity    Float              @default(0.0)
-  voteAverage   Float              @default(0.0)
-  metadata      Json               @default("{}")
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  interactions  MovieInteraction[]
+  id                      String                   @id @default(uuid())
+  tmdbId                  Int                      @unique
+  title                   String
+  originalTitle           String
+  posterPath              String?
+  backdropPath            String?
+  releaseYear             Int?
+  popularity              Float                    @default(0.0)
+  voteAverage             Float                    @default(0.0)
+  metadata                Json                     @default("{}")
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  interactions            MovieInteraction[]
+  recommendationFeedbacks  RecommendationFeedback[]
+  selectedInMovieNights   MovieNightSession[]      @relation("SelectedMovieNight")
 
   @@index([tmdbId])
   @@index([popularity])
@@ -64,12 +90,139 @@ model MovieInteraction {
 }
 
 model UserTasteProfile {
-  id          String   @id @default(uuid())
-  userId      String   @unique
-  version     Int      @default(1)
-  profileJson Json     @default("{}")
-  confidence  Float    @default(0.0)
-  updatedAt   DateTime @updatedAt
+  id                     String   @id @default(uuid())
+  userId                 String   @unique
+  version                Int      @default(1)
+  profileJson            Json     @default("{}")
+  confidence             Float    @default(0.0)
+  sourceInteractionCount Int      @default(0)
+  updatedAt              DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RecommendationExplanation {
+  id             String   @id @default(uuid())
+  userId         String
+  movieId        String
+  profileVersion Int      @default(1)
+  matchVersion   Int      @default(1)
+  headline       String
+  explanation    String
+  isAiGenerated  Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, movieId, profileVersion, matchVersion])
+  @@index([userId])
+  @@index([movieId])
+}
+
+model RecommendationFeedback {
+  id         String               @id @default(uuid())
+  userId     String
+  movieId    String
+  matchScore Int                  @default(0)
+  action     RecommendationAction
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+  @@index([userId])
+  @@index([movieId])
+}
+
+model MovieNightSession {
+  id              String           @id @default(uuid())
+  code            String           @unique
+  hostUserId      String
+  status          MovieNightStatus @default(LOBBY)
+  excludeWatched  Boolean          @default(true)
+  selectedMovieId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  expiresAt       DateTime
+
+  host          User               @relation("HostedMovieNights", fields: [hostUserId], references: [id], onDelete: Cascade)
+  selectedMovie Movie?              @relation("SelectedMovieNight", fields: [selectedMovieId], references: [id], onDelete: SetNull)
+  members       MovieNightMember[]
+
+  @@index([code])
+  @@index([hostUserId])
+}
+
+model MovieNightMember {
+  id        String   @id @default(uuid())
+  sessionId String
+  userId    String
+  isReady   Boolean  @default(false)
+  joinedAt  DateTime @default(now())
+
+  session MovieNightSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
+  @@index([sessionId])
+  @@index([userId])
+}
+
+model AdminUser {
+  id           String          @id @default(uuid())
+  email        String          @unique
+  passwordHash String
+  role         AdminRole       @default(ADMIN)
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  lastLoginAt  DateTime?
+  sessions     AdminSession[]
+  auditLogs    AdminAuditLog[]
+}
+
+model AdminSession {
+  id          String    @id @default(uuid())
+  adminUserId String
+  token       String    @unique
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+  @@index([token])
+}
+
+model IntegrationSecret {
+  id             String   @id @default(uuid())
+  provider       String   @unique
+  encryptedValue String
+  lastFour       String?
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  metadata  Json     @default("{}")
+  updatedAt DateTime @updatedAt
+}
+
+model AdminAuditLog {
+  id          String     @id @default(uuid())
+  adminUserId String?
+  action      String
+  entityType  String?
+  entityId    String?
+  metadata    Json       @default("{}")
+  createdAt   DateTime   @default(now())
+
+  adminUser AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+
+  @@index([adminUserId])
+  @@index([action])
 }

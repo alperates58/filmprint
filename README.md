@@ -1,42 +1,96 @@
 # Filmprint
 
-Premium movie taste profiling web app powered by TMDB.
+Premium single-movie taste profiling web app powered by TMDB.
 
-## Product idea
-The user is shown one movie at a time and answers whether they have watched it. If watched, they rate it quickly. Over time, the system builds a personal Film DNA profile.
+## Product Idea
+The user is shown one movie at a time and answers whether they have watched it. If watched, they rate it quickly. Over time, the system builds a personal **Film DNA** profile.
 
-## MVP goal
-A user should be able to classify 30-50 movies in a few minutes and immediately get a meaningful taste profile.
+## MVP Goal
+A user should be able to classify 30–50 movies in a few minutes and immediately get a meaningful taste profile.
 
-## Core principles
-- Extremely fast interaction
-- One movie at a time
-- No clutter
-- Premium cinematic SaaS design
-- TMDB API server-side only
-- No AI runtime dependency in V1
-- Data model ready for future Movie Night matching
+## Tech Stack
+- **Framework**: Next.js 15 (App Router, Standalone Output)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS + Custom CSS Tokens
+- **Database**: PostgreSQL 16
+- **ORM**: Prisma ORM (with automated migrations)
+- **Deployment**: Docker & Docker Compose (Coolify ready)
+- **API**: TMDB API (Server-side ONLY)
 
-## Suggested stack
-- Next.js 15+
-- TypeScript
-- Tailwind CSS
-- PostgreSQL
-- Prisma ORM
-- Docker / Docker Compose
-- TMDB API
+---
 
-## Core flow
-1. User opens app
-2. App shows a movie
-3. User answers: Watched / Not watched / Unsure
-4. If watched: Love / Like / Neutral / Dislike
-5. Next movie appears instantly
-6. After enough answers, Film DNA profile appears
+## Local Development
 
-## Future product layers
-- Personalized recommendations
-- Movie Night rooms
-- Friend taste matching
-- Social comparison
-- AI-generated profile summaries
+### Prerequisites
+- Node.js 20+
+- Docker & Docker Compose
+
+### 1. Fast Dev Mode (Local Node + Docker Postgres)
+```bash
+# Start local PostgreSQL container
+docker compose up -d postgres
+
+# Install dependencies
+npm install
+
+# Run database migrations
+npx prisma migrate dev
+
+# Start Next.js development server
+npm run dev
+```
+Open `http://localhost:3000` in your browser.
+
+### 2. Full Containerized Stack Mode
+```bash
+# Build and launch both web & postgres containers
+docker compose up --build -d
+```
+Access the application at `http://localhost:3000` and test health status at `http://localhost:3000/api/health`.
+
+---
+
+## Coolify Deployment
+
+Filmprint is engineered for zero-downtime deployment via **Coolify** using the **Docker Compose** buildpack.
+
+### Deployment Steps in Coolify
+
+1. **Create New Project / Application**
+   - Select **Public/Private Repository** from GitHub (`https://github.com/alperates58/filmprint`).
+   - Branch: `main`.
+
+2. **Select Build Pack**
+   - Choose **Docker Compose**.
+   - Coolify will automatically detect `docker-compose.yml` and `Dockerfile`.
+
+3. **Configure Environment Variables**
+   Set the following variables in Coolify's Environment settings:
+
+   ```env
+   NODE_ENV=production
+   POSTGRES_DB=filmprint
+   POSTGRES_USER=filmprint_user
+   POSTGRES_PASSWORD=your_secure_postgres_password
+   DATABASE_URL=postgresql://filmprint_user:your_secure_postgres_password@postgres:5432/filmprint?schema=public
+   TMDB_API_KEY=your_tmdb_v3_api_key
+   SESSION_SECRET=a_random_32_character_session_secret_key
+   ```
+
+4. **Port & Domain Mapping**
+   - Expose Service Port: `3000`
+   - Map your custom domain or Coolify auto-generated URL to the `web` service.
+
+5. **Deploy & Redeploy Lifecycle**
+   - Click **Deploy**.
+   - Coolify pulls the latest code from GitHub `main`.
+   - The multi-stage `Dockerfile` compiles Next.js in standalone mode.
+   - Container startup runs `npx prisma migrate deploy` automatically before starting server `node server.js`.
+   - The named volume `postgres_data` persists PostgreSQL records across container rebuilds and redeployments.
+
+---
+
+## Architecture & Design Docs
+- [`docs/architecture.md`](file:///c:/Users/alper/Desktop/filmprint/docs/architecture.md)
+- [`docs/design-system.md`](file:///c:/Users/alper/Desktop/filmprint/docs/design-system.md)
+- [`docs/implementation-plan.md`](file:///c:/Users/alper/Desktop/filmprint/docs/implementation-plan.md)

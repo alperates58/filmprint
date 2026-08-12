@@ -5,25 +5,15 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next();
   const pathname = request.nextUrl.pathname;
 
-  // 1. Anonymous User Session Management (for client-facing application)
-  const sessionCookieName = "filmprint_session";
-  let sessionId = request.cookies.get(sessionCookieName)?.value;
+  const authSessionToken = request.cookies.get("filmprint_user_session")?.value;
+  const legacySessionId = request.cookies.get("filmprint_session")?.value;
 
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
-    response.cookies.set(sessionCookieName, sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365, // 1 year persistent session
-    });
-  }
-
-  // 2. Admin Route Protection
+  const isAuthPage = pathname.startsWith("/auth");
+  const isApiRoute = pathname.startsWith("/api");
   const isAdminRoute = pathname.startsWith("/admin") && pathname !== "/admin/login";
   const isAdminApiRoute = pathname.startsWith("/api/admin") && !pathname.startsWith("/api/admin/auth");
 
+  // 1. Admin Route Protection
   if (isAdminRoute || isAdminApiRoute) {
     const adminToken = request.cookies.get("filmprint_admin_session")?.value;
 
@@ -36,13 +26,29 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // 2. Client Application Auth Redirects (First Visit Protection)
+  // If user visits /auth while already logged in as a registered user, redirect to /
+  if (isAuthPage && authSessionToken) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  // If user visits protected app routes (e.g. /, /profile, /recommendations, /watch-later, /night)
+  // without any session cookie (neither auth session nor legacy anonymous session), redirect to /auth
+  const isPublicAsset = pathname.startsWith("/_next") || pathname.includes(".");
+  if (!isAuthPage && !isApiRoute && !isAdminRoute && !isPublicAsset) {
+    if (!authSessionToken && !legacySessionId) {
+      const authUrl = new URL("/auth", request.url);
+      return NextResponse.redirect(authUrl);
+    }
+  }
+
   return response;
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for static files, _next, favicon.ico, etc.
+     * Match all request paths except static files, _next, favicon.ico, images.
      */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],

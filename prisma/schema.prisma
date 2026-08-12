@@ -40,8 +40,25 @@ enum AdminRole {
   ADMIN
 }
 
+enum AccountType {
+  ANONYMOUS
+  REGISTERED
+}
+
+enum AuthProvider {
+  ANONYMOUS
+  GOOGLE
+  EMAIL
+}
+
 model User {
   id                      String                   @id @default(uuid())
+  email                   String?                  @unique
+  name                    String?
+  image                   String?
+  passwordHash            String?
+  accountType             AccountType              @default(ANONYMOUS)
+  provider                AuthProvider             @default(ANONYMOUS)
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
   lastSeenAt              DateTime                 @default(now())
@@ -50,6 +67,20 @@ model User {
   recommendationFeedbacks  RecommendationFeedback[]
   hostedMovieNights       MovieNightSession[]      @relation("HostedMovieNights")
   movieNightMemberships   MovieNightMember[]
+  sessions                UserSession[]
+}
+
+model UserSession {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
 }
 
 model Movie {

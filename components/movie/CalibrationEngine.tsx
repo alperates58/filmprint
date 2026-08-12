@@ -21,40 +21,17 @@ export function CalibrationEngine({
   const [answeredCount, setAnsweredCount] = useState<number>(initialAnsweredCount);
   const [showMilestoneScreen, setShowMilestoneScreen] = useState<boolean>(initialCompleted);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(initialAnsweredCount === 0);
-  const [userName, setUserName] = useState<string>("");
-  const [nameInput, setNameInput] = useState<string>("");
-  const [showNameModal, setShowNameModal] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(initialMovies.length === 0);
-  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const isFetchingRef = useRef<boolean>(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const milestoneTarget = 30;
-
-  // Load registered user name from localStorage
+  // Fetch authenticated user info
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("filmprint_user_name");
-      if (stored) {
-        setUserName(stored);
-      } else if (initialAnsweredCount === 0) {
-        setShowNameModal(true);
-      }
-    }
-  }, [initialAnsweredCount]);
-
-  const handleSaveName = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (nameInput.trim()) {
-      const cleanName = nameInput.trim();
-      setUserName(cleanName);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("filmprint_user_name", cleanName);
-      }
-      setShowNameModal(false);
-    }
-  };
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.user?.name) {
+          setUserName(data.user.name);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Preload poster images for upcoming movies in queue
   const preloadUpcomingImages = useCallback((movieList: MovieItem[]) => {
@@ -177,40 +154,7 @@ export function CalibrationEngine({
       <Header progressCount={answeredCount} progressTarget={milestoneTarget} userName={userName} />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 md:py-12 flex flex-col items-center justify-center space-y-8">
-        {/* User Identity / Registration Prompt */}
-        {showNameModal && !userName && (
-          <div className="w-full max-w-lg mx-auto p-6 rounded-3xl bg-surface border border-accent/40 shadow-cinematic space-y-4 animate-fadeIn">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-accent/15 border border-accent/30 flex items-center justify-center text-accent font-bold text-lg">
-                👤
-              </div>
-              <div>
-                <h3 className="font-display text-lg font-bold text-text-primary">
-                  Profiline İsim Ver (Kayıt)
-                </h3>
-                <p className="text-xs text-text-secondary">
-                  Film DNA profilinin sana özel kaydedilmesi için adını belirle.
-                </p>
-              </div>
-            </div>
 
-            <form onSubmit={handleSaveName} className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Adınız (ör. Alper)"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-surface-elevated border border-border text-sm text-text-primary focus:outline-none focus:border-accent"
-              />
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-xl bg-accent text-white font-medium text-xs hover:bg-accent-hover transition-colors"
-              >
-                Kaydet
-              </button>
-            </form>
-          </div>
-        )}
 
         {/* Minimal First-Use Onboarding Hero Banner */}
         {showOnboarding && !showMilestoneScreen && (

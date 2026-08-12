@@ -1,25 +1,31 @@
 import React from "react";
 import Link from "next/link";
 import { Header } from "@/components/ui/Header";
-import { getOrCreateSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/auth/service";
 import { getOrCalculateUserProfile } from "@/lib/profile/service";
 import { GenreSignature } from "@/components/profile/GenreSignature";
 import { EraSignature } from "@/components/profile/EraSignature";
 import { TasteTraits } from "@/components/profile/TasteTraits";
 
 export default async function ProfilePage() {
-  const { userId } = await getOrCreateSession();
-  const data = await getOrCalculateUserProfile(userId);
+  const currentUser = await getCurrentUser();
+  const data = await getOrCalculateUserProfile(currentUser.id);
 
   return (
     <div className="min-h-screen flex flex-col bg-background selection:bg-accent selection:text-white">
-      <Header progressCount={data.current} progressTarget={data.required} />
+      <Header
+        progressCount={data.current}
+        progressTarget={data.required}
+        userName={currentUser.name || ""}
+        userAvatar={currentUser.image || undefined}
+        userEmail={currentUser.email || undefined}
+      />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 md:py-12 space-y-8">
         {!data.ready || !data.profile ? (
-          /* Profile Not Ready State (Under Milestone Target) */
+          /* Profile Not Ready State */
           <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface border border-border/80 rounded-3xl p-8 md:p-12 shadow-cinematic my-8">
-            <div className="w-16 h-16 rounded-full bg-accent/15 border border-accent/30 text-accent flex items-center justify-center mx-auto text-2xl font-bold">
+            <div className="w-16 h-16 rounded-full bg-accent/15 border border-accent/30 text-accent flex items-center justify-center mx-auto text-2xl font-bold font-mono">
               DNA
             </div>
 
@@ -68,19 +74,37 @@ export default async function ProfilePage() {
           /* Ready Film DNA Profile View */
           <div className="space-y-8 animate-fadeIn">
             {/* Profile Hero Header */}
-            <div className="p-6 md:p-10 rounded-3xl bg-surface border border-border/80 space-y-5 shadow-cinematic relative overflow-hidden">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold">
-                    KİŞİSEL KİMLİK
-                  </span>
-                  <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight text-text-primary mt-1">
-                    Film DNA'n
-                  </h1>
+            <div className="p-6 md:p-10 rounded-3xl bg-surface border border-border/80 space-y-6 shadow-cinematic relative overflow-hidden">
+              {/* User Identity Banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-6">
+                <div className="flex items-center gap-4">
+                  {currentUser.image ? (
+                    <img
+                      src={currentUser.image}
+                      alt={currentUser.name || "Avatar"}
+                      className="w-14 h-14 rounded-2xl object-cover border border-border shadow-sm"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-2xl bg-accent/15 border border-accent/30 flex items-center justify-center text-accent font-mono font-bold text-xl">
+                      {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : "👤"}
+                    </div>
+                  )}
+
+                  <div>
+                    <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold">
+                      KİŞİSEL KİMLİK & FILM DNA
+                    </span>
+                    <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary mt-0.5">
+                      {currentUser.name || "Filmprint Kullanıcısı"}
+                    </h1>
+                    {currentUser.email && (
+                      <p className="text-xs font-mono text-text-secondary">{currentUser.email}</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Confidence Badge */}
-                <div className="self-start sm:self-auto px-4 py-2 rounded-2xl bg-surface-elevated border border-border/80 flex items-center gap-3">
+                <div className="self-start sm:self-auto px-4 py-2.5 rounded-2xl bg-surface-elevated border border-border/80 flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-success animate-pulse" />
                   <div>
                     <p className="text-[10px] uppercase font-mono text-text-muted">PROFİL GÜVENİ</p>

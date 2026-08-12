@@ -32,20 +32,51 @@ export default async function AdminUserDetailPage({
   return (
     <AdminLayout adminEmail={session.email}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <Link
-                href="/admin/users"
-                className="text-xs text-text-muted hover:text-text-primary font-mono"
-              >
-                ← Kullanıcılar
-              </Link>
+        <div>
+          <Link
+            href="/admin/users"
+            className="text-xs text-text-muted hover:text-text-primary font-mono inline-block mb-3"
+          >
+            ← Kullanıcı Listesine Dön
+          </Link>
+
+          {/* User Profile Header */}
+          <div className="p-6 rounded-2xl bg-surface border border-border/80 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              {user.image ? (
+                <img
+                  src={user.image}
+                  alt={user.name || "User"}
+                  className="w-14 h-14 rounded-2xl object-cover border border-border shadow-sm"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-2xl bg-accent/15 border border-accent/30 text-accent font-bold text-xl flex items-center justify-center font-mono">
+                  {user.name ? user.name.charAt(0).toUpperCase() : "👤"}
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h1 className="font-display text-xl font-bold tracking-tight text-text-primary">
+                    {user.name || "Anonim Kullanıcı"}
+                  </h1>
+                  <span className="px-2.5 py-0.5 rounded-md bg-accent/15 text-accent border border-accent/30 text-[10px] font-mono font-bold">
+                    {user.accountType === "REGISTERED"
+                      ? user.provider === "GOOGLE"
+                        ? "Google Hesabı"
+                        : "E-posta Hesabı"
+                      : "Anonim"}
+                  </span>
+                </div>
+                <p className="text-xs font-mono text-text-secondary">{user.email || "E-posta tanımlanmamış"}</p>
+                <p className="text-[10px] font-mono text-text-muted">UUID: {user.id}</p>
+              </div>
             </div>
-            <h1 className="font-display text-2xl font-bold tracking-tight text-text-primary mt-1">
-              Kullanıcı Detayı
-            </h1>
-            <p className="text-xs text-text-muted font-mono">{user.id}</p>
+
+            <div className="text-right font-mono text-xs text-text-muted space-y-1 self-stretch sm:self-auto flex sm:flex-col justify-between">
+              <div>Kayıt: <span className="text-text-primary font-medium">{new Date(user.createdAt).toLocaleDateString("tr-TR")}</span></div>
+              <div>Son Görülme: <span className="text-text-primary font-medium">{new Date(user.lastSeenAt).toLocaleString("tr-TR")}</span></div>
+            </div>
           </div>
         </div>
 

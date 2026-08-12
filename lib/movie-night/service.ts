@@ -117,6 +117,7 @@ export async function getMovieNightSessionInfo(
     include: {
       members: {
         orderBy: { joinedAt: "asc" },
+        include: { user: true },
       },
       selectedMovie: true,
     },
@@ -140,14 +141,13 @@ export async function getMovieNightSessionInfo(
     const isUserCurrent = m.userId === currentUserId;
     const profileRes = memberProfiles[index];
 
-    let userLabel = "İzleyici " + (index + 1);
-    if (isUserCurrent) userLabel = "Sen";
-    else if (isUserHost) userLabel = "Ev Sahibi";
+    let userLabel = m.user?.name || "İzleyici " + (index + 1);
 
     return {
       id: m.id,
       userId: m.userId,
       userLabel,
+      avatar: m.user?.image || null,
       isHost: isUserHost,
       isReady: m.isReady,
       isCurrentUser: isUserCurrent,

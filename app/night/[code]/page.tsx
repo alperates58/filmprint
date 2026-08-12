@@ -291,14 +291,27 @@ export default function MovieNightSessionPage({
                     className="p-4 rounded-2xl bg-surface border border-border/80 flex items-center justify-between gap-4"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-surface-elevated border border-border flex items-center justify-center font-mono text-xs font-bold text-text-primary">
-                        {m.isHost ? "👑" : "👤"}
-                      </div>
+                      {m.avatar ? (
+                        <img
+                          src={m.avatar}
+                          alt={m.userLabel}
+                          className="w-10 h-10 rounded-xl object-cover border border-border"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-surface-elevated border border-border flex items-center justify-center font-mono text-xs font-bold text-text-primary">
+                          {m.isHost ? "👑" : m.userLabel.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-display text-sm font-bold text-text-primary">
                             {m.userLabel}
                           </span>
+                          {m.isHost && (
+                            <span className="text-[9px] font-mono bg-accent/15 text-accent border border-accent/30 px-1.5 py-0.5 rounded">
+                              👑 Ev Sahibi
+                            </span>
+                          )}
                           {m.isCurrentUser && (
                             <span className="text-[9px] font-mono bg-accent/20 text-accent px-1.5 py-0.5 rounded">
                               SEN

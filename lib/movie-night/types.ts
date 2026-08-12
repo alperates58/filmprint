@@ -21,6 +21,7 @@ export interface MovieNightMemberInfo {
   id: string;
   userId: string;
   userLabel: string;
+  avatar?: string | null;
   isHost: boolean;
   isReady: boolean;
   isCurrentUser: boolean;

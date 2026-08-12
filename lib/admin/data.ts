@@ -143,27 +143,52 @@ export async function getAdminOverviewData() {
   };
 }
 
-export async function getAdminUsersData() {
-  const users = await db.user.findMany({
-    take: 50,
-    orderBy: { lastSeenAt: "desc" },
-    include: {
-      tasteProfile: true,
-      _count: {
-        select: { interactions: true },
+export async function getAdminUsersData(search?: string, page: number = 1, pageSize: number = 50) {
+  const skip = (page - 1) * pageSize;
+
+  const whereCondition = search && search.trim().length > 0
+    ? {
+        OR: [
+          { name: { contains: search.trim(), mode: "insensitive" as const } },
+          { email: { contains: search.trim(), mode: "insensitive" as const } },
+          { id: { contains: search.trim(), mode: "insensitive" as const } },
+        ],
+      }
+    : {};
+
+  const [users, totalCount] = await Promise.all([
+    db.user.findMany({
+      where: whereCondition,
+      skip,
+      take: pageSize,
+      orderBy: { lastSeenAt: "desc" },
+      include: {
+        tasteProfile: true,
+        _count: {
+          select: { interactions: true },
+        },
       },
-    },
-  });
+    }),
+    db.user.count({ where: whereCondition }),
+  ]);
 
   return {
     users: users.map((u) => ({
       id: u.id,
+      name: u.name,
+      email: u.email,
+      image: u.image,
+      accountType: u.accountType,
+      provider: u.provider,
       createdAt: u.createdAt,
       lastSeenAt: u.lastSeenAt,
       interactionCount: u._count.interactions,
       hasTasteProfile: !!u.tasteProfile,
       confidence: u.tasteProfile?.confidence || 0.0,
     })),
+    totalCount,
+    totalPages: Math.ceil(totalCount / pageSize) || 1,
+    currentPage: page,
   };
 }
 
@@ -205,6 +230,11 @@ export async function getAdminUserDetailData(id: string) {
   return {
     user: {
       id: user.id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+      accountType: user.accountType,
+      provider: user.provider,
       createdAt: user.createdAt,
       lastSeenAt: user.lastSeenAt,
       stats: {

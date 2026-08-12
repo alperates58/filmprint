@@ -75,7 +75,23 @@ Filmprint is engineered for zero-downtime deployment via **Coolify** using the *
    DATABASE_URL=postgresql://filmprint_user:your_secure_postgres_password@postgres:5432/filmprint?schema=public
    TMDB_API_KEY=your_tmdb_v3_api_key
    SESSION_SECRET=a_random_32_character_session_secret_key
+   AUTH_SECRET=a_random_32_character_auth_secret_key
+   GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
+   NEXT_PUBLIC_APP_URL=https://filmprint.alperates.com.tr
    ```
+
+### Google Cloud OAuth 2.0 Configuration
+
+To enable Google Sign-In in production:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) -> **APIs & Services** -> **Credentials**.
+2. Create or select an **OAuth 2.0 Client ID** (Web application).
+3. Set **Authorized JavaScript origins**:
+   - `https://filmprint.alperates.com.tr`
+4. Set **Authorized redirect URIs**:
+   - `https://filmprint.alperates.com.tr/api/auth/google/callback`
+5. Save and copy `Client ID` and `Client Secret` into Coolify environment variables (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`).
 
 4. **Port & Domain Mapping**
    - Expose Service Port: `3000`

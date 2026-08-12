@@ -70,7 +70,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
 
   return (
     <div
-      className={`w-full max-w-4xl mx-auto rounded-3xl bg-surface border border-border/80 p-5 md:p-8 shadow-cinematic relative overflow-hidden transition-all duration-200 ${
+      className={`w-full max-w-4xl mx-auto rounded-3xl bg-surface border border-border/80 p-3.5 sm:p-5 md:p-8 shadow-cinematic relative overflow-hidden transition-all duration-200 ${
         isTransitioning ? "opacity-40 scale-[0.98] filter blur-[1px]" : "opacity-100 scale-100"
       }`}
     >
@@ -89,21 +89,173 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
         </div>
       )}
 
-      <div className="relative z-10 flex flex-col md:flex-row gap-6 md:gap-10 items-center md:items-start">
+      {/* ========================================================================= */}
+      {/* MOBILE COMPACT LAYOUT (block md:hidden) — GUARANTEED ABOVE-THE-FOLD       */}
+      {/* ========================================================================= */}
+      <div className="relative z-10 flex flex-col md:hidden space-y-3">
+        {/* Top Info Row: Side-by-side Poster + Title & Metadata */}
+        <div className="flex gap-3.5 items-start">
+          {/* Compact Mobile Poster */}
+          <div className="w-24 sm:w-28 aspect-[2/3] rounded-xl bg-surface-elevated border border-border/80 flex-shrink-0 relative overflow-hidden shadow-md group">
+            {posterUrl ? (
+              <Image
+                src={posterUrl}
+                alt={movie.title}
+                fill
+                className="object-cover"
+                sizes="112px"
+                priority
+                unoptimized
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col justify-center items-center p-2 bg-surface-elevated text-center">
+                <span className="text-xl">🎬</span>
+                <span className="text-[9px] font-mono text-text-muted mt-1 line-clamp-2">{movie.title}</span>
+              </div>
+            )}
+
+            {movie.voteAverage > 0 && (
+              <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-background/90 backdrop-blur-md border border-border text-[10px] font-mono font-bold text-text-primary flex items-center gap-0.5 shadow-sm">
+                <span className="text-warning text-[9px]">★</span>
+                <span>{movie.voteAverage.toFixed(1)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Compact Info Column */}
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+              {movie.releaseYear && (
+                <span className="px-2 py-0.5 rounded-md bg-surface-elevated border border-border/80 font-mono text-text-secondary font-medium">
+                  {movie.releaseYear}
+                </span>
+              )}
+              {movie.genres.slice(0, 2).map((genre) => (
+                <span
+                  key={genre}
+                  className="px-2 py-0.5 rounded-md bg-surface-elevated/70 border border-border/60 text-text-muted truncate max-w-[90px]"
+                >
+                  {genre}
+                </span>
+              ))}
+            </div>
+
+            <div>
+              <h2 className="font-display text-base sm:text-lg font-bold tracking-tight text-text-primary leading-tight line-clamp-2">
+                {movie.title}
+              </h2>
+              {movie.originalTitle && movie.originalTitle !== movie.title && (
+                <p className="text-[10px] text-text-muted font-mono italic truncate mt-0.5">
+                  {movie.originalTitle}
+                </p>
+              )}
+            </div>
+
+            {movie.overview && (
+              <p className="text-text-secondary text-xs leading-snug line-clamp-2">
+                {movie.overview}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile Interaction Controls */}
+        <div className="pt-2.5 border-t border-border/60 space-y-2">
+          {step === "step1" ? (
+            <div className="space-y-2 animate-fadeIn">
+              <p className="text-[10px] uppercase tracking-wider text-text-muted font-mono font-semibold">
+                BUNU İZLEDİN Mİ?
+              </p>
+
+              <button
+                onClick={() => setStep("step2")}
+                className="w-full min-h-[48px] px-4 rounded-xl bg-accent text-white font-semibold text-sm hover:bg-accent-hover active:scale-[0.98] transition-all shadow-md flex items-center justify-center gap-2"
+              >
+                <span>İzledim</span>
+                <span className="text-xs opacity-75 font-mono">→</span>
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => onAnswer("NOT_WATCHED", null)}
+                  className="min-h-[44px] px-3 rounded-xl bg-surface-elevated border border-border text-text-primary font-medium text-xs hover:bg-border/60 active:scale-[0.98] transition-all flex items-center justify-center"
+                >
+                  İzlemedim
+                </button>
+
+                <button
+                  onClick={() => onAnswer("UNSURE", null)}
+                  className="min-h-[44px] px-3 rounded-xl bg-surface-elevated/60 border border-border/60 text-text-muted font-medium text-xs hover:text-text-secondary active:scale-[0.98] transition-all flex items-center justify-center"
+                >
+                  Emin Değilim
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2 animate-fadeIn">
+              <div className="flex justify-between items-center">
+                <p className="text-[10px] uppercase tracking-wider text-text-muted font-mono font-semibold">
+                  NASIL BULDUN?
+                </p>
+                <button
+                  onClick={() => setStep("step1")}
+                  className="text-[11px] text-text-muted hover:text-text-primary font-mono underline transition-colors"
+                >
+                  ← Geri
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => onAnswer("WATCHED", "LOVE")}
+                  className="min-h-[48px] px-3 rounded-xl bg-success/15 border border-success/40 text-success font-medium text-xs hover:bg-success/25 active:scale-[0.98] transition-all flex items-center justify-center"
+                >
+                  <span className="font-semibold">😍 Çok Sevdim</span>
+                </button>
+
+                <button
+                  onClick={() => onAnswer("WATCHED", "LIKE")}
+                  className="min-h-[48px] px-3 rounded-xl bg-surface-elevated border border-success/30 text-text-primary font-medium text-xs hover:border-success/60 active:scale-[0.98] transition-all flex items-center justify-center"
+                >
+                  <span className="font-semibold">👍 Beğendim</span>
+                </button>
+
+                <button
+                  onClick={() => onAnswer("WATCHED", "NEUTRAL")}
+                  className="min-h-[48px] px-3 rounded-xl bg-warning/10 border border-warning/30 text-warning font-medium text-xs hover:bg-warning/20 active:scale-[0.98] transition-all flex items-center justify-center"
+                >
+                  <span className="font-semibold">😐 Ortalama</span>
+                </button>
+
+                <button
+                  onClick={() => onAnswer("WATCHED", "DISLIKE")}
+                  className="min-h-[48px] px-3 rounded-xl bg-destructive/15 border border-destructive/40 text-destructive font-medium text-xs hover:bg-destructive/25 active:scale-[0.98] transition-all flex items-center justify-center"
+                >
+                  <span className="font-semibold">👎 Sevmedim</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* DESKTOP CINEMATIC LAYOUT (hidden md:flex) — FULL FEATURED                 */}
+      {/* ========================================================================= */}
+      <div className="relative z-10 hidden md:flex flex-row gap-10 items-start">
         {/* Poster Frame (Fixed 2:3 Aspect Ratio) */}
-        <div className="w-48 sm:w-56 md:w-64 aspect-[2/3] rounded-2xl bg-surface-elevated border border-border/80 flex-shrink-0 relative overflow-hidden shadow-2xl group">
+        <div className="w-64 aspect-[2/3] rounded-2xl bg-surface-elevated border border-border/80 flex-shrink-0 relative overflow-hidden shadow-2xl group">
           {posterUrl ? (
             <Image
               src={posterUrl}
               alt={movie.title}
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-105"
-              sizes="(max-width: 768px) 224px, 256px"
+              sizes="256px"
               priority
               unoptimized
             />
           ) : (
-            /* Branded Cinematic Poster Fallback */
             <div className="w-full h-full flex flex-col justify-between p-5 bg-gradient-to-b from-surface-elevated via-background to-surface border border-accent/20 text-center relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-accent/15 border border-accent/30 text-accent font-bold flex items-center justify-center mx-auto mt-4">
                 🎬
@@ -135,8 +287,8 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
         {/* Info & Interaction Controls */}
         <div className="flex-1 flex flex-col justify-between w-full min-h-[320px] space-y-6">
           {/* Metadata Block */}
-          <div className="space-y-3 text-center md:text-left">
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+          <div className="space-y-3 text-left">
+            <div className="flex flex-wrap items-center justify-start gap-2">
               {movie.releaseYear && (
                 <span className="px-2.5 py-0.5 rounded-full bg-surface-elevated border border-border text-xs font-mono text-text-secondary font-medium">
                   {movie.releaseYear}
@@ -164,7 +316,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
             </div>
 
             {movie.overview && (
-              <p className="text-text-secondary text-sm leading-relaxed line-clamp-3 md:line-clamp-4">
+              <p className="text-text-secondary text-sm leading-relaxed line-clamp-4">
                 {movie.overview}
               </p>
             )}
@@ -179,12 +331,12 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
                   <p className="text-xs uppercase tracking-widest text-text-muted font-mono">
                     BUNU İZLEDİN Mİ?
                   </p>
-                  <span className="hidden md:inline-block text-[10px] font-mono text-text-muted">
+                  <span className="text-[10px] font-mono text-text-muted">
                     Kısayol: [1] Evet, [2] Hayır, [3] Emin Değilim
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <button
                     onClick={() => setStep("step2")}
                     className="min-h-[48px] px-4 rounded-xl bg-accent text-white font-medium text-sm hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 shadow-md flex items-center justify-center gap-2 group"
@@ -225,7 +377,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-4 gap-2.5">
                   <button
                     onClick={() => onAnswer("WATCHED", "LOVE")}
                     className="min-h-[48px] px-3 rounded-xl bg-success/15 border border-success/40 text-success font-medium text-sm hover:bg-success/25 active:scale-[0.98] transition-all duration-150 flex flex-col items-center justify-center py-2"

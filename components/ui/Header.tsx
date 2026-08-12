@@ -49,7 +49,7 @@ export function Header({
 
   return (
     <header className="w-full border-b border-border/60 bg-background/90 backdrop-blur-md sticky top-0 z-50 transition-all duration-300">
-      <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div className="max-w-5xl mx-auto px-3 md:px-4 h-14 md:h-16 flex items-center justify-between">
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-3 group">
           <div className="w-8 h-8 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center shadow-sm group-hover:bg-accent/25 transition-colors">

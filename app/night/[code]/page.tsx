@@ -168,7 +168,7 @@ export default function MovieNightSessionPage({
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <span className="font-mono text-2xl md:text-3xl font-bold tracking-widest text-text-primary">
                 {session.code}
               </span>

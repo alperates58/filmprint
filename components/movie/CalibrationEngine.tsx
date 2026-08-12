@@ -162,7 +162,7 @@ export function CalibrationEngine({
     <div className="min-h-screen flex flex-col bg-background selection:bg-accent selection:text-white">
       <Header progressCount={answeredCount} progressTarget={milestoneTarget} userName={userName} />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 md:py-12 flex flex-col items-center justify-center space-y-8">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 py-3 md:py-12 flex flex-col items-center justify-center space-y-4 md:space-y-8">
 
 
         {/* Minimal First-Use Onboarding Hero Banner */}

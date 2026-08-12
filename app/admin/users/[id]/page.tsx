@@ -69,7 +69,7 @@ export default async function AdminUserDetailPage({
                   </span>
                 </div>
                 <p className="text-xs font-mono text-text-secondary">{user.email || "E-posta tanımlanmamış"}</p>
-                <p className="text-[10px] font-mono text-text-muted">UUID: {user.id}</p>
+                <p className="text-[10px] font-mono text-text-muted truncate max-w-[240px] sm:max-w-none">UUID: {user.id}</p>
               </div>
             </div>
 

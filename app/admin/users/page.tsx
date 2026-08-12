@@ -50,9 +50,10 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
           </form>
         </div>
 
-        {/* Users Table */}
+        {/* Users Table / Card List */}
         <div className="rounded-2xl bg-surface border border-border/80 overflow-hidden shadow-md">
-          <div className="overflow-x-auto">
+          {/* Desktop Table View (hidden md:block) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-border/60 bg-surface-elevated/50 text-[11px] font-mono text-text-muted uppercase">
@@ -75,7 +76,6 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                 ) : (
                   data.users.map((user: any) => (
                     <tr key={user.id} className="hover:bg-surface-elevated/40 transition-colors">
-                      {/* User Avatar + Name + Email */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
                           {user.image ? (
@@ -100,7 +100,6 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                         </div>
                       </td>
 
-                      {/* Status / Account Type Badge */}
                       <td className="py-3 px-4 font-mono">
                         {user.accountType === "REGISTERED" ? (
                           <span className="px-2 py-0.5 rounded-md bg-success/15 text-success border border-success/30 text-[10px] font-bold">
@@ -113,22 +112,18 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                         )}
                       </td>
 
-                      {/* Created At */}
                       <td className="py-3 px-4 text-text-muted font-mono">
                         {new Date(user.createdAt).toLocaleDateString("tr-TR")}
                       </td>
 
-                      {/* Last Seen At */}
                       <td className="py-3 px-4 text-text-muted font-mono">
                         {new Date(user.lastSeenAt).toLocaleDateString("tr-TR")}
                       </td>
 
-                      {/* Interaction Count */}
                       <td className="py-3 px-4 text-center font-mono font-semibold text-text-primary">
                         {user.interactionCount}
                       </td>
 
-                      {/* Film DNA Status */}
                       <td className="py-3 px-4 text-center font-mono">
                         {user.hasTasteProfile ? (
                           <span className="px-2 py-0.5 rounded-md bg-accent/15 text-accent text-[10px] font-bold border border-accent/30">
@@ -141,7 +136,6 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                         )}
                       </td>
 
-                      {/* Actions */}
                       <td className="py-3 px-4 text-right">
                         <Link
                           href={`/admin/users/${user.id}`}
@@ -155,6 +149,76 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card List View (block md:hidden) */}
+          <div className="block md:hidden divide-y divide-border/40">
+            {data.users.length === 0 ? (
+              <div className="p-6 text-center text-text-muted font-mono text-xs">
+                Kullanıcı bulunamadı.
+              </div>
+            ) : (
+              data.users.map((user: any) => (
+                <div key={user.id} className="p-4 space-y-3 bg-surface hover:bg-surface-elevated/30 transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      {user.image ? (
+                        <img
+                          src={user.image}
+                          alt={user.name || "User"}
+                          className="w-9 h-9 rounded-xl object-cover border border-border"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-xl bg-accent/15 border border-accent/30 text-accent font-bold text-sm flex items-center justify-center font-mono">
+                          {user.name ? user.name.charAt(0).toUpperCase() : "👤"}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-text-primary text-sm truncate">
+                          {user.name || "Anonim Kullanıcı"}
+                        </p>
+                        <p className="text-[11px] font-mono text-text-muted truncate">
+                          {user.email || user.id.slice(0, 16) + "..."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Link
+                      href={`/admin/users/${user.id}`}
+                      className="px-3 py-1.5 rounded-xl bg-accent text-white text-xs font-mono font-semibold shadow-sm flex-shrink-0"
+                    >
+                      Detay →
+                    </Link>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-mono pt-1">
+                    {user.accountType === "REGISTERED" ? (
+                      <span className="px-2 py-0.5 rounded-md bg-success/15 text-success border border-success/30 text-[10px] font-bold">
+                        {user.provider === "GOOGLE" ? "Google" : "E-posta"}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md bg-surface-elevated text-text-muted border border-border text-[10px]">
+                        Anonim
+                      </span>
+                    )}
+
+                    <span className="px-2 py-0.5 rounded-md bg-surface-elevated text-text-primary text-[10px]">
+                      🎬 {user.interactionCount} film
+                    </span>
+
+                    {user.hasTasteProfile ? (
+                      <span className="px-2 py-0.5 rounded-md bg-accent/15 text-accent text-[10px] font-bold border border-accent/30">
+                        DNA %{Math.round(user.confidence * 100)}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md bg-surface-elevated text-text-muted text-[10px] border border-border">
+                        DNA EKSİK
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {/* Server-side Pagination Controls */}

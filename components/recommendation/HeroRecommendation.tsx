@@ -68,16 +68,16 @@ export function HeroRecommendation({ item, onFeedbackAction }: HeroRecommendatio
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+      <div className="flex flex-col sm:flex-row md:grid md:grid-cols-3 gap-4 md:gap-6 items-start">
         {/* Movie Poster Card */}
-        <div className="w-48 sm:w-56 mx-auto md:mx-0 aspect-[2/3] rounded-2xl overflow-hidden bg-surface-elevated border border-border/60 shadow-md relative flex-shrink-0">
+        <div className="w-28 sm:w-36 md:w-56 mx-auto sm:mx-0 aspect-[2/3] rounded-2xl overflow-hidden bg-surface-elevated border border-border/60 shadow-md relative flex-shrink-0">
           {posterUrl ? (
             <Image
               src={posterUrl}
               alt={movie.title}
               fill
               className="object-cover"
-              sizes="(max-width: 768px) 100vw, 224px"
+              sizes="(max-width: 768px) 144px, 224px"
               priority
             />
           ) : (

@@ -20,7 +20,8 @@ import { MATCH_ENGINE_VERSION } from "./constants";
  */
 export async function getPersonalizedRecommendations(
   userId: string,
-  limit: number = 10
+  limit: number = 10,
+  page: number = 0
 ): Promise<RecommendationResponse> {
   const settings = await getSystemSettings();
   const targetCount = settings.calibrationTarget;
@@ -110,14 +111,20 @@ export async function getPersonalizedRecommendations(
     calculateMovieMatch(m, profile, feedbackProfile)
   );
 
-  // Sort descending by match score
-  const topMatches = matchedList
-    .sort((a, b) => b.matchScore - a.matchScore || b.movie.popularity - a.movie.popularity)
-    .slice(0, Math.min(limit, 20));
+  // Sort descending by match score, then popularity (NO random shuffle)
+  const sortedMatches = matchedList.sort(
+    (a, b) => b.matchScore - a.matchScore || b.movie.popularity - a.movie.popularity
+  );
+
+  const totalCandidates = sortedMatches.length;
+  const totalPages = Math.max(1, Math.ceil(totalCandidates / limit));
+  const safePage = Math.min(Math.max(0, page), Math.max(0, totalPages - 1));
+  const startIndex = safePage * limit;
+  const pageMatches = sortedMatches.slice(startIndex, startIndex + limit);
 
   // 5. Resolve explanations (DB cache -> AI -> Fallback)
   const recommendations: PersonalizedRecommendationItem[] = await Promise.all(
-    topMatches.map(async (item) => {
+    pageMatches.map(async (item) => {
       // Check cached explanation in DB (uses matchVersion = 2)
       const cached = await db.recommendationExplanation.findUnique({
         where: {
@@ -131,19 +138,30 @@ export async function getPersonalizedRecommendations(
       });
 
       if (cached) {
+        let cachedReasons: string[] = [];
+        try {
+          const parsed = JSON.parse(cached.explanation);
+          if (Array.isArray(parsed)) {
+            cachedReasons = parsed.map((r: any) => String(r));
+          } else {
+            cachedReasons = [String(cached.explanation)];
+          }
+        } catch {
+          cachedReasons = [cached.explanation];
+        }
+
         return {
           movie: item.movie,
           match: item.matchScore,
           matchLabel: item.matchLabel,
           headline: cached.headline,
-          explanation: cached.explanation,
+          reasons: cachedReasons,
           isAiGenerated: cached.isAiGenerated,
           components: item.components,
-          reasons: item.reasons,
         };
       }
 
-      // Generate fresh explanation
+      // Generate fresh structured explanation
       const explanationResult = await generateRecommendationExplanation(
         item.movie,
         item,
@@ -163,7 +181,7 @@ export async function getPersonalizedRecommendations(
           },
           update: {
             headline: explanationResult.headline,
-            explanation: explanationResult.explanation,
+            explanation: JSON.stringify(explanationResult.reasons),
             isAiGenerated: explanationResult.isAiGenerated,
           },
           create: {
@@ -172,7 +190,7 @@ export async function getPersonalizedRecommendations(
             profileVersion: profile.version,
             matchVersion: MATCH_ENGINE_VERSION,
             headline: explanationResult.headline,
-            explanation: explanationResult.explanation,
+            explanation: JSON.stringify(explanationResult.reasons),
             isAiGenerated: explanationResult.isAiGenerated,
           },
         });
@@ -185,10 +203,9 @@ export async function getPersonalizedRecommendations(
         match: item.matchScore,
         matchLabel: item.matchLabel,
         headline: explanationResult.headline,
-        explanation: explanationResult.explanation,
+        reasons: explanationResult.reasons,
         isAiGenerated: explanationResult.isAiGenerated,
         components: item.components,
-        reasons: item.reasons,
       };
     })
   );
@@ -199,5 +216,8 @@ export async function getPersonalizedRecommendations(
     current: answeredMovieCount,
     profileConfidence: profile.confidence,
     recommendations,
+    page: safePage,
+    totalPages,
+    hasMore: safePage < totalPages - 1,
   };
 }

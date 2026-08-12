@@ -12,8 +12,9 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "10", 10), 1), 20);
+    const page = Math.max(0, parseInt(searchParams.get("page") || "0", 10));
 
-    const result = await getPersonalizedRecommendations(userId, limit);
+    const result = await getPersonalizedRecommendations(userId, limit, page);
 
     return NextResponse.json(result);
   } catch (error) {

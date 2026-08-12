@@ -10,7 +10,7 @@ interface HeroRecommendationProps {
 }
 
 export function HeroRecommendation({ item, onFeedbackAction }: HeroRecommendationProps) {
-  const { movie, match, matchLabel, headline, explanation, isAiGenerated } = item;
+  const { movie, match, matchLabel, headline, reasons, isAiGenerated } = item;
   const [showRatingStep, setShowRatingStep] = useState<"WATCHED" | "ALREADY_WATCHED" | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
@@ -103,21 +103,30 @@ export function HeroRecommendation({ item, onFeedbackAction }: HeroRecommendatio
             )}
           </div>
 
-          {/* AI / Deterministic Explanation Card */}
-          <div className="p-5 rounded-2xl bg-surface-elevated/80 border border-border/70 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-sm font-bold text-text-primary">
+          {/* Recommendation Explanation Card */}
+          <div className="p-5 rounded-2xl bg-surface-elevated/80 border border-border/70 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-display text-sm md:text-base font-bold text-text-primary">
                 {headline}
               </h3>
-              {isAiGenerated && (
-                <span className="text-[9px] font-mono text-accent bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
-                  DEEPSEEK AI
-                </span>
-              )}
+              <span className="text-[10px] font-mono text-text-muted bg-surface border border-border/60 px-2 py-0.5 rounded-full flex-shrink-0">
+                Filmprint yorumu
+              </span>
             </div>
-            <p className="text-xs md:text-sm text-text-secondary leading-relaxed">
-              {explanation.replace(/\*\*(.*?)\*\*/g, "$1")}
-            </p>
+
+            <div className="space-y-1.5 pt-1 border-t border-border/40">
+              <p className="text-[10px] font-mono font-semibold uppercase text-accent tracking-wider">
+                NEDEN SANA UYGUN?
+              </p>
+              <ul className="space-y-1.5 text-xs md:text-sm text-text-secondary">
+                {reasons.map((reason, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-accent font-bold">•</span>
+                    <span>{reason.replace(/\*\*(.*?)\*\*/g, "$1")}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
 
           {/* Action Buttons / Inline Rating Step */}

@@ -20,7 +20,7 @@ export interface MovieMatchResult {
 
 export interface ExplanationResult {
   headline: string;
-  explanation: string;
+  reasons: string[];
   isAiGenerated: boolean;
 }
 
@@ -29,10 +29,9 @@ export interface PersonalizedRecommendationItem {
   match: number;
   matchLabel: string;
   headline: string;
-  explanation: string;
+  reasons: string[];
   isAiGenerated: boolean;
   components: MatchComponents;
-  reasons: string[];
 }
 
 export interface RecommendationResponse {
@@ -41,4 +40,7 @@ export interface RecommendationResponse {
   current?: number;
   profileConfidence?: number;
   recommendations?: PersonalizedRecommendationItem[];
+  page?: number;
+  totalPages?: number;
+  hasMore?: boolean;
 }

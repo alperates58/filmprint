@@ -9,25 +9,38 @@ import { RecommendationResponse } from "@/lib/recommendation/types";
 
 export default function RecommendationsPage() {
   const [data, setData] = useState<RecommendationResponse | null>(null);
+  const [page, setPage] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRecommendations = async () => {
+  const fetchRecommendations = async (targetPage: number = 0) => {
     try {
-      const res = await fetch("/api/recommendations?limit=10");
+      if (data) setIsRefreshing(true);
+      else setIsLoading(true);
+
+      const res = await fetch(`/api/recommendations?limit=10&page=${targetPage}`);
       if (!res.ok) throw new Error("Öneriler alınamadı");
       const json: RecommendationResponse = await res.json();
       setData(json);
+      setPage(targetPage);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
-    fetchRecommendations();
+    fetchRecommendations(0);
   }, []);
+
+  const handleRefresh = () => {
+    if (isLoading || isRefreshing) return;
+    const nextPage = data && data.hasMore ? page + 1 : 0;
+    fetchRecommendations(nextPage);
+  };
 
   const handleFeedbackAction = async (movieId: string, action: string, rating?: string) => {
     try {
@@ -40,8 +53,6 @@ export default function RecommendationsPage() {
           rating,
         }),
       });
-
-      // Refetch queue in background if needed
     } catch (e) {
       console.error("[Feedback Action Error]:", e);
     }
@@ -56,18 +67,34 @@ export default function RecommendationsPage() {
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 md:py-12 space-y-10">
         {/* Page Header */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold">
-              KİŞİSEL SİNEMA SEÇKİSİ
-            </span>
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold">
+                KİŞİSEL SİNEMA SEÇKİSİ
+              </span>
+            </div>
+            <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight text-text-primary">
+              Sana Özel Film Önerileri
+            </h1>
+            <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
+              Film DNA profiliniz ve kalibrasyon sinyalleriniz kullanılarak oluşturulmuş, tam uyumlu ve açıklanabilir sinema önerileri.
+            </p>
           </div>
-          <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight text-text-primary">
-            Sana Özel Film Önerileri
-          </h1>
-          <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
-            Film DNA profiliniz ve kalibrasyon sinyalleriniz kullanılarak oluşturulmuş, tam uyumlu ve açıklanabilir sinema önerileri.
-          </p>
+
+          {/* Refresh Recommendations Button */}
+          {data && data.ready && (
+            <button
+              onClick={handleRefresh}
+              disabled={isLoading || isRefreshing}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-surface-elevated border border-border/80 hover:border-accent text-text-primary text-xs font-mono font-semibold transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] self-start sm:self-auto"
+            >
+              <span className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-accent" : ""}`}>
+                🔄
+              </span>
+              <span>{isRefreshing ? "Yenileniyor..." : "Önerileri Yenile"}</span>
+            </button>
+          )}
         </div>
 
         {/* Loading State */}

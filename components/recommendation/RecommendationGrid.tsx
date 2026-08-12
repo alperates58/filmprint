@@ -11,6 +11,7 @@ interface RecommendationGridProps {
 
 export function RecommendationGrid({ items, onFeedbackAction }: RecommendationGridProps) {
   const [activeRatingMovieId, setActiveRatingMovieId] = useState<string | null>(null);
+  const [expandedMovieId, setExpandedMovieId] = useState<string | null>(null);
   const [submittedMovieIds, setSubmittedMovieIds] = useState<Set<string>>(new Set());
 
   if (!items || items.length === 0) return null;
@@ -49,8 +50,9 @@ export function RecommendationGrid({ items, onFeedbackAction }: RecommendationGr
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
         {visibleItems.map((item) => {
-          const { movie, match, headline } = item;
+          const { movie, match, headline, reasons } = item;
           const isRatingOpen = activeRatingMovieId === movie.id;
+          const isExpanded = expandedMovieId === movie.id;
           const posterUrl = movie.posterPath
             ? movie.posterPath.startsWith("http")
               ? movie.posterPath
@@ -84,17 +86,42 @@ export function RecommendationGrid({ items, onFeedbackAction }: RecommendationGr
                 </div>
               </div>
 
-              {/* Movie Details */}
-              <div className="space-y-1">
+              {/* Movie Details & Reasons */}
+              <div className="space-y-1.5 flex-1">
                 <h4 className="font-display text-sm font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors">
                   {movie.title}
                 </h4>
                 <p className="text-[10px] font-mono text-text-muted line-clamp-1">
                   {movie.releaseYear || "Tarihsiz"} • {movie.genres.join(", ")}
                 </p>
-                <p className="text-[11px] text-text-secondary line-clamp-2 mt-1 leading-snug">
+
+                <p className="text-[11px] text-text-secondary font-medium leading-snug pt-0.5">
                   {headline}
                 </p>
+
+                {/* Expandable Neden sana uygun? accordion */}
+                {reasons && reasons.length > 0 && (
+                  <div className="pt-1">
+                    <button
+                      onClick={() => setExpandedMovieId(isExpanded ? null : movie.id)}
+                      className="text-[10px] font-mono text-accent hover:underline flex items-center gap-1 font-semibold"
+                    >
+                      <span>Neden sana uygun?</span>
+                      <span>{isExpanded ? "▴" : "▾"}</span>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="mt-1.5 p-2.5 rounded-xl bg-surface-elevated/80 border border-border/60 text-[11px] text-text-secondary space-y-1 animate-fadeIn">
+                        {reasons.map((r, idx) => (
+                          <div key={idx} className="flex items-start gap-1.5">
+                            <span className="text-accent font-bold text-[10px]">•</span>
+                            <span>{r.replace(/\*\*(.*?)\*\*/g, "$1")}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Feedback Actions */}

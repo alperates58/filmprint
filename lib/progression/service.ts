@@ -1,5 +1,5 @@
-import { RANK_DEFINITIONS } from "./constants.ts";
-import type { RankDefinition, UserProgression } from "./types.ts";
+import { RANK_DEFINITIONS } from "./constants";
+import type { RankDefinition, UserProgression } from "./types";
 
 /**
  * Deterministically returns the current rank definition for a given evaluated movie count.

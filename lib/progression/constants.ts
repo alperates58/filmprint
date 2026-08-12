@@ -1,4 +1,4 @@
-import type { RankDefinition } from "./types.ts";
+import type { RankDefinition } from "./types";
 
 export const RANK_DEFINITIONS: RankDefinition[] = [
   {

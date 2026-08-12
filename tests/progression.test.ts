@@ -1,5 +1,5 @@
-import { getRankForCount, getProgressionForCount } from "../lib/progression/service.ts";
-import { RANK_DEFINITIONS } from "../lib/progression/constants.ts";
+import { getRankForCount, getProgressionForCount } from "@/lib/progression/service";
+import { RANK_DEFINITIONS } from "@/lib/progression/constants";
 
 export function runProgressionTests() {
   console.log("=== PHASE 5.6 FILM JOURNEY & RANK PROGRESSION UNIT TESTS ===\n");

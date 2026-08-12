@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Header } from "@/components/ui/Header";
 import { getCurrentUser } from "@/lib/auth/service";
 import { getOrCalculateUserProfile } from "@/lib/profile/service";
@@ -9,6 +10,9 @@ import { TasteTraits } from "@/components/profile/TasteTraits";
 
 export default async function ProfilePage() {
   const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    redirect("/auth");
+  }
   const data = await getOrCalculateUserProfile(currentUser.id);
 
   return (

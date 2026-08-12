@@ -8,7 +8,11 @@ export async function GET(
 ) {
   try {
     const { code } = await context.params;
-    const { userId } = await getOrCreateSession();
+    const userSession = await getOrCreateSession();
+    if (!userSession) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { userId } = userSession;
 
     const data = await getMovieNightRecommendations(code, userId, 10);
     return NextResponse.json(data);

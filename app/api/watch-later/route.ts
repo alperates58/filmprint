@@ -5,7 +5,11 @@ import { RecommendationAction } from "@prisma/client";
 
 export async function GET() {
   try {
-    const { userId } = await getOrCreateSession();
+    const session = await getOrCreateSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { userId } = session;
 
     const watchLaterItems = await db.recommendationFeedback.findMany({
       where: {
@@ -47,7 +51,11 @@ export async function GET() {
 
 export async function DELETE(request: Request) {
   try {
-    const { userId } = await getOrCreateSession();
+    const session = await getOrCreateSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { userId } = session;
     const { searchParams } = new URL(request.url);
     const movieId = searchParams.get("movieId");
 

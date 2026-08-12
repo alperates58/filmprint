@@ -1,5 +1,6 @@
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db/client";
-import { getOrCreateSession } from "@/lib/session";
+import { getAuthenticatedUser } from "@/lib/auth/service";
 import { tmdbClient } from "@/lib/tmdb/client";
 import { CalibrationEngine } from "@/components/movie/CalibrationEngine";
 import { MovieItem } from "@/components/movie/MovieCard";
@@ -7,8 +8,11 @@ import { MovieItem } from "@/components/movie/MovieCard";
 const TARGET_CALIBRATION_COUNT = 30;
 
 export default async function Home() {
-  // Provision or retrieve persistent anonymous user session
-  const { userId } = await getOrCreateSession();
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    redirect("/auth");
+  }
+  const userId = user.id;
 
   // Fetch answered movie IDs for current user
   const answeredInteractions = await db.movieInteraction.findMany({

@@ -5,7 +5,11 @@ import { RecommendationAction, RatingStatus } from "@prisma/client";
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await getOrCreateSession();
+    const session = await getOrCreateSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { userId } = session;
     const body = await request.json();
     const { movieId, action, rating, matchScore } = body;
 

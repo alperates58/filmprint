@@ -4,7 +4,11 @@ import { getIntelligentCalibrationQueue } from "@/lib/calibration/service";
 
 export async function GET(request: Request) {
   try {
-    const { userId } = await getOrCreateSession();
+    const session = await getOrCreateSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { userId } = session;
 
     const { searchParams } = new URL(request.url);
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "5", 10), 1), 10);

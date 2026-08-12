@@ -2,11 +2,9 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-  const response = NextResponse.next();
   const pathname = request.nextUrl.pathname;
 
   const authSessionToken = request.cookies.get("filmprint_user_session")?.value;
-  const legacySessionId = request.cookies.get("filmprint_session")?.value;
 
   const isAuthPage = pathname.startsWith("/auth");
   const isApiRoute = pathname.startsWith("/api");
@@ -24,32 +22,54 @@ export function middleware(request: NextRequest) {
       const loginUrl = new URL("/admin/login", request.url);
       return NextResponse.redirect(loginUrl);
     }
+    return NextResponse.next();
   }
 
-  // 2. Client Application Auth Redirects (First Visit Protection)
-  // If user visits /auth while already logged in as a registered user, redirect to /
-  if (isAuthPage && authSessionToken) {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
+  // 2. Public API routes exemption
+  const isPublicApiRoute =
+    pathname.startsWith("/api/auth") ||
+    pathname === "/api/health" ||
+    pathname.startsWith("/api/admin");
 
-  // If user visits protected app routes (e.g. /, /profile, /recommendations, /watch-later, /night)
-  // without any session cookie (neither auth session nor legacy anonymous session), redirect to /auth
-  const isPublicAsset = pathname.startsWith("/_next") || pathname.includes(".");
-  if (!isAuthPage && !isApiRoute && !isAdminRoute && !isPublicAsset) {
-    if (!authSessionToken && !legacySessionId) {
-      const authUrl = new URL("/auth", request.url);
-      return NextResponse.redirect(authUrl);
+  if (isApiRoute) {
+    if (!isPublicApiRoute && !authSessionToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    return NextResponse.next();
   }
 
-  return response;
+  // 3. Public static assets exemption
+  const isPublicAsset =
+    pathname.startsWith("/_next") ||
+    pathname.includes(".") ||
+    pathname === "/favicon.ico";
+
+  if (isPublicAsset) {
+    return NextResponse.next();
+  }
+
+  // 4. Logged-in user visiting /auth -> Redirect to /
+  if (isAuthPage) {
+    if (authSessionToken) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // 5. Unauthenticated user visiting protected UI routes -> Redirect to /auth
+  if (!authSessionToken) {
+    const authUrl = new URL("/auth", request.url);
+    if (pathname !== "/") {
+      authUrl.searchParams.set("returnTo", pathname);
+    }
+    return NextResponse.redirect(authUrl);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except static files, _next, favicon.ico, images.
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

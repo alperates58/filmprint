@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -22,6 +22,30 @@ export function Header({
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [displayName, setDisplayName] = useState(userName);
+  const [avatar, setAvatar] = useState(userAvatar);
+  const [email, setEmail] = useState(userEmail);
+
+  useEffect(() => {
+    if (userName) setDisplayName(userName);
+    if (userAvatar) setAvatar(userAvatar);
+    if (userEmail) setEmail(userEmail);
+  }, [userName, userAvatar, userEmail]);
+
+  useEffect(() => {
+    if (!userName) {
+      fetch("/api/auth/me")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.user) {
+            setDisplayName(data.user.name || data.user.email?.split("@")[0] || "Filmprint Kullanıcısı");
+            setAvatar(data.user.image || "");
+            setEmail(data.user.email || "");
+          }
+        })
+        .catch(() => {});
+    }
+  }, [userName]);
 
   return (
     <header className="w-full border-b border-border/60 bg-background/90 backdrop-blur-md sticky top-0 z-50 transition-all duration-300">
@@ -102,61 +126,52 @@ export function Header({
               <span className="text-text-secondary">{progressCount} film değerlendirildi</span>
             </div>
 
-            {userName ? (
-              <div className="relative">
-                <button
-                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated border border-border/80 text-xs font-mono hover:border-accent transition-colors"
-                >
-                  {userAvatar ? (
-                    <img src={userAvatar} alt={userName} className="w-5 h-5 rounded-full object-cover" />
-                  ) : (
-                    <span className="w-5 h-5 rounded-full bg-accent/25 text-accent text-[10px] flex items-center justify-center font-bold">
-                      {userName.charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                  <span className="font-semibold text-text-primary">{userName}</span>
-                  <span className="text-[10px] text-text-muted">▾</span>
-                </button>
-
-                {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-2xl bg-surface border border-border shadow-cinematic p-2 space-y-1 text-xs font-mono animate-fadeIn z-50">
-                    {userEmail && (
-                      <div className="px-3 py-2 border-b border-border/60 text-[11px] text-text-muted truncate">
-                        {userEmail}
-                      </div>
-                    )}
-                    <Link
-                      href="/profile"
-                      onClick={() => setUserDropdownOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-elevated text-text-primary transition-colors"
-                    >
-                      👤 Profilim
-                    </Link>
-                    <Link
-                      href="/account"
-                      onClick={() => setUserDropdownOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-elevated text-text-primary transition-colors"
-                    >
-                      ⚙️ Hesabım
-                    </Link>
-                    <a
-                      href="/api/auth/logout"
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-danger/15 text-danger transition-colors"
-                    >
-                      🚪 Çıkış Yap
-                    </a>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link
-                href="/auth"
-                className="px-4 py-1.5 rounded-full bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-colors shadow-sm"
+            <div className="relative">
+              <button
+                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated border border-border/80 text-xs font-mono hover:border-accent transition-colors"
               >
-                Giriş Yap / Kayıt Ol
-              </Link>
-            )}
+                {avatar ? (
+                  <img src={avatar} alt={displayName || "User"} className="w-5 h-5 rounded-full object-cover" />
+                ) : (
+                  <span className="w-5 h-5 rounded-full bg-accent/25 text-accent text-[10px] flex items-center justify-center font-bold">
+                    {(displayName || "F").charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <span className="font-semibold text-text-primary">{displayName || "Hesabım"}</span>
+                <span className="text-[10px] text-text-muted">▾</span>
+              </button>
+
+              {userDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 rounded-2xl bg-surface border border-border shadow-cinematic p-2 space-y-1 text-xs font-mono animate-fadeIn z-50">
+                  {email && (
+                    <div className="px-3 py-2 border-b border-border/60 text-[11px] text-text-muted truncate">
+                      {email}
+                    </div>
+                  )}
+                  <Link
+                    href="/profile"
+                    onClick={() => setUserDropdownOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-elevated text-text-primary transition-colors"
+                  >
+                    👤 Profilim
+                  </Link>
+                  <Link
+                    href="/account"
+                    onClick={() => setUserDropdownOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-elevated text-text-primary transition-colors"
+                  >
+                    ⚙️ Hesabım
+                  </Link>
+                  <a
+                    href="/api/auth/logout"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-danger/15 text-danger transition-colors"
+                  >
+                    🚪 Çıkış Yap
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -180,9 +195,9 @@ export function Header({
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-border/60 bg-surface p-4 space-y-2 animate-fadeIn">
           <nav className="flex flex-col gap-2">
-            {userName && (
+            {displayName && (
               <div className="px-4 py-2 rounded-xl bg-surface-elevated border border-border text-xs font-mono flex items-center gap-2">
-                👤 <span className="font-bold text-text-primary">{userName}</span>
+                👤 <span className="font-bold text-text-primary">{displayName}</span>
               </div>
             )}
 
@@ -236,31 +251,19 @@ export function Header({
               🎬 Movie Night (Ortak Film)
             </Link>
 
-            {userName ? (
-              <>
-                <Link
-                  href="/account"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-mono text-text-primary bg-surface-elevated"
-                >
-                  ⚙️ Hesabım
-                </Link>
-                <a
-                  href="/api/auth/logout"
-                  className="px-4 py-2 rounded-xl text-xs font-mono text-danger bg-danger/10"
-                >
-                  🚪 Çıkış Yap
-                </a>
-              </>
-            ) : (
-              <Link
-                href="/auth"
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-mono text-white bg-accent font-bold text-center"
-              >
-                Giriş Yap / Kayıt Ol
-              </Link>
-            )}
+            <Link
+              href="/account"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-4 py-2 rounded-xl text-xs font-mono text-text-primary bg-surface-elevated"
+            >
+              ⚙️ Hesabım
+            </Link>
+            <a
+              href="/api/auth/logout"
+              className="px-4 py-2 rounded-xl text-xs font-mono text-danger bg-danger/10"
+            >
+              🚪 Çıkış Yap
+            </a>
           </nav>
         </div>
       )}

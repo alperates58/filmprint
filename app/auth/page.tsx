@@ -49,14 +49,21 @@ function AuthContent() {
         return;
       }
 
-      // Success -> Redirect to Home / Calibration
-      router.push("/");
+      // Success -> Redirect to returnTo or Home / Calibration
+      const rawReturnTo = searchParams.get("returnTo");
+      const returnTo = rawReturnTo && rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//") ? rawReturnTo : "/";
+      router.push(returnTo);
       router.refresh();
     } catch (err: any) {
       setErrorMessage("Bağlantı hatası oluştu. Lütfen tekrar deneyin.");
       setIsLoading(false);
     }
   };
+
+  const rawReturnTo = searchParams.get("returnTo");
+  const googleAuthUrl = rawReturnTo && rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
+    ? `/api/auth/google?returnTo=${encodeURIComponent(rawReturnTo)}`
+    : "/api/auth/google";
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 py-12 selection:bg-accent selection:text-white">
@@ -92,7 +99,7 @@ function AuthContent() {
         <div className="rounded-3xl bg-surface border border-border/80 p-6 md:p-8 shadow-cinematic space-y-6 text-left">
           {/* Primary Action: Google OAuth */}
           <a
-            href="/api/auth/google"
+            href={googleAuthUrl}
             className="w-full py-3.5 px-4 rounded-xl bg-surface-elevated hover:bg-border border border-border text-text-primary font-medium text-sm flex items-center justify-center gap-3 transition-all active:scale-[0.99] shadow-sm"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">

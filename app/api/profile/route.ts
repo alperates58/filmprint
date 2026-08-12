@@ -4,7 +4,11 @@ import { getOrCalculateUserProfile } from "@/lib/profile/service";
 
 export async function GET() {
   try {
-    const { userId } = await getOrCreateSession();
+    const session = await getOrCreateSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { userId } = session;
     const result = await getOrCalculateUserProfile(userId);
 
     return NextResponse.json(result);

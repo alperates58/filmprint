@@ -4,7 +4,11 @@ import { createMovieNightSession } from "@/lib/movie-night/service";
 
 export async function POST() {
   try {
-    const { userId } = await getOrCreateSession();
+    const userSession = await getOrCreateSession();
+    if (!userSession) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { userId } = userSession;
     const session = await createMovieNightSession(userId);
 
     return NextResponse.json({

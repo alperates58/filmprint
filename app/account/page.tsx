@@ -8,7 +8,7 @@ import { db } from "@/lib/db/client";
 export default async function AccountSettingsPage() {
   const currentUser = await getCurrentUser();
 
-  if (!currentUser.isAuthenticated) {
+  if (!currentUser || !currentUser.isAuthenticated) {
     redirect("/auth");
   }
 

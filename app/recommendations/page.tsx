@@ -7,12 +7,18 @@ import { HeroRecommendation } from "@/components/recommendation/HeroRecommendati
 import { RecommendationGrid } from "@/components/recommendation/RecommendationGrid";
 import { RecommendationResponse } from "@/lib/recommendation/types";
 
+import { MovieDetailsModal } from "@/components/movie/MovieDetailsModal";
+
 export default function RecommendationsPage() {
   const [data, setData] = useState<RecommendationResponse | null>(null);
   const [page, setPage] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMovieModal, setSelectedMovieModal] = useState<{
+    movieId: string;
+    initialData?: any;
+  } | null>(null);
 
   const fetchRecommendations = async (targetPage: number = 0) => {
     try {
@@ -56,6 +62,22 @@ export default function RecommendationsPage() {
     } catch (e) {
       console.error("[Feedback Action Error]:", e);
     }
+  };
+
+  const handleOpenDetails = (movie: any, matchScore?: number, headline?: string, reasons?: string[]) => {
+    setSelectedMovieModal({
+      movieId: movie.id,
+      initialData: {
+        title: movie.title,
+        posterPath: movie.posterPath,
+        backdropPath: movie.backdropPath,
+        releaseYear: movie.releaseYear,
+        genres: movie.genres,
+        matchScore,
+        headline,
+        reasons,
+      },
+    });
   };
 
   const progressCount = data?.current || 0;
@@ -166,6 +188,7 @@ export default function RecommendationsPage() {
               <HeroRecommendation
                 item={data.recommendations[0]}
                 onFeedbackAction={handleFeedbackAction}
+                onOpenDetails={handleOpenDetails}
               />
             )}
 
@@ -174,10 +197,23 @@ export default function RecommendationsPage() {
               <RecommendationGrid
                 items={data.recommendations.slice(1)}
                 onFeedbackAction={handleFeedbackAction}
+                onOpenDetails={handleOpenDetails}
               />
             )}
           </div>
         )}
+
+        {/* Cinematic Movie Detail Modal */}
+        <MovieDetailsModal
+          movieId={selectedMovieModal?.movieId || null}
+          onClose={() => setSelectedMovieModal(null)}
+          initialData={selectedMovieModal?.initialData}
+          onInteractionUpdate={(movieId, status) => {
+            if (status === "WATCHED" || status === "NOT_INTERESTED") {
+              handleFeedbackAction(movieId, status);
+            }
+          }}
+        />
       </main>
     </div>
   );

@@ -7,9 +7,10 @@ import { PersonalizedRecommendationItem } from "@/lib/recommendation/types";
 interface HeroRecommendationProps {
   item: PersonalizedRecommendationItem;
   onFeedbackAction?: (movieId: string, action: string, rating?: string) => void;
+  onOpenDetails?: (movie: any, matchScore?: number, headline?: string, reasons?: string[]) => void;
 }
 
-export function HeroRecommendation({ item, onFeedbackAction }: HeroRecommendationProps) {
+export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: HeroRecommendationProps) {
   const { movie, match, matchLabel, headline, reasons, isAiGenerated } = item;
   const [showRatingStep, setShowRatingStep] = useState<"WATCHED" | "ALREADY_WATCHED" | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -19,6 +20,12 @@ export function HeroRecommendation({ item, onFeedbackAction }: HeroRecommendatio
       ? movie.posterPath
       : `https://image.tmdb.org/t/p/w500${movie.posterPath}`
     : null;
+
+  const handleOpenDetails = () => {
+    if (onOpenDetails) {
+      onOpenDetails(movie, match, headline, reasons);
+    }
+  };
 
   const handleActionClick = (actionType: "WATCHED" | "ALREADY_WATCHED" | "WATCH_LATER" | "NOT_INTERESTED") => {
     if (actionType === "WATCHED" || actionType === "ALREADY_WATCHED") {
@@ -70,13 +77,17 @@ export function HeroRecommendation({ item, onFeedbackAction }: HeroRecommendatio
 
       <div className="flex flex-col sm:flex-row md:grid md:grid-cols-3 gap-4 md:gap-6 items-start">
         {/* Movie Poster Card */}
-        <div className="w-28 sm:w-36 md:w-56 mx-auto sm:mx-0 aspect-[2/3] rounded-2xl overflow-hidden bg-surface-elevated border border-border/60 shadow-md relative flex-shrink-0">
+        <div
+          onClick={handleOpenDetails}
+          className="w-28 sm:w-36 md:w-56 mx-auto sm:mx-0 aspect-[2/3] rounded-2xl overflow-hidden bg-surface-elevated border border-border/60 shadow-md relative flex-shrink-0 cursor-pointer group hover:border-accent/60 transition-all"
+          title="Film detaylarını gör"
+        >
           {posterUrl ? (
             <Image
               src={posterUrl}
               alt={movie.title}
               fill
-              className="object-cover"
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
               sizes="(max-width: 768px) 144px, 224px"
               priority
             />
@@ -89,11 +100,11 @@ export function HeroRecommendation({ item, onFeedbackAction }: HeroRecommendatio
 
         {/* Hero Content & Explanation */}
         <div className="md:col-span-2 space-y-4">
-          <div>
+          <div onClick={handleOpenDetails} className="cursor-pointer group">
             <span className="text-xs font-mono text-text-muted">
               {movie.releaseYear || "Tarihsiz"} • {movie.genres.join(", ")}
             </span>
-            <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary mt-1">
+            <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary mt-1 group-hover:text-accent transition-colors">
               {movie.title}
             </h2>
             {movie.originalTitle && movie.originalTitle !== movie.title && (

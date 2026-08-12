@@ -7,9 +7,10 @@ import { PersonalizedRecommendationItem } from "@/lib/recommendation/types";
 interface RecommendationGridProps {
   items: PersonalizedRecommendationItem[];
   onFeedbackAction?: (movieId: string, action: string, rating?: string) => void;
+  onOpenDetails?: (movie: any, matchScore?: number, headline?: string, reasons?: string[]) => void;
 }
 
-export function RecommendationGrid({ items, onFeedbackAction }: RecommendationGridProps) {
+export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: RecommendationGridProps) {
   const [activeRatingMovieId, setActiveRatingMovieId] = useState<string | null>(null);
   const [expandedMovieId, setExpandedMovieId] = useState<string | null>(null);
   const [submittedMovieIds, setSubmittedMovieIds] = useState<Set<string>>(new Set());
@@ -65,7 +66,11 @@ export function RecommendationGrid({ items, onFeedbackAction }: RecommendationGr
               className="p-4 rounded-2xl bg-surface border border-border/70 shadow-sm flex flex-col justify-between space-y-3 group hover:border-accent/50 transition-all duration-300"
             >
               {/* Poster & Match Badge Container */}
-              <div className="w-full aspect-[2/3] rounded-xl overflow-hidden bg-surface-elevated relative shadow-sm">
+              <div
+                onClick={() => onOpenDetails && onOpenDetails(movie, match, headline, reasons)}
+                className="w-full aspect-[2/3] rounded-xl overflow-hidden bg-surface-elevated relative shadow-sm cursor-pointer"
+                title="Film detaylarını gör"
+              >
                 {posterUrl ? (
                   <Image
                     src={posterUrl}
@@ -88,7 +93,10 @@ export function RecommendationGrid({ items, onFeedbackAction }: RecommendationGr
 
               {/* Movie Details & Reasons */}
               <div className="space-y-1.5 flex-1">
-                <h4 className="font-display text-sm font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors">
+                <h4
+                  onClick={() => onOpenDetails && onOpenDetails(movie, match, headline, reasons)}
+                  className="font-display text-sm font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors cursor-pointer"
+                >
                   {movie.title}
                 </h4>
                 <p className="text-[10px] font-mono text-text-muted line-clamp-1">

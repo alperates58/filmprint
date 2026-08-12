@@ -33,6 +33,13 @@ export interface CachedMovieData {
   runtime: number | null;
 }
 
+export interface TMDBMovieDetails {
+  runtime: number | null;
+  director: string | null;
+  cast: { name: string; character: string; profilePath: string | null }[];
+  trailer: { provider: "youtube"; key: string } | null;
+}
+
 export const GENRE_MAP: Record<number, string> = {
   28: "Aksiyon",
   12: "Macera",
@@ -553,6 +560,102 @@ export class TMDBClient {
       console.error("[TMDB Client] Error resolving API key from config service:", e);
     }
     return process.env.TMDB_API_KEY || "";
+  }
+
+  /**
+   * Fetches full details, credits (cast & director), and trailers for a movie.
+   */
+  public async getMovieDetails(tmdbId: number): Promise<TMDBMovieDetails> {
+    const apiKey = await this.resolveApiKey();
+
+    if (!apiKey) {
+      return {
+        runtime: null,
+        director: null,
+        cast: [],
+        trailer: null,
+      };
+    }
+
+    try {
+      const response = await fetch(
+        `${TMDB_API_BASE}/movie/${tmdbId}?api_key=${apiKey}&language=tr-TR&append_to_response=credits,videos`,
+        { next: { revalidate: 86400 } }
+      );
+
+      if (!response.ok) {
+        return { runtime: null, director: null, cast: [], trailer: null };
+      }
+
+      const data = await response.json();
+      const runtime = data.runtime || null;
+
+      // Extract director
+      let director: string | null = null;
+      if (data.credits?.crew) {
+        const dirObj = data.credits.crew.find((c: any) => c.job === "Director");
+        if (dirObj) director = dirObj.name;
+      }
+
+      // Extract top 8 cast members
+      const cast: { name: string; character: string; profilePath: string | null }[] = [];
+      if (data.credits?.cast && Array.isArray(data.credits.cast)) {
+        data.credits.cast.slice(0, 8).forEach((actor: any) => {
+          cast.push({
+            name: actor.name,
+            character: actor.character || "",
+            profilePath: actor.profile_path || null,
+          });
+        });
+      }
+
+      // Extract best trailer
+      let trailer: { provider: "youtube"; key: string } | null = null;
+      if (data.videos?.results && Array.isArray(data.videos.results)) {
+        const videos = data.videos.results;
+
+        // Priority 1: YouTube Official Trailer
+        let targetVideo = videos.find(
+          (v: any) => v.site === "YouTube" && v.type === "Trailer" && v.official === true
+        );
+
+        // Priority 2: Any YouTube Trailer
+        if (!targetVideo) {
+          targetVideo = videos.find(
+            (v: any) => v.site === "YouTube" && v.type === "Trailer"
+          );
+        }
+
+        // Priority 3: Any YouTube Teaser
+        if (!targetVideo) {
+          targetVideo = videos.find(
+            (v: any) => v.site === "YouTube" && v.type === "Teaser"
+          );
+        }
+
+        // Priority 4: Any YouTube Video with key
+        if (!targetVideo) {
+          targetVideo = videos.find((v: any) => v.site === "YouTube" && v.key);
+        }
+
+        if (targetVideo && targetVideo.key) {
+          trailer = {
+            provider: "youtube",
+            key: targetVideo.key,
+          };
+        }
+      }
+
+      return {
+        runtime,
+        director,
+        cast,
+        trailer,
+      };
+    } catch (e) {
+      console.error("[TMDB Client] Error fetching movie details:", e);
+      return { runtime: null, director: null, cast: [], trailer: null };
+    }
   }
 
   /**

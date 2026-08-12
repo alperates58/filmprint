@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Header } from "@/components/ui/Header";
 
+import { MovieDetailsModal } from "@/components/movie/MovieDetailsModal";
+
 interface LibraryItem {
   id: string;
   movieId: string;
@@ -62,6 +64,10 @@ function LibraryContent() {
     movieId: string;
     movieTitle: string;
     targetStatus: string;
+  } | null>(null);
+  const [selectedMovieModal, setSelectedMovieModal] = useState<{
+    movieId: string;
+    initialData?: any;
   } | null>(null);
 
   // Debounce search input
@@ -348,7 +354,21 @@ function LibraryContent() {
                 >
                   <div className="space-y-3">
                     {/* Poster */}
-                    <div className="w-full aspect-[2/3] rounded-xl overflow-hidden bg-surface-elevated relative shadow-sm">
+                    <div
+                      onClick={() =>
+                        setSelectedMovieModal({
+                          movieId,
+                          initialData: {
+                            title,
+                            posterPath,
+                            releaseYear,
+                            genres,
+                          },
+                        })
+                      }
+                      className="w-full aspect-[2/3] rounded-xl overflow-hidden bg-surface-elevated relative shadow-sm cursor-pointer"
+                      title="Film detaylarını gör"
+                    >
                       {posterUrl ? (
                         <Image
                           src={posterUrl}
@@ -373,7 +393,20 @@ function LibraryContent() {
                     </div>
 
                     {/* Movie Info */}
-                    <div>
+                    <div
+                      onClick={() =>
+                        setSelectedMovieModal({
+                          movieId,
+                          initialData: {
+                            title,
+                            posterPath,
+                            releaseYear,
+                            genres,
+                          },
+                        })
+                      }
+                      className="cursor-pointer"
+                    >
                       <h4 className="font-display text-sm font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors">
                         {title}
                       </h4>
@@ -561,6 +594,19 @@ function LibraryContent() {
           </div>
         )}
       </main>
+
+      {/* Cinematic Movie Detail Modal */}
+      <MovieDetailsModal
+        movieId={selectedMovieModal?.movieId || null}
+        onClose={() => {
+          setSelectedMovieModal(null);
+          fetchLibrary();
+        }}
+        initialData={selectedMovieModal?.initialData}
+        onInteractionUpdate={() => {
+          fetchLibrary();
+        }}
+      />
 
       {/* Confirmation Modal for Destructive WATCHED -> NOT_WATCHED */}
       {confirmStatusModal && (

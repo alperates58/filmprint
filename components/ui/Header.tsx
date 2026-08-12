@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getProgressionForCount } from "@/lib/progression/service";
 
 interface HeaderProps {
   progressCount?: number;
@@ -20,6 +21,7 @@ export function Header({
   userEmail = "",
 }: HeaderProps) {
   const pathname = usePathname();
+  const progression = getProgressionForCount(progressCount);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [displayName, setDisplayName] = useState(userName);
@@ -123,7 +125,10 @@ export function Header({
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated border border-border text-xs font-mono font-medium text-text-primary">
               <span className="w-2 h-2 rounded-full bg-accent" />
-              <span className="text-text-secondary">{progressCount} film değerlendirildi</span>
+              <span className="text-text-secondary">
+                {progression.currentRank.label} • {progressCount}
+                {progression.nextRank ? `/${progression.nextRank.minimum}` : ""}
+              </span>
             </div>
 
             <div className="relative">
@@ -178,7 +183,7 @@ export function Header({
         {/* Mobile Navigation Toggle Button */}
         <div className="flex items-center gap-2 md:hidden">
           <div className="px-2.5 py-1 rounded-full bg-surface-elevated border border-border text-[10px] font-mono text-text-secondary">
-            {progressCount} film
+            {progression.currentRank.label} • {progressCount}
           </div>
 
           <button

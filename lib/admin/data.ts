@@ -1,5 +1,7 @@
 import { db } from "@/lib/db/client";
 import { getSystemSettings, getIntegrationStatus, getDeepSeekConfig } from "@/lib/config/service";
+import { getRankForCount, getProgressionForCount } from "@/lib/progression/service";
+import { RANK_DEFINITIONS } from "@/lib/progression/constants";
 
 export async function getAdminOverviewData() {
   const [
@@ -93,6 +95,30 @@ export async function getAdminOverviewData() {
   const totalPositiveWatched = matchBucketOutcomes.reduce((acc, b) => acc + b.positive, 0);
   const positiveOutcomeRate = totalWatchedFromRec > 0 ? Math.round((totalPositiveWatched / totalWatchedFromRec) * 100) : 0;
 
+  const allUsersWithCounts = await db.user.findMany({
+    select: {
+      id: true,
+      _count: { select: { interactions: true } },
+    },
+  });
+
+  const rankDistributionMap: Record<string, number> = {};
+  RANK_DEFINITIONS.forEach((r) => {
+    rankDistributionMap[r.key] = 0;
+  });
+
+  for (const u of allUsersWithCounts) {
+    const r = getRankForCount(u._count.interactions);
+    rankDistributionMap[r.key] = (rankDistributionMap[r.key] || 0) + 1;
+  }
+
+  const rankDistribution = RANK_DEFINITIONS.map((r) => ({
+    key: r.key,
+    label: r.label,
+    icon: r.badgeIcon,
+    count: rankDistributionMap[r.key] || 0,
+  }));
+
   return {
     users: {
       total: totalUsers,
@@ -101,6 +127,7 @@ export async function getAdminOverviewData() {
       last7d: totalUsers,
       completedCalibration: totalProfiles,
     },
+    rankDistribution,
     movies: { total: totalMovies, cached: totalMovies, totalCached: totalMovies },
     stats: {
       totalUsers,
@@ -185,6 +212,7 @@ export async function getAdminUsersData(search?: string, page: number = 1, pageS
       interactionCount: u._count.interactions,
       hasTasteProfile: !!u.tasteProfile,
       confidence: u.tasteProfile?.confidence || 0.0,
+      rank: getRankForCount(u._count.interactions),
     })),
     totalCount,
     totalPages: Math.ceil(totalCount / pageSize) || 1,
@@ -216,6 +244,9 @@ export async function getAdminUserDetailData(id: string) {
 
   if (!user) return null;
 
+  const totalInteractionCount = await db.movieInteraction.count({ where: { userId: id } });
+  const progression = getProgressionForCount(totalInteractionCount);
+
   const watched = user.interactions.filter((i: any) => i.status === "WATCHED").length;
   const notWatched = user.interactions.filter((i: any) => i.status === "NOT_WATCHED").length;
   const unsure = user.interactions.filter((i: any) => i.status === "UNSURE").length;
@@ -237,8 +268,9 @@ export async function getAdminUserDetailData(id: string) {
       provider: user.provider,
       createdAt: user.createdAt,
       lastSeenAt: user.lastSeenAt,
+      progression,
       stats: {
-        totalInteractions: user.interactions.length,
+        totalInteractions: totalInteractionCount,
         watched,
         notWatched,
         unsure,

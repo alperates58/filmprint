@@ -7,6 +7,7 @@ import { getOrCalculateUserProfile } from "@/lib/profile/service";
 import { GenreSignature } from "@/components/profile/GenreSignature";
 import { EraSignature } from "@/components/profile/EraSignature";
 import { TasteTraits } from "@/components/profile/TasteTraits";
+import { FilmJourney } from "@/components/profile/FilmJourney";
 
 export default async function ProfilePage() {
   const currentUser = await getCurrentUser();
@@ -28,51 +29,55 @@ export default async function ProfilePage() {
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 md:py-12 space-y-8">
         {!data.ready || !data.profile ? (
           /* Profile Not Ready State */
-          <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface border border-border/80 rounded-3xl p-8 md:p-12 shadow-cinematic my-8">
-            <div className="w-16 h-16 rounded-full bg-accent/15 border border-accent/30 text-accent flex items-center justify-center mx-auto text-2xl font-bold font-mono">
-              DNA
-            </div>
-
-            <div className="space-y-2">
-              <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
-                Film DNA'nız Henüz Hazır Değil
-              </h1>
-              <p className="text-text-secondary text-sm leading-relaxed">
-                Kişisel Film DNA profilinizin oluşması için en az{" "}
-                <strong className="text-text-primary">{data.required} filmi</strong>{" "}
-                değerlendirmeniz gerekmektedir.
-              </p>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="space-y-2 pt-2">
-              <div className="flex justify-between text-xs font-mono text-text-muted">
-                <span>KALİBRASYON İLERLEMESİ</span>
-                <span className="font-bold text-text-primary">
-                  {data.current} / {data.required} Film
-                </span>
+          <div className="space-y-8 animate-fadeIn">
+            <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface border border-border/80 rounded-3xl p-8 md:p-12 shadow-cinematic my-8">
+              <div className="w-16 h-16 rounded-full bg-accent/15 border border-accent/30 text-accent flex items-center justify-center mx-auto text-2xl font-bold font-mono">
+                DNA
               </div>
-              <div className="w-full h-3 rounded-full bg-surface-elevated overflow-hidden border border-border">
-                <div
-                  className="h-full rounded-full bg-accent transition-all duration-500"
-                  style={{
-                    width: `${Math.min(
-                      Math.round((data.current / data.required) * 100),
-                      100
-                    )}%`,
-                  }}
-                />
+
+              <div className="space-y-2">
+                <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
+                  Film DNA'nız Henüz Hazır Değil
+                </h1>
+                <p className="text-text-secondary text-sm leading-relaxed">
+                  Kişisel Film DNA profilinizin oluşması için en az{" "}
+                  <strong className="text-text-primary">{data.required} filmi</strong>{" "}
+                  değerlendirmeniz gerekmektedir.
+                </p>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="space-y-2 pt-2">
+                <div className="flex justify-between text-xs font-mono text-text-muted">
+                  <span>KALİBRASYON İLERLEMESİ</span>
+                  <span className="font-bold text-text-primary">
+                    {data.current} / {data.required} Film
+                  </span>
+                </div>
+                <div className="w-full h-3 rounded-full bg-surface-elevated overflow-hidden border border-border">
+                  <div
+                    className="h-full rounded-full bg-accent transition-all duration-500"
+                    style={{
+                      width: `${Math.min(
+                        Math.round((data.current / data.required) * 100),
+                        100
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <Link
+                  href="/"
+                  className="inline-flex items-center justify-center px-6 py-3.5 rounded-xl bg-accent text-white font-medium text-sm hover:bg-accent-hover active:scale-[0.98] transition-all shadow-md"
+                >
+                  Filmleri Değerlendirmeye Başla →
+                </Link>
               </div>
             </div>
 
-            <div className="pt-4">
-              <Link
-                href="/"
-                className="inline-flex items-center justify-center px-6 py-3.5 rounded-xl bg-accent text-white font-medium text-sm hover:bg-accent-hover active:scale-[0.98] transition-all shadow-md"
-              >
-                Filmleri Değerlendirmeye Başla →
-              </Link>
-            </div>
+            <FilmJourney evaluatedCount={data.current} />
           </div>
         ) : (
           /* Ready Film DNA Profile View */
@@ -137,6 +142,9 @@ export default async function ProfilePage() {
                 </Link>
               </div>
             </div>
+
+            {/* Film Journey & Rank Progression Section */}
+            <FilmJourney evaluatedCount={data.current} />
 
             {/* Visual Signatures */}
             <GenreSignature genres={data.profile.genres} />

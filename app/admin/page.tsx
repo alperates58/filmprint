@@ -95,6 +95,43 @@ export default async function AdminOverviewPage() {
               </div>
             </div>
 
+            {/* Rank Distribution Card */}
+            {data.rankDistribution && (
+              <div className="p-6 rounded-2xl bg-surface border border-accent/30 space-y-4 shadow-md">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="font-display text-lg font-bold text-text-primary">
+                      Kullanıcı Rütbe Dağılımı (Rank Progression)
+                    </h2>
+                    <p className="text-xs text-text-muted font-mono">
+                      Filmprint kullanıcılarının mevcut rütbe milestone dağılımı
+                    </p>
+                  </div>
+                  <span className="text-xs font-mono text-accent bg-accent/10 px-3 py-1 rounded-full border border-accent/20">
+                    Phase 5.6
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                  {data.rankDistribution.map((r: any) => (
+                    <div
+                      key={r.key}
+                      className="p-3.5 rounded-xl bg-surface-elevated border border-border text-center space-y-1"
+                    >
+                      <div className="text-xl">{r.icon}</div>
+                      <p className="text-xs font-mono font-bold text-text-primary truncate">
+                        {r.label}
+                      </p>
+                      <p className="font-display text-lg font-bold text-accent">
+                        {r.count}
+                      </p>
+                      <p className="text-[9px] font-mono text-text-muted">Kullanıcı</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Interaction & Calibration Breakdown */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Interaction Breakdown */}

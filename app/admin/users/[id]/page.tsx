@@ -100,6 +100,46 @@ export default async function AdminUserDetailPage({
           </div>
         </div>
 
+        {/* Rank & Progression Card */}
+        {user.progression && (
+          <div className="p-5 rounded-2xl bg-surface border border-accent/30 space-y-3 shadow-md">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{user.progression.currentRank.badgeIcon}</span>
+                <h2 className="font-display text-base font-bold text-text-primary">
+                  {user.progression.currentRank.label} Rütbesi
+                </h2>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-accent/15 border border-accent/30 text-accent">
+                %{Math.round(user.progression.progress * 100)} Rütbe İlerlemesi
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+              <div className="p-3 rounded-xl bg-surface-elevated border border-border">
+                <span className="text-text-muted block text-[10px]">DEĞERLENDİRİLEN FİLM</span>
+                <span className="font-bold text-text-primary">{user.progression.evaluatedCount} Film</span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface-elevated border border-border">
+                <span className="text-text-muted block text-[10px]">SIRADAKİ RÜTBE</span>
+                <span className="font-bold text-accent">
+                  {user.progression.nextRank ? user.progression.nextRank.label : "Maksimum Rütbe"}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface-elevated border border-border">
+                <span className="text-text-muted block text-[10px]">SIRADAKİ EŞİĞE KALAN</span>
+                <span className="font-bold text-text-primary">
+                  {user.progression.isMaxRank ? "0 Film" : `${user.progression.remaining} Film`}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface-elevated border border-border">
+                <span className="text-text-muted block text-[10px]">FILM DNA CONFIDENCE</span>
+                <span className="font-bold text-success">%{Math.round(dna.confidence * 100)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Film DNA Status Card */}
         <div className="p-5 rounded-2xl bg-surface border border-border/80 space-y-3 shadow-md">
           <div className="flex items-center justify-between">

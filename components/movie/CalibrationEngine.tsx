@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Header } from "@/components/ui/Header";
 import { MovieCard, MovieItem } from "@/components/movie/MovieCard";
 import { MovieCardSkeleton } from "@/components/movie/MovieCardSkeleton";
+import { getProgressionForCount } from "@/lib/progression/service";
 
 interface CalibrationEngineProps {
   initialMovies?: MovieItem[];
@@ -236,7 +237,18 @@ export function CalibrationEngine({
           </div>
         ) : activeMovie ? (
           /* Active Interactive Movie Card */
-          <div ref={cardRef} className="w-full">
+          <div ref={cardRef} className="w-full space-y-2">
+            {(() => {
+              const progression = getProgressionForCount(answeredCount);
+              return progression.nextRank ? (
+                <div className="text-[11px] font-mono text-text-muted flex items-center justify-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                  <span>
+                    {answeredCount} / {progression.nextRank.minimum} • <strong className="text-text-secondary">{progression.nextRank.label} yolunda</strong> ({progression.remaining} film kaldı)
+                  </span>
+                </div>
+              ) : null;
+            })()}
             <MovieCard
               movie={activeMovie}
               onAnswer={handleAnswer}

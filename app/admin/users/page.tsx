@@ -58,6 +58,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
               <thead>
                 <tr className="border-b border-border/60 bg-surface-elevated/50 text-[11px] font-mono text-text-muted uppercase">
                   <th className="py-3 px-4">Kullanıcı</th>
+                  <th className="py-3 px-4">Rütbe</th>
                   <th className="py-3 px-4">Durum</th>
                   <th className="py-3 px-4">Kayıt Tarihi</th>
                   <th className="py-3 px-4">Son Aktivite</th>
@@ -69,7 +70,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
               <tbody className="divide-y divide-border/40 text-xs">
                 {data.users.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-text-muted font-mono text-xs">
+                    <td colSpan={8} className="py-8 text-center text-text-muted font-mono text-xs">
                       Kullanıcı bulunamadı.
                     </td>
                   </tr>
@@ -98,6 +99,14 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                             </p>
                           </div>
                         </div>
+                      </td>
+
+                      {/* Rank Badge Column */}
+                      <td className="py-3 px-4 font-mono">
+                        <span className="px-2 py-0.5 rounded-md bg-accent/10 border border-accent/30 text-accent text-[10px] font-bold inline-flex items-center gap-1">
+                          <span>{user.rank.badgeIcon}</span>
+                          <span>{user.rank.label}</span>
+                        </span>
                       </td>
 
                       <td className="py-3 px-4 font-mono">
@@ -192,6 +201,11 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 text-xs font-mono pt-1">
+                    <span className="px-2 py-0.5 rounded-md bg-accent/15 text-accent border border-accent/30 text-[10px] font-bold flex items-center gap-1">
+                      <span>{user.rank.badgeIcon}</span>
+                      <span>{user.rank.label}</span>
+                    </span>
+
                     {user.accountType === "REGISTERED" ? (
                       <span className="px-2 py-0.5 rounded-md bg-success/15 text-success border border-success/30 text-[10px] font-bold">
                         {user.provider === "GOOGLE" ? "Google" : "E-posta"}

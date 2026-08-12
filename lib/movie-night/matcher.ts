@@ -35,7 +35,7 @@ export function calculateGroupMatch(
     };
   }
 
-  const memberScores: GroupMemberScore[] = memberInputs.map((m) => {
+  const memberScores: GroupMemberScore[] = memberInputs.map((m: any) => {
     // If confidence is low, slightly damp extreme low scores to prevent incomplete profile domination
     let score = m.matchResult.matchScore;
     if (m.confidence < 0.4 && score < 50) {

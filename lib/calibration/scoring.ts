@@ -17,7 +17,7 @@ export function calculateGenreUncertainty(
 
   const reasons: string[] = [];
   const profileGenresMap = new Map(
-    (profile?.genres || []).map((g) => [g.name, g])
+    (profile?.genres || []).map((g: any) => [g.name, g])
   );
 
   let totalUncertainty = 0;
@@ -64,7 +64,7 @@ export function calculateEraUncertainty(
 
   if (!eraBucket) return { score: 0.2 };
 
-  const matched = (profile?.eras || []).find((e) => e.key === eraBucket.key);
+  const matched = (profile?.eras || []).find((e: any) => e.key === eraBucket.key);
   const ratedCount = matched?.ratedCount || 0;
 
   if (ratedCount === 0) {

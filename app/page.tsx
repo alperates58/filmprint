@@ -15,7 +15,7 @@ export default async function Home() {
     where: { userId },
     select: { movieId: true },
   });
-  const answeredMovieIds = new Set(answeredInteractions.map((i) => i.movieId));
+  const answeredMovieIds = new Set(answeredInteractions.map((i: { movieId: number }) => i.movieId));
   const answeredCount = answeredMovieIds.size;
 
   // Fetch initial candidates from database
@@ -41,7 +41,7 @@ export default async function Home() {
   }
 
   // Format candidate data for client
-  const initialMovies: MovieItem[] = candidates.map((movie) => {
+  const initialMovies: MovieItem[] = candidates.map((movie: any) => {
     const meta = (movie.metadata as Record<string, unknown>) || {};
     return {
       id: movie.id,

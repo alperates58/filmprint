@@ -57,7 +57,7 @@ export async function buildUserFeedbackProfile(
   }
 
   const interactionRatingMap = new Map<string, RatingStatus | null>(
-    interactions.map((i) => [i.movieId, i.rating])
+    interactions.map((i: any) => [i.movieId, i.rating])
   );
 
   const rawGenreScores: Record<string, number> = {};

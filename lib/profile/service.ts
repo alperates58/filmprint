@@ -50,7 +50,7 @@ export async function getOrCalculateUserProfile(userId: string): Promise<Profile
   }
 
   // Format raw interaction data
-  const formattedData: RawInteractionData[] = interactions.map((i) => {
+  const formattedData: RawInteractionData[] = interactions.map((i: any) => {
     const meta = (i.movie.metadata as Record<string, unknown>) || {};
     return {
       id: i.id,

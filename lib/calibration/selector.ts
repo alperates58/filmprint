@@ -19,7 +19,7 @@ export function rankCandidateMovies(
     return [];
   }
 
-  const scoredCandidates = candidates.map((movie) =>
+  const scoredCandidates = candidates.map((movie: any) =>
     scoreCandidateMovie(movie, profile, recentHistory)
   );
 

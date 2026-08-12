@@ -200,7 +200,7 @@ export async function updateIntegrationMetadata(
  */
 export async function getSystemSettings() {
   const settings = await db.systemSetting.findMany();
-  const settingsMap = new Map(settings.map((s) => [s.key, s.value]));
+  const settingsMap = new Map<string, string>(settings.map((s: any) => [s.key, String(s.value)]));
 
   return {
     calibrationTarget: parseInt(settingsMap.get("calibration_target") || "30", 10),

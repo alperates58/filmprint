@@ -132,7 +132,7 @@ export async function getAdminOverviewData() {
       tmdb: tmdbStatus,
       deepseek: deepseekStatus,
     },
-    recentInteractions: recentInteractions.map((i) => ({
+    recentInteractions: recentInteractions.map((i: any) => ({
       id: i.id,
       movieTitle: i.movie.title,
       releaseYear: i.movie.releaseYear,
@@ -173,7 +173,7 @@ export async function getAdminUsersData(search?: string, page: number = 1, pageS
   ]);
 
   return {
-    users: users.map((u) => ({
+    users: users.map((u: any) => ({
       id: u.id,
       name: u.name,
       email: u.email,
@@ -216,14 +216,14 @@ export async function getAdminUserDetailData(id: string) {
 
   if (!user) return null;
 
-  const watched = user.interactions.filter((i) => i.status === "WATCHED").length;
-  const notWatched = user.interactions.filter((i) => i.status === "NOT_WATCHED").length;
-  const unsure = user.interactions.filter((i) => i.status === "UNSURE").length;
+  const watched = user.interactions.filter((i: any) => i.status === "WATCHED").length;
+  const notWatched = user.interactions.filter((i: any) => i.status === "NOT_WATCHED").length;
+  const unsure = user.interactions.filter((i: any) => i.status === "UNSURE").length;
 
-  const watchLaterCount = user.recommendationFeedbacks.filter((f) => f.action === "WATCH_LATER").length;
-  const notInterestedCount = user.recommendationFeedbacks.filter((f) => f.action === "NOT_INTERESTED").length;
+  const watchLaterCount = user.recommendationFeedbacks.filter((f: any) => f.action === "WATCH_LATER").length;
+  const notInterestedCount = user.recommendationFeedbacks.filter((f: any) => f.action === "NOT_INTERESTED").length;
   const positiveFeedbackCount = user.recommendationFeedbacks.filter(
-    (f) => f.action === "WATCH_LATER" || f.action === "WATCHED_FROM_RECOMMENDATION"
+    (f: any) => f.action === "WATCH_LATER" || f.action === "WATCHED_FROM_RECOMMENDATION"
   ).length;
   const negativeFeedbackCount = notInterestedCount;
 
@@ -274,7 +274,7 @@ export async function getAdminUserDetailData(id: string) {
         watchLaterCount,
         totalFeedbacks: user.recommendationFeedbacks.length,
       },
-      interactions: user.interactions.map((i) => ({
+      interactions: user.interactions.map((i: any) => ({
         id: i.id,
         movieId: i.movieId,
         movieTitle: i.movie.title,
@@ -284,7 +284,7 @@ export async function getAdminUserDetailData(id: string) {
         rating: i.rating,
         answeredAt: i.answeredAt,
       })),
-      recommendationFeedbacks: user.recommendationFeedbacks.map((f) => ({
+      recommendationFeedbacks: user.recommendationFeedbacks.map((f: any) => ({
         id: f.id,
         movieId: f.movieId,
         movieTitle: f.movie.title,

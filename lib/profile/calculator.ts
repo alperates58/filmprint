@@ -14,9 +14,9 @@ import {
  */
 export function calculateFilmDna(interactions: RawInteractionData[]): FilmDnaResult {
   const totalInteractions = interactions.length;
-  const watchedInteractions = interactions.filter((i) => i.status === "WATCHED");
-  const notWatchedInteractions = interactions.filter((i) => i.status === "NOT_WATCHED");
-  const unsureInteractions = interactions.filter((i) => i.status === "UNSURE");
+  const watchedInteractions = interactions.filter((i: any) => i.status === "WATCHED");
+  const notWatchedInteractions = interactions.filter((i: any) => i.status === "NOT_WATCHED");
+  const unsureInteractions = interactions.filter((i: any) => i.status === "UNSURE");
 
   const ratedMoviesCount = watchedInteractions.length;
 

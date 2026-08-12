@@ -21,6 +21,15 @@ export function CalibrationEngine({
   const [answeredCount, setAnsweredCount] = useState<number>(initialAnsweredCount);
   const [showMilestoneScreen, setShowMilestoneScreen] = useState<boolean>(initialCompleted);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(initialAnsweredCount === 0);
+  const [userName, setUserName] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(initialMovies.length === 0);
+  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const isFetchingRef = useRef<boolean>(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const milestoneTarget = 30;
+
   // Fetch authenticated user info
   useEffect(() => {
     fetch("/api/auth/me")

@@ -169,7 +169,7 @@ export async function logAdminAudit(
         action,
         entityType: entityType || null,
         entityId: entityId || null,
-        metadata: (metadata || {}) as Prisma.InputJsonValue,
+        metadata: (metadata || {}) as any,
       },
     });
   } catch (err) {

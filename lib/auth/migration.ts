@@ -115,12 +115,12 @@ export async function mergeAnonymousUserIntoAccount(
     db.movieInteraction.findMany({ where: { userId: targetUserId } }),
   ]);
 
-  const targetInteractionMap = new Map(targetInteractions.map((i) => [i.movieId, i]));
+  const targetInteractionMap = new Map(targetInteractions.map((i: any) => [i.movieId, i]));
 
   await db.$transaction(async (tx) => {
     // 1. Merge MovieInteractions
-    for (const anonInt of anonInteractions) {
-      const targetInt = targetInteractionMap.get(anonInt.movieId);
+    for (const anonInt of anonInteractions as any[]) {
+      const targetInt: any = targetInteractionMap.get(anonInt.movieId);
 
       if (!targetInt) {
         // Move interaction to target user
@@ -151,10 +151,10 @@ export async function mergeAnonymousUserIntoAccount(
     // 2. Merge RecommendationFeedback
     const anonFeedbacks = await tx.recommendationFeedback.findMany({ where: { userId: anonymousUserId } });
     const targetFeedbacks = await tx.recommendationFeedback.findMany({ where: { userId: targetUserId } });
-    const targetFeedbackMap = new Map(targetFeedbacks.map((f) => [f.movieId, f]));
+    const targetFeedbackMap = new Map(targetFeedbacks.map((f: any) => [f.movieId, f]));
 
-    for (const fb of anonFeedbacks) {
-      const targetFb = targetFeedbackMap.get(fb.movieId);
+    for (const fb of anonFeedbacks as any[]) {
+      const targetFb: any = targetFeedbackMap.get(fb.movieId);
       if (!targetFb) {
         await tx.recommendationFeedback.update({
           where: { id: fb.id },
@@ -176,7 +176,7 @@ export async function mergeAnonymousUserIntoAccount(
 
     // 3. Merge RecommendationExplanations
     const anonExplanations = await tx.recommendationExplanation.findMany({ where: { userId: anonymousUserId } });
-    for (const exp of anonExplanations) {
+    for (const exp of anonExplanations as any[]) {
       const exists = await tx.recommendationExplanation.findFirst({
         where: {
           userId: targetUserId,
@@ -202,7 +202,7 @@ export async function mergeAnonymousUserIntoAccount(
     });
 
     const anonMemberships = await tx.movieNightMember.findMany({ where: { userId: anonymousUserId } });
-    for (const m of anonMemberships) {
+    for (const m of anonMemberships as any[]) {
       const exists = await tx.movieNightMember.findUnique({
         where: { sessionId_userId: { sessionId: m.sessionId, userId: targetUserId } },
       });

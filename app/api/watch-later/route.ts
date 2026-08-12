@@ -18,7 +18,7 @@ export async function GET() {
       },
     });
 
-    const items = watchLaterItems.map((item) => {
+    const items = watchLaterItems.map((item: any) => {
       const meta = (item.movie.metadata as Record<string, unknown>) || {};
       return {
         feedbackId: item.id,

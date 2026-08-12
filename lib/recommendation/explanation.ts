@@ -62,7 +62,7 @@ export async function generateRecommendationExplanation(
       genres: movie.genres,
       releaseYear: movie.releaseYear,
       matchScore: matchResult.matchScore,
-      userTopGenres: profile.genres.slice(0, 3).map((g) => g.name),
+      userTopGenres: profile.genres.slice(0, 3).map((g: any) => g.name),
       userTopEra: profile.eras[0]?.label || "",
       userTraits: profile.traits.slice(0, 3),
     };

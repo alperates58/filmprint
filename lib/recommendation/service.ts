@@ -54,8 +54,8 @@ export async function getPersonalizedRecommendations(
   const answeredMovieCount = answeredInteractions.length;
 
   const excludedMovieIds = new Set([
-    ...answeredInteractions.map((i) => i.movieId),
-    ...feedbacks.map((f) => f.movieId),
+    ...answeredInteractions.map((i: any) => i.movieId),
+    ...feedbacks.map((f: any) => f.movieId),
   ]);
 
   // 3. Query DB candidate movies (300 candidates)
@@ -88,7 +88,7 @@ export async function getPersonalizedRecommendations(
   }
 
   // Format candidate movies
-  const candidates: CandidateMovie[] = rawCandidates.map((m) => {
+  const candidates: CandidateMovie[] = rawCandidates.map((m: any) => {
     const meta = (m.metadata as Record<string, unknown>) || {};
     return {
       id: m.id,
@@ -106,7 +106,7 @@ export async function getPersonalizedRecommendations(
   });
 
   // 4. Calculate deterministic match score with feedback learning for each candidate
-  const matchedList = candidates.map((m) =>
+  const matchedList = candidates.map((m: any) =>
     calculateMovieMatch(m, profile, feedbackProfile)
   );
 

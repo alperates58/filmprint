@@ -57,14 +57,14 @@ export async function getIntelligentCalibrationQueue(
     },
   });
 
-  const answeredMovieIds = new Set(answeredInteractions.map((i) => i.movieId));
+  const answeredMovieIds = new Set(answeredInteractions.map((i: any) => i.movieId));
   const answeredCount = answeredMovieIds.size;
 
   // Recent history pattern for repetition penalty
   const recentWindow = settings.recentHistoryWindow || 10;
   const recentInteractions: RecentInteractionPattern[] = answeredInteractions
     .slice(0, recentWindow)
-    .map((i) => {
+    .map((i: any) => {
       const meta = (i.movie.metadata as Record<string, unknown>) || {};
       return {
         movieId: i.movieId,
@@ -118,7 +118,7 @@ export async function getIntelligentCalibrationQueue(
   }
 
   // Format raw candidate movies
-  const candidatePool: CandidateMovie[] = rawCandidates.map((m) => {
+  const candidatePool: CandidateMovie[] = rawCandidates.map((m: any) => {
     const meta = (m.metadata as Record<string, unknown>) || {};
     return {
       id: m.id,
@@ -140,7 +140,7 @@ export async function getIntelligentCalibrationQueue(
 
   if (settings.aiEnabled && settings.activeLearningEnabled !== false) {
     const rankedResults = rankCandidateMovies(candidatePool, profileInput, recentInteractions);
-    selectedMovies = rankedResults.slice(0, limit).map((r) => ({
+    selectedMovies = rankedResults.slice(0, limit).map((r: any) => ({
       ...r.movie,
       selectionScore: r.score,
       reasons: r.reasons,

@@ -17,10 +17,10 @@ export function calculateMovieMatch(
   const reasons: string[] = [];
 
   const genreScoreMap = new Map<string, number>(
-    (profile.genres || []).map((g) => [g.name, g.score])
+    (profile.genres || []).map((g: any) => [g.name, g.score])
   );
   const eraScoreMap = new Map<string, number>(
-    (profile.eras || []).map((e) => [e.key, e.score])
+    (profile.eras || []).map((e: any) => [e.key, e.score])
   );
 
   // 1. Genre Match Score (0.0 - 1.0)

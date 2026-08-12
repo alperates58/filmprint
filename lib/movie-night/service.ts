@@ -85,7 +85,7 @@ export async function joinMovieNightSession(code: string, userId: string) {
     throw new Error("Bu Movie Night seansı iptal edilmiştir.");
   }
 
-  const existingMember = session.members.find((m) => m.userId === userId);
+  const existingMember = session.members.find((m: any) => m.userId === userId);
   if (existingMember) {
     return session;
   }
@@ -129,14 +129,14 @@ export async function getMovieNightSessionInfo(
 
   const isExpired = new Date() > session.expiresAt || session.status === MovieNightStatus.EXPIRED;
   const isHost = session.hostUserId === currentUserId;
-  const isMember = session.members.some((m) => m.userId === currentUserId);
+  const isMember = session.members.some((m: any) => m.userId === currentUserId);
 
   // Pre-fetch all member Film DNA profiles in parallel
   const memberProfiles = await Promise.all(
-    session.members.map((m) => getOrCalculateUserProfile(m.userId))
+    session.members.map((m: any) => getOrCalculateUserProfile(m.userId))
   );
 
-  const members: MovieNightMemberInfo[] = session.members.map((m, index) => {
+  const members: MovieNightMemberInfo[] = session.members.map((m: any, index: number) => {
     const isUserHost = m.userId === session.hostUserId;
     const isUserCurrent = m.userId === currentUserId;
     const profileRes = memberProfiles[index];
@@ -196,7 +196,7 @@ export async function getMovieNightSessionInfo(
  */
 export async function toggleMovieNightMemberReady(code: string, userId: string) {
   const sessionInfo = await getMovieNightSessionInfo(code, userId);
-  const member = sessionInfo.members.find((m) => m.userId === userId);
+  const member = sessionInfo.members.find((m: any) => m.userId === userId);
 
   if (!member) {
     throw new Error("Bu seansın üyesi değilsiniz.");
@@ -247,11 +247,11 @@ export async function getMovieNightRecommendations(
     throw new Error("Bu seansın süresi dolmuştur.");
   }
 
-  const memberUserIds = sessionInfo.members.map((m) => m.userId);
+  const memberUserIds = sessionInfo.members.map((m: any) => m.userId);
 
   // 1. Pre-fetch all member Film DNA profiles and feedback profiles in PARALLEL batch queries
   const memberData = await Promise.all(
-    sessionInfo.members.map(async (m) => {
+    sessionInfo.members.map(async (m: any) => {
       const [profileRes, feedbackProfile] = await Promise.all([
         getOrCalculateUserProfile(m.userId),
         buildUserFeedbackProfile(m.userId),
@@ -291,10 +291,10 @@ export async function getMovieNightRecommendations(
 
   // If excludeWatched is enabled, exclude any movie watched by ANY member
   if (sessionInfo.excludeWatched) {
-    for (const i of memberInteractions) {
+    for (const i of memberInteractions as any[]) {
       if (i.status === "WATCHED") excludedMovieIds.add(i.movieId);
     }
-    for (const f of memberFeedbacks) {
+    for (const f of memberFeedbacks as any[]) {
       if (f.action === "WATCHED_FROM_RECOMMENDATION" || f.action === "ALREADY_WATCHED") {
         excludedMovieIds.add(f.movieId);
       }
@@ -302,7 +302,7 @@ export async function getMovieNightRecommendations(
   }
 
   // Exclude movies with NOT_INTERESTED feedback by ANY member
-  for (const f of memberFeedbacks) {
+  for (const f of memberFeedbacks as any[]) {
     if (f.action === "NOT_INTERESTED") {
       excludedMovieIds.add(f.movieId);
     }
@@ -328,7 +328,7 @@ export async function getMovieNightRecommendations(
     });
   }
 
-  const candidates: CandidateMovie[] = rawCandidates.map((m) => {
+  const candidates: CandidateMovie[] = rawCandidates.map((m: any) => {
     const meta = (m.metadata as Record<string, unknown>) || {};
     return {
       id: m.id,
@@ -346,8 +346,8 @@ export async function getMovieNightRecommendations(
   });
 
   // 4. In-Memory Group Match Calculation for candidates (<50ms)
-  const groupResults: GroupMovieMatchResult[] = candidates.map((movie) => {
-    const memberInputs: MemberMatchInput[] = memberData.map((d) => {
+  const groupResults: GroupMovieMatchResult[] = candidates.map((movie: any) => {
+    const memberInputs: MemberMatchInput[] = memberData.map((d: any) => {
       const matchResult = calculateMovieMatch(movie, d.profile, d.feedbackProfile);
       return {
         userId: d.member.userId,

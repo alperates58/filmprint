@@ -209,7 +209,7 @@ export async function getLibraryData(
   }
 
   // Query MovieInteraction by status
-  let targetStatus = InteractionStatus.WATCHED;
+  let targetStatus: InteractionStatus = InteractionStatus.WATCHED;
   if (status === "not_watched") targetStatus = InteractionStatus.NOT_WATCHED;
   else if (status === "unsure") targetStatus = InteractionStatus.UNSURE;
 

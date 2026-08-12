@@ -99,14 +99,14 @@ export function Header({
             </Link>
 
             <Link
-              href="/watch-later"
+              href="/library"
               className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
-                pathname === "/watch-later"
+                pathname.startsWith("/library")
                   ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
                   : "text-text-muted hover:text-text-primary"
               }`}
             >
-              Daha Sonra
+              Filmlerim
             </Link>
 
             <Link
@@ -237,13 +237,13 @@ export function Header({
             </Link>
 
             <Link
-              href="/watch-later"
+              href="/library"
               onClick={() => setMobileMenuOpen(false)}
               className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
-                pathname === "/watch-later" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+                pathname.startsWith("/library") ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
               }`}
             >
-              Daha Sonra İzlenecekler
+              Filmlerim
             </Link>
 
             <Link

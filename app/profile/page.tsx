@@ -8,13 +8,21 @@ import { GenreSignature } from "@/components/profile/GenreSignature";
 import { EraSignature } from "@/components/profile/EraSignature";
 import { TasteTraits } from "@/components/profile/TasteTraits";
 import { FilmJourney } from "@/components/profile/FilmJourney";
+import { db } from "@/lib/db/client";
+import { InteractionStatus } from "@prisma/client";
 
 export default async function ProfilePage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     redirect("/auth");
   }
-  const data = await getOrCalculateUserProfile(currentUser.id);
+  const [data, watchedCount, notWatchedCount, unsureCount, watchLaterCount] = await Promise.all([
+    getOrCalculateUserProfile(currentUser.id),
+    db.movieInteraction.count({ where: { userId: currentUser.id, status: InteractionStatus.WATCHED } }),
+    db.movieInteraction.count({ where: { userId: currentUser.id, status: InteractionStatus.NOT_WATCHED } }),
+    db.movieInteraction.count({ where: { userId: currentUser.id, status: InteractionStatus.UNSURE } }),
+    db.recommendationFeedback.count({ where: { userId: currentUser.id, action: "WATCH_LATER" } }),
+  ]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background selection:bg-accent selection:text-white">
@@ -78,6 +86,45 @@ export default async function ProfilePage() {
             </div>
 
             <FilmJourney evaluatedCount={data.current} />
+
+            {/* Filmlerim Summary Card */}
+            <div className="p-6 rounded-3xl bg-surface border border-border/80 space-y-4 shadow-cinematic">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-mono text-accent uppercase tracking-widest font-semibold">
+                    KİŞİSEL KÜTÜPHANE ÖZETİ
+                  </span>
+                  <h3 className="font-display text-xl font-bold text-text-primary">
+                    Filmlerim
+                  </h3>
+                </div>
+                <Link
+                  href="/library"
+                  className="px-4 py-2 rounded-xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all"
+                >
+                  Tüm Filmlerimi Gör ➔
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                <Link href="/library?tab=watched" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
+                  <p className="text-2xl font-mono font-bold text-text-primary">{watchedCount}</p>
+                  <p className="text-xs font-mono text-text-muted">🎬 İzledim</p>
+                </Link>
+                <Link href="/library?tab=not_watched" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
+                  <p className="text-2xl font-mono font-bold text-text-primary">{notWatchedCount}</p>
+                  <p className="text-xs font-mono text-text-muted">🙈 İzlemedim</p>
+                </Link>
+                <Link href="/library?tab=unsure" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
+                  <p className="text-2xl font-mono font-bold text-text-primary">{unsureCount}</p>
+                  <p className="text-xs font-mono text-text-muted">🤔 Emin Değilim</p>
+                </Link>
+                <Link href="/library?tab=watch_later" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
+                  <p className="text-2xl font-mono font-bold text-text-primary">{watchLaterCount}</p>
+                  <p className="text-xs font-mono text-text-muted">🔖 Daha Sonra</p>
+                </Link>
+              </div>
+            </div>
           </div>
         ) : (
           /* Ready Film DNA Profile View */
@@ -145,6 +192,45 @@ export default async function ProfilePage() {
 
             {/* Film Journey & Rank Progression Section */}
             <FilmJourney evaluatedCount={data.current} />
+
+            {/* Filmlerim Summary Card */}
+            <div className="p-6 rounded-3xl bg-surface border border-border/80 space-y-4 shadow-cinematic">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-mono text-accent uppercase tracking-widest font-semibold">
+                    KİŞİSEL KÜTÜPHANE ÖZETİ
+                  </span>
+                  <h3 className="font-display text-xl font-bold text-text-primary">
+                    Filmlerim
+                  </h3>
+                </div>
+                <Link
+                  href="/library"
+                  className="px-4 py-2 rounded-xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all"
+                >
+                  Tüm Filmlerimi Gör ➔
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                <Link href="/library?tab=watched" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
+                  <p className="text-2xl font-mono font-bold text-text-primary">{watchedCount}</p>
+                  <p className="text-xs font-mono text-text-muted">🎬 İzledim</p>
+                </Link>
+                <Link href="/library?tab=not_watched" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
+                  <p className="text-2xl font-mono font-bold text-text-primary">{notWatchedCount}</p>
+                  <p className="text-xs font-mono text-text-muted">🙈 İzlemedim</p>
+                </Link>
+                <Link href="/library?tab=unsure" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
+                  <p className="text-2xl font-mono font-bold text-text-primary">{unsureCount}</p>
+                  <p className="text-xs font-mono text-text-muted">🤔 Emin Değilim</p>
+                </Link>
+                <Link href="/library?tab=watch_later" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
+                  <p className="text-2xl font-mono font-bold text-text-primary">{watchLaterCount}</p>
+                  <p className="text-xs font-mono text-text-muted">🔖 Daha Sonra</p>
+                </Link>
+              </div>
+            </div>
 
             {/* Visual Signatures */}
             <GenreSignature genres={data.profile.genres} />

@@ -74,16 +74,25 @@ export async function getOrCalculateUserProfile(userId: string): Promise<Profile
     };
   });
 
+  // Track latest interaction timestamp (answeredAt or updatedAt) for stale detection
+  const latestInteractionDate = interactions.reduce((max: Date | null, i: any) => {
+    const itemDate = i.updatedAt || i.answeredAt;
+    if (!max || itemDate > max) return itemDate;
+    return max;
+  }, null);
+
   // Check if existing calculated profile is fresh
   const existingProfile = await db.userTasteProfile.findUnique({
     where: { userId },
   });
 
-  if (
+  const isFresh =
     existingProfile &&
     existingProfile.sourceInteractionCount === totalInteractions &&
-    existingProfile.profileJson
-  ) {
+    existingProfile.profileJson &&
+    (!latestInteractionDate || existingProfile.updatedAt >= latestInteractionDate);
+
+  if (isFresh && existingProfile) {
     const parsed = existingProfile.profileJson as unknown as FilmDnaResult;
     return {
       ready: true,

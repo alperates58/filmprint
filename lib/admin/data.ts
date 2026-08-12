@@ -315,6 +315,7 @@ export async function getAdminUserDetailData(id: string) {
         status: i.status,
         rating: i.rating,
         answeredAt: i.answeredAt,
+        updatedAt: i.updatedAt || i.answeredAt,
       })),
       recommendationFeedbacks: user.recommendationFeedbacks.map((f: any) => ({
         id: f.id,

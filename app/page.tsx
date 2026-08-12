@@ -15,7 +15,7 @@ export default async function Home() {
     where: { userId },
     select: { movieId: true },
   });
-  const answeredMovieIds = new Set(answeredInteractions.map((i: { movieId: number }) => i.movieId));
+  const answeredMovieIds = new Set(answeredInteractions.map((i: { movieId: string }) => i.movieId));
   const answeredCount = answeredMovieIds.size;
 
   // Fetch initial candidates from database

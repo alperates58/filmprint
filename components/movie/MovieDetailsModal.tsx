@@ -257,7 +257,7 @@ export function MovieDetailsModal({
 
                   {(initialData?.matchScore || details) && initialData?.matchScore ? (
                     <span className="px-2.5 py-1 rounded-full bg-accent/20 border border-accent/40 text-accent font-bold">
-                      %{initialData.matchScore} UYUM
+                      ❤️ %{initialData.matchScore} UYUM
                     </span>
                   ) : null}
 

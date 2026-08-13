@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/ui/Header";
+import { Footer } from "@/components/ui/Footer";
 import { getCurrentUser } from "@/lib/auth/service";
 import { getOrCalculateUserProfile } from "@/lib/profile/service";
 import { GenreSignature } from "@/components/profile/GenreSignature";
@@ -283,9 +284,7 @@ export default async function ProfilePage() {
         )}
       </main>
 
-      <footer className="border-t border-border/60 py-6 text-center text-xs text-text-muted font-mono">
-        FILMPRINT &copy; {new Date().getFullYear()} — Film DNA Profile Engine v1.0
-      </footer>
+      <Footer />
     </div>
   );
 }

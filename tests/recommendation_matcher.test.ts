@@ -1,7 +1,7 @@
-import { calculateMovieMatch } from "@/lib/recommendation/matcher";
-import { generateRecommendationExplanation } from "@/lib/recommendation/explanation";
-import { CandidateMovie } from "@/lib/calibration/types";
-import { FilmDnaResult } from "@/lib/profile/types";
+import { calculateMovieMatch } from "../lib/recommendation/matcher.ts";
+import { generateRecommendationExplanation } from "../lib/recommendation/explanation.ts";
+import type { CandidateMovie } from "../lib/calibration/types.ts";
+import type { FilmDnaResult } from "../lib/profile/types.ts";
 
 function makeCandidateMovie(
   id: string,
@@ -79,7 +79,7 @@ export async function runRecommendationMatcherTests() {
   const horrorMovie = makeCandidateMovie("2", "The Conjuring", ["Korku"], 2013);
   const horrorMatch = calculateMovieMatch(horrorMovie, profile);
   assert(
-    horrorMatch.matchScore < 60 && horrorMatch.reasons.some((r) => r.includes("disliked_genre")),
+    horrorMatch.matchScore < 60 && horrorMatch.reasons.some((r) => r.toLowerCase().includes("negative") || r.toLowerCase().includes("disliked")),
     `Genre Mismatch: Disliked horror genre gets negative penalty (%${horrorMatch.matchScore})`
   );
 

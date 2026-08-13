@@ -1,4 +1,6 @@
-import type { CandidateMovie } from "@/lib/calibration/types";
+import type { CandidateMovie } from "../calibration/types";
+
+export type CandidateSource = "KNOWN_UNWATCHED" | "FRESH_DISCOVERY" | "ADJACENT_DISCOVERY";
 
 export interface MatchComponents {
   genre: number;
@@ -8,15 +10,23 @@ export interface MatchComponents {
   discovery: number;
   feedback?: number;
   dislikePenalty?: number;
+  tasteFit?: number;
+  evidenceFit?: number;
+  contextFit?: number;
+  qualityFit?: number;
 }
 
 export interface MovieMatchResult {
   movie: CandidateMovie;
   matchScore: number;
+  rawMatchScore: number;
+  displayMatchScore: number;
+  qualityScore: number;
   matchLabel: string;
   feedbackAdjustment?: number;
   components: MatchComponents;
   reasons: string[];
+  candidateSource?: CandidateSource;
 }
 
 export interface ExplanationResult {
@@ -29,12 +39,15 @@ export interface ExplanationResult {
 export interface PersonalizedRecommendationItem {
   movie: CandidateMovie;
   match: number;
+  displayMatch?: number;
+  rawMatch?: number;
   matchLabel: string;
   headline: string;
   reasons: string[];
   isAiGenerated: boolean;
   components: MatchComponents;
   evidence?: CandidateEvidence;
+  candidateSource?: CandidateSource;
   debugInfo?: DebugDiagnosticInfo;
 }
 
@@ -104,17 +117,29 @@ export type EditorialCategoryMode =
   | "BRAINY"
   | "CLASSIC"
   | "SHORT"
-  | "HIDDEN_GEMS";
+  | "HIDDEN_GEMS"
+  | "KNOWN_UNWATCHED_ROW";
 
 export interface DebugDiagnosticInfo {
-  candidateScore: number;
-  tasteScore: number;
-  contextScore: number;
-  feedbackAdjustment: number;
-  dislikePenalty: number;
-  diversityPenalty: number;
-  referenceEvidence: string[];
-  referenceSimilarity: number;
-  finalScore: number;
-  explanationSource: "ai" | "deterministic_cache" | "deterministic_fallback";
+  candidateSource: CandidateSource;
+  rawMatchScore: number;
+  displayMatchScore: number;
+  qualityScore: number;
+  voteAverage: number;
+  voteCount: number;
+  categoryFit: number;
+  knownUnwatched: boolean;
+  crossRowDuplicatePenalty: number;
+  selectedRow?: string;
+  candidateScore?: number;
+  tasteScore?: number;
+  contextScore?: number;
+  feedbackAdjustment?: number;
+  dislikePenalty?: number;
+  diversityPenalty?: number;
+  referenceEvidence?: string[];
+  referenceSimilarity?: number;
+  finalScore?: number;
+  explanationSource?: "ai" | "deterministic_cache" | "deterministic_fallback";
 }
+

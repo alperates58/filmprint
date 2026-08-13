@@ -1,7 +1,7 @@
-import { db } from "@/lib/db/client";
+import { db } from "../db/client";
 import { calculateFilmDna } from "./calculator";
-import { FilmDnaResult, RawInteractionData } from "./types";
-import { getSystemSettings } from "@/lib/config/service";
+import type { FilmDnaResult, RawInteractionData } from "./types";
+import { getSystemSettings } from "../config/service";
 import { Prisma } from "@prisma/client";
 
 export interface ProfileResponse {

@@ -1,18 +1,47 @@
-import { CandidateMovie } from "@/lib/calibration/types";
-import { FilmDnaResult } from "@/lib/profile/types";
-import { MovieMatchResult, MatchComponents } from "./types";
-import { MATCH_WEIGHTS, NEGATIVE_GENRE_PENALTY, getMatchLabel } from "./constants";
+import type { CandidateMovie } from "../calibration/types";
+import type { FilmDnaResult } from "../profile/types";
+import type { MovieMatchResult, MatchComponents, CandidateEvidence } from "./types";
+import { MATCH_WEIGHTS, NEGATIVE_GENRE_PENALTY, DISPLAY_MATCH_SCORE_MAX, getMatchLabel } from "./constants";
 import { FEEDBACK_ADJUSTMENT_BOUNDS } from "./feedback-constants";
-import { FeedbackProfile, EMPTY_FEEDBACK_PROFILE } from "./feedback-profile";
+import type { FeedbackProfile } from "./feedback-profile";
+import { EMPTY_FEEDBACK_PROFILE } from "./feedback-profile";
+import { calculateQualityScore } from "./quality";
+
+/**
+ * Calibrates raw match score to user-facing display score (Match Engine v3.1).
+ * Capped at DISPLAY_MATCH_SCORE_MAX (97%). Requires strong reference evidence for 90%+ scores.
+ */
+export function calibrateMatchScore(
+  rawScore: number,
+  hasStrongEvidence: boolean = false
+): number {
+  const boundedRaw = Math.max(0, Math.min(100, rawScore));
+
+  // Cap at 97% max
+  let calibrated = Math.min(DISPLAY_MATCH_SCORE_MAX, boundedRaw);
+
+  // High score requirement: 90%+ display score requires strong evidence support
+  if (calibrated >= 90 && !hasStrongEvidence) {
+    calibrated = 89;
+  }
+
+  // Smooth upper distribution to eliminate 100% saturation
+  if (calibrated >= 90) {
+    calibrated = 90 + Math.floor((calibrated - 90) * 0.7);
+  }
+
+  return Math.max(0, Math.min(DISPLAY_MATCH_SCORE_MAX, Math.round(calibrated)));
+}
 
 /**
  * Calculates deterministic match score between a candidate movie and a user's Film DNA profile
- * with feedback learning adjustments (Match Engine v2.0).
+ * with feedback learning adjustments and Bayesian quality weighting (Match Engine v3.1).
  */
 export function calculateMovieMatch(
   movie: CandidateMovie,
   profile: FilmDnaResult,
-  feedbackProfile: FeedbackProfile = EMPTY_FEEDBACK_PROFILE
+  feedbackProfile: FeedbackProfile = EMPTY_FEEDBACK_PROFILE,
+  evidence?: CandidateEvidence
 ): MovieMatchResult {
   const reasons: string[] = [];
 
@@ -57,8 +86,8 @@ export function calculateMovieMatch(
     popularityScore = 0.75;
   }
 
-  // 4. Quality Compatibility Score (0.0 - 1.0)
-  const qualityScore = Math.min(1.0, movie.voteAverage / 10);
+  // 4. Bayesian Weighted Quality Score (0.0 - 1.0)
+  const qualityScoreValue = calculateQualityScore(movie);
 
   // 5. Discovery Balance Score (0.0 - 1.0)
   let discoveryScore = 0.5;
@@ -74,7 +103,7 @@ export function calculateMovieMatch(
     genreScore * MATCH_WEIGHTS.GENRE * 100 +
     eraScore * MATCH_WEIGHTS.ERA * 100 +
     popularityScore * MATCH_WEIGHTS.POPULARITY * 100 +
-    qualityScore * MATCH_WEIGHTS.QUALITY * 100 +
+    qualityScoreValue * MATCH_WEIGHTS.QUALITY * 100 +
     discoveryScore * MATCH_WEIGHTS.DISCOVERY * 100;
 
   // Apply Negative Disliked Genre Penalty (-25)
@@ -112,24 +141,35 @@ export function calculateMovieMatch(
     Math.min(FEEDBACK_ADJUSTMENT_BOUNDS.MAX, Math.round(rawFeedbackAdj))
   );
 
-  // Calculate Final Bounded Match Score
-  const finalMatchScore = Math.max(0, Math.min(100, Math.round(baseMatchScore + feedbackAdjustment)));
+  // Raw uncalibrated score
+  const rawMatchScore = Math.max(0, Math.min(100, Math.round(baseMatchScore + feedbackAdjustment)));
+
+  // Calibrated display score (v3.1)
+  const hasStrongEvidence = evidence?.hasStrongReference ?? false;
+  const displayMatchScore = calibrateMatchScore(rawMatchScore, hasStrongEvidence);
 
   const components: MatchComponents = {
     genre: Number(genreScore.toFixed(2)),
     era: Number(eraScore.toFixed(2)),
     popularity: Number(popularityScore.toFixed(2)),
-    quality: Number(qualityScore.toFixed(2)),
+    quality: Number(qualityScoreValue.toFixed(2)),
     discovery: Number(discoveryScore.toFixed(2)),
     feedback: Number((feedbackAdjustment / 10).toFixed(2)),
+    tasteFit: Number(genreScore.toFixed(2)),
+    evidenceFit: hasStrongEvidence ? (evidence?.positiveReferences[0]?.similarityScore || 0.7) : 0.4,
+    qualityFit: Number(qualityScoreValue.toFixed(2)),
   };
 
   return {
     movie,
-    matchScore: finalMatchScore,
-    matchLabel: getMatchLabel(finalMatchScore),
+    matchScore: displayMatchScore,
+    rawMatchScore,
+    displayMatchScore,
+    qualityScore: qualityScoreValue,
+    matchLabel: getMatchLabel(displayMatchScore),
     feedbackAdjustment,
     components,
     reasons,
   };
 }
+

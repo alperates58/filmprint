@@ -1,9 +1,9 @@
 import {
   generateDeterministicExplanation,
-} from "../lib/recommendation/explanation";
-import type { MovieMatchResult } from "../lib/recommendation/types";
-import type { CandidateMovie } from "../lib/calibration/types";
-import type { FilmDnaResult } from "../lib/profile/types";
+} from "../lib/recommendation/explanation.ts";
+import type { MovieMatchResult } from "../lib/recommendation/types.ts";
+import type { CandidateMovie } from "../lib/calibration/types.ts";
+import type { FilmDnaResult } from "../lib/profile/types.ts";
 
 export function runRecommendationUpgradeTests() {
   console.log("=== PHASE 6A RECOMMENDATION EXPERIENCE UPGRADE UNIT TESTS ===\n");

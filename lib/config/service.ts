@@ -1,5 +1,5 @@
-import { db } from "@/lib/db/client";
-import { encryptSecret, decryptSecret } from "@/lib/security/crypto";
+import { db } from "../db/client";
+import { encryptSecret, decryptSecret } from "../security/crypto";
 import type { Prisma } from "@prisma/client";
 
 export interface IntegrationStatusInfo {

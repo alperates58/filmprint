@@ -1,6 +1,6 @@
-import { db } from "@/lib/db/client";
+import { db } from "../lib/db/client.ts";
 import { RecommendationAction, RatingStatus } from "@prisma/client";
-import { getPersonalizedRecommendations } from "@/lib/recommendation/service";
+import { getPersonalizedRecommendations } from "../lib/recommendation/service.ts";
 
 export async function runRecommendationFeedbackTests() {
   console.log("=== PHASE 3C RECOMMENDATION FEEDBACK UNIT TESTS ===\n");

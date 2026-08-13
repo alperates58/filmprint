@@ -1,4 +1,4 @@
-import { db } from "@/lib/db/client";
+import { db } from "../db/client";
 import { RecommendationAction, RatingStatus } from "@prisma/client";
 import { ACTION_WEIGHTS, getRecencyWeight } from "./feedback-constants";
 

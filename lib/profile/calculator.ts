@@ -1,5 +1,5 @@
 import { RATING_WEIGHTS, ERA_BUCKETS, FILM_DNA_ALGORITHM_VERSION } from "./constants";
-import {
+import type {
   RawInteractionData,
   FilmDnaResult,
   GenrePreference,

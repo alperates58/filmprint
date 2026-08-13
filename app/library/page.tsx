@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Header } from "@/components/ui/Header";
+import { Footer } from "@/components/ui/Footer";
 
 import { MovieDetailsModal } from "@/components/movie/MovieDetailsModal";
 
@@ -594,6 +595,8 @@ function LibraryContent() {
           </div>
         )}
       </main>
+
+      <Footer />
 
       {/* Cinematic Movie Detail Modal */}
       <MovieDetailsModal

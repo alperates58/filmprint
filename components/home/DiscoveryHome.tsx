@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Header } from "@/components/ui/Header";
+import { Footer } from "@/components/ui/Footer";
 import { MovieDetailsModal } from "@/components/movie/MovieDetailsModal";
 import { getProgressionForCount } from "@/lib/progression/service";
 
@@ -169,6 +170,7 @@ export function DiscoveryHome({
             </p>
             <div className="flex flex-wrap gap-2">
               {[
+                { id: "known-unwatched", label: "👀 İzlemediğin" },
                 { id: "rainy", label: "🌧️ Yağmurlu Hava" },
                 { id: "comedy", label: "🍿 Komedi" },
                 { id: "thriller", label: "⚡ Gerilim" },
@@ -315,7 +317,7 @@ export function DiscoveryHome({
           </div>
         )}
 
-        {/* 10 Discovery Modules (Horizontal Scrolling Rows) */}
+        {/* 10-11 Discovery Modules (Horizontal Scrolling Rows) */}
         {!isLoading &&
           modules.map((mod) => (
             <section key={mod.id} id={`module-${mod.id}`} className="space-y-4 pt-2">
@@ -333,7 +335,7 @@ export function DiscoveryHome({
 
               {/* Horizontal Scroll Movie Row */}
               <div className="flex gap-4 overflow-x-auto no-scrollbar pb-3 pt-1">
-                {mod.movies.map((movie) => {
+                {mod.movies.map((movie: any) => {
                   const posterUrl = movie.posterPath
                     ? movie.posterPath.startsWith("http")
                       ? movie.posterPath
@@ -372,21 +374,29 @@ export function DiscoveryHome({
                           </div>
                         )}
 
-                        {movie.voteAverage > 0 && (
-                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-text-primary text-[10px] font-mono font-bold">
-                            ⭐ {movie.voteAverage.toFixed(1)}
+                        {/* Top-Right Badge: Match % if available */}
+                        {movie.matchScore ? (
+                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-accent text-[10px] font-mono font-bold">
+                            ❤️ %{movie.matchScore}
                           </div>
-                        )}
+                        ) : null}
                       </div>
 
-                      {/* Info */}
+                      {/* Info & TMDB rating */}
                       <div>
                         <h4 className="font-display text-xs font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors">
                           {movie.title}
                         </h4>
-                        <p className="text-[10px] font-mono text-text-muted line-clamp-1">
-                          {movie.releaseYear || "Tarihsiz"} • {movie.genres.join(", ")}
-                        </p>
+                        <div className="flex items-center justify-between text-[10px] font-mono text-text-muted mt-0.5">
+                          <span className="line-clamp-1">
+                            {movie.releaseYear || "Tarihsiz"} • {movie.genres[0] || "Film"}
+                          </span>
+                          {movie.voteAverage > 0 && (
+                            <span className="text-text-secondary font-bold flex-shrink-0 ml-1">
+                              ⭐ {movie.voteAverage.toFixed(1)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -394,6 +404,7 @@ export function DiscoveryHome({
               </div>
             </section>
           ))}
+
 
         {/* Cinematic Movie Detail Modal */}
         <MovieDetailsModal
@@ -403,9 +414,7 @@ export function DiscoveryHome({
         />
       </main>
 
-      <footer className="border-t border-border/60 py-6 text-center text-xs text-text-muted font-mono">
-        FILMPRINT &copy; {new Date().getFullYear()} — Filmprint Discovery Engine
-      </footer>
+      <Footer />
     </div>
   );
 }

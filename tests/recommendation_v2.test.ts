@@ -1,9 +1,10 @@
-import { calculateMovieMatch } from "@/lib/recommendation/matcher";
-import { FeedbackProfile, EMPTY_FEEDBACK_PROFILE } from "@/lib/recommendation/feedback-profile";
-import { MATCH_ENGINE_VERSION } from "@/lib/recommendation/constants";
-import { FEEDBACK_ADJUSTMENT_BOUNDS } from "@/lib/recommendation/feedback-constants";
-import { CandidateMovie } from "@/lib/calibration/types";
-import { FilmDnaResult } from "@/lib/profile/types";
+import { calculateMovieMatch } from "../lib/recommendation/matcher.ts";
+import type { FeedbackProfile } from "../lib/recommendation/feedback-profile.ts";
+import { EMPTY_FEEDBACK_PROFILE } from "../lib/recommendation/feedback-profile.ts";
+import { MATCH_ENGINE_VERSION } from "../lib/recommendation/constants.ts";
+import { FEEDBACK_ADJUSTMENT_BOUNDS } from "../lib/recommendation/feedback-constants.ts";
+import type { CandidateMovie } from "../lib/calibration/types.ts";
+import type { FilmDnaResult } from "../lib/profile/types.ts";
 
 export function runMatchEngineV2Tests() {
   console.log("=== PHASE 3D MATCH ENGINE V2 & FEEDBACK LEARNING UNIT TESTS ===\n");

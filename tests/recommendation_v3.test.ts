@@ -10,8 +10,8 @@ import {
   calculateDislikePenalty,
 } from "../lib/recommendation/evidence.ts";
 import { generateDeterministicExplanation } from "../lib/recommendation/explanation.ts";
-import type { CandidateMovie } from "../lib/calibration/types";
-import type { TasteEvidenceProfile, TasteEvidenceMovie } from "../lib/recommendation/types";
+import type { CandidateMovie } from "../lib/calibration/types.ts";
+import type { TasteEvidenceProfile, TasteEvidenceMovie } from "../lib/recommendation/types.ts";
 
 export function runRecommendationV3Tests() {
   console.log("=== PHASE 7B RECOMMENDATION INTELLIGENCE V3 TESTS ===\n");

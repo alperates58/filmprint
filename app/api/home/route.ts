@@ -10,8 +10,10 @@ import {
 } from "@/lib/recommendation/evidence";
 import {
   calculateCategoryContextFit,
+  filterCategoryCandidatesWithRelaxation,
   deduplicateHomeModules,
 } from "@/lib/recommendation/editorial-scorer";
+import { calculateQualityScore } from "@/lib/recommendation/quality";
 import { CandidateMovie } from "@/lib/calibration/types";
 import { FilmDnaResult } from "@/lib/profile/types";
 import { EditorialCategoryMode } from "@/lib/recommendation/types";
@@ -26,62 +28,88 @@ export async function GET() {
     const userId = currentUser.id;
 
     // 1. Fetch user profile & evidence
-    const [profileResponse, tasteEvidenceProfile] = await Promise.all([
-      getOrCalculateUserProfile(userId),
-      buildTasteEvidenceProfile(userId),
-    ]);
+    const [profileResponse, tasteEvidenceProfile, watchedInteractions, notWatchedInteractions, feedbacks] =
+      await Promise.all([
+        getOrCalculateUserProfile(userId),
+        buildTasteEvidenceProfile(userId),
+        db.movieInteraction.findMany({
+          where: { userId, status: "WATCHED" },
+          select: { movieId: true },
+        }),
+        db.movieInteraction.findMany({
+          where: { userId, status: "NOT_WATCHED" },
+          select: { movieId: true },
+        }),
+        db.recommendationFeedback.findMany({
+          where: { userId },
+          select: { movieId: true },
+        }),
+      ]);
 
     const profile = (profileResponse.profile || {}) as FilmDnaResult;
 
-    // 2. Fetch answered movie IDs
-    const answeredInteractions = await db.movieInteraction.findMany({
-      where: { userId },
-      select: { movieId: true },
-    });
-    const answeredMovieIds = new Set(answeredInteractions.map((i: any) => i.movieId));
+    // Excluded from home recommendations:
+    // - Movies user WATCHED
+    // - Recommendation feedback actions (NOT_INTERESTED, WATCH_LATER)
+    const watchedMovieIds = new Set(watchedInteractions.map((i: any) => i.movieId));
+    const blockedFeedbackIds = new Set(feedbacks.map((f: any) => f.movieId));
+    const notWatchedMovieIds = new Set(notWatchedInteractions.map((i: any) => i.movieId));
 
-    // 3. Fetch top match recommendation
+    const excludedMovieIds = new Set([
+      ...watchedMovieIds,
+      ...blockedFeedbackIds,
+    ]);
+
+    // 2. Fetch top hero recommendation match
     const topRecommendations = await getPersonalizedRecommendations(userId, 1);
     const topHeroMatch = topRecommendations.recommendations?.[0] || null;
 
-    // 4. Fetch candidate pool (400 unrated candidates)
+    // 3. Query candidate pool from DB (take up to 600 eligible movies, NOT excluding NOT_WATCHED)
     const rawCandidates = await db.movie.findMany({
       where: {
-        id: { notIn: Array.from(answeredMovieIds) },
+        id: { notIn: Array.from(excludedMovieIds) },
       },
       orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-      take: 400,
+      take: 600,
     });
 
-    const candidates: CandidateMovie[] = rawCandidates.map((m: any) => {
-      const meta = (m.metadata as Record<string, unknown>) || {};
-      return {
-        id: m.id,
-        tmdbId: m.tmdbId,
-        title: m.title,
-        originalTitle: m.originalTitle,
-        releaseYear: m.releaseYear,
-        popularity: m.popularity,
-        voteAverage: m.voteAverage,
-        posterPath: m.posterPath,
-        backdropPath: m.backdropPath,
-        genres: (meta.genres as string[]) || [],
-        overview: (meta.overview as string) || "",
-      };
-    });
+    const candidates: (CandidateMovie & { candidateSource: string; knownUnwatched: boolean })[] =
+      rawCandidates.map((m: any) => {
+        const meta = (m.metadata as Record<string, unknown>) || {};
+        const isKnownUnwatched = notWatchedMovieIds.has(m.id);
+        return {
+          id: m.id,
+          tmdbId: m.tmdbId,
+          title: m.title,
+          originalTitle: m.originalTitle,
+          releaseYear: m.releaseYear,
+          popularity: m.popularity,
+          voteAverage: m.voteAverage,
+          posterPath: m.posterPath,
+          backdropPath: m.backdropPath,
+          genres: (meta.genres as string[]) || [],
+          overview: (meta.overview as string) || "",
+          candidateSource: isKnownUnwatched ? "KNOWN_UNWATCHED" : "FRESH_DISCOVERY",
+          knownUnwatched: isKnownUnwatched,
+        };
+      });
 
-    // Helper to score movies for a specific editorial mode
+    // Helper to score and filter candidate movies for a specific editorial mode
     const scoreCategoryMovies = (mode: EditorialCategoryMode) => {
-      return candidates
+      const relaxedPool = filterCategoryCandidatesWithRelaxation(candidates, mode, 8);
+
+      return relaxedPool
         .map((candidate) => {
           const matchRes = calculateMovieMatch(candidate, profile);
           const contextFit = calculateCategoryContextFit(candidate, mode);
           const dislikePenalty = calculateDislikePenalty(candidate, tasteEvidenceProfile);
+          const qualityScore = calculateQualityScore(candidate);
 
           const finalHomeScore =
-            matchRes.matchScore * 0.45 +
-            contextFit * 35 +
-            (candidate.voteAverage / 10) * 10 -
+            matchRes.displayMatchScore * 0.40 +
+            contextFit * 40 +
+            qualityScore * 20 +
+            ((candidate as any).candidateSource === "KNOWN_UNWATCHED" || (candidate as any).knownUnwatched ? 5 : 0) -
             dislikePenalty;
 
           return {
@@ -90,7 +118,7 @@ export async function GET() {
             contextFit,
           };
         })
-        .filter((item) => item.contextFit >= 0.35) // Enforce strict category fit filter
+        .filter((item) => item.contextFit >= 0.25) // CategoryFit minimum floor
         .sort((a, b) => b.finalHomeScore - a.finalHomeScore)
         .map((item) => item.candidate);
     };
@@ -109,8 +137,15 @@ export async function GET() {
       overview: m.overview,
     });
 
-    // 5. Build candidate lists for all 10 categories
+    // 4. Build candidate lists for all 11 categories (including KNOWN_UNWATCHED_ROW)
     const rawModules = [
+      {
+        id: "known-unwatched",
+        title: "👀 Bunu İzlemediğini Söylemiştin",
+        icon: "👀",
+        description: "Daha önce izlemediğini belirttiğin ama Film DNA'nla bugün güçlü eşleşen filmler.",
+        movies: scoreCategoryMovies("KNOWN_UNWATCHED_ROW"),
+      },
       {
         id: "rainy",
         title: "Yağmurlu Hava, Sıcak Kahve Eşliğinde",
@@ -183,12 +218,16 @@ export async function GET() {
       },
     ];
 
-    // 6. Global Cross-Row Deduplication (Same movie max 1 row)
+    // 5. Global Soft Cross-Row Deduplication
     const deduplicated = deduplicateHomeModules(rawModules);
 
-    const modules = deduplicated.map((mod) => ({
+    // 6. Minimum Supply Filter (Hide rows with fewer than 4 movies)
+    // 0-3 film modules are strictly HIDDEN
+    const validModules = deduplicated.filter((mod) => mod.movies.length >= 4);
+
+    const modules = validModules.map((mod) => ({
       ...mod,
-      movies: mod.movies.slice(0, 12).map(formatMovie),
+      movies: mod.movies.slice(0, 8).map(formatMovie), // 6-8 target per row
     }));
 
     return NextResponse.json({

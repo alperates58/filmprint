@@ -9,6 +9,8 @@ import { RecommendationResponse } from "@/lib/recommendation/types";
 
 import { MovieDetailsModal } from "@/components/movie/MovieDetailsModal";
 
+import { Footer } from "@/components/ui/Footer";
+
 export default function RecommendationsPage() {
   const [data, setData] = useState<RecommendationResponse | null>(null);
   const [page, setPage] = useState<number>(0);
@@ -295,6 +297,8 @@ export default function RecommendationsPage() {
           }}
         />
       </main>
+
+      <Footer />
     </div>
   );
 }

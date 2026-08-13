@@ -1,6 +1,6 @@
-import { getDeepSeekConfig } from "@/lib/config/service";
-import type { CandidateMovie } from "@/lib/calibration/types";
-import type { FilmDnaResult } from "@/lib/profile/types";
+import { getDeepSeekConfig } from "../config/service";
+import type { CandidateMovie } from "../calibration/types";
+import type { FilmDnaResult } from "../profile/types";
 import type { MovieMatchResult, ExplanationResult, CandidateEvidence } from "./types";
 
 export const EXPLANATION_ENGINE_VERSION = "v3";

@@ -1,11 +1,10 @@
-import { db } from "@/lib/db/client";
-import { getSystemSettings } from "@/lib/config/service";
-import { getOrCalculateUserProfile } from "@/lib/profile/service";
-import { tmdbClient } from "@/lib/tmdb/client";
-import { calculateMovieMatch } from "./matcher";
+import { db } from "../db/client";
+import { getSystemSettings } from "../config/service";
+import { getOrCalculateUserProfile } from "../profile/service";
+import { tmdbClient } from "../tmdb/client";
+import { calculateMovieMatch, calibrateMatchScore } from "./matcher";
 import {
   generateRecommendationExplanation,
-  EXPLANATION_ENGINE_VERSION,
 } from "./explanation";
 import { buildUserFeedbackProfile } from "./feedback-profile";
 import {
@@ -13,21 +12,37 @@ import {
   getEvidenceForRecommendation,
   calculateDislikePenalty,
 } from "./evidence";
-import { CandidateMovie } from "@/lib/calibration/types";
-import { FilmDnaResult } from "@/lib/profile/types";
-import {
+import { calculateQualityScore } from "./quality";
+import type { CandidateMovie } from "../calibration/types";
+import type { FilmDnaResult } from "../profile/types";
+import type {
   PersonalizedRecommendationItem,
   RecommendationResponse,
   CandidateEvidence,
+  CandidateSource,
 } from "./types";
-import { MATCH_ENGINE_VERSION } from "./constants";
+import { CANDIDATE_MIX_RATIOS } from "./constants";
 
-export const ENGINE_V3_MATCH_VERSION = 3;
+export const ENGINE_V3_MATCH_VERSION = 31; // Phase 7B.1 Match Engine v3.1
+
+export interface ScoredCandidate {
+  movie: CandidateMovie;
+  rawMatchScore: number;
+  displayMatchScore: number;
+  qualityScore: number;
+  matchLabel: string;
+  feedbackAdjustment: number;
+  dislikePenalty: number;
+  components: any;
+  reasons: string[];
+  candidateSource: CandidateSource;
+  evidence: CandidateEvidence;
+}
 
 /**
- * Resolves personalized movie recommendations for a user (Match Engine v3.0).
- * Dynamic candidate pool scaling based on user evidence size.
- * Candidate-specific evidence selection with repetition penalty & dislike scoring.
+ * Resolves personalized movie recommendations for a user (Match Engine v3.1).
+ * Features: NOT_WATCHED recovery, multi-source candidates (KNOWN_UNWATCHED + FRESH_DISCOVERY + ADJACENT),
+ * Bayesian quality floor, score calibration (max 97%, strong evidence for 90%+), and non-degraded quality thresholds.
  */
 export async function getPersonalizedRecommendations(
   userId: string,
@@ -51,63 +66,130 @@ export async function getPersonalizedRecommendations(
 
   const profile = profileResponse.profile as FilmDnaResult;
 
-  // 2. Build Taste Evidence Profile & fetch feedback profile
-  const [tasteEvidenceProfile, feedbacks, feedbackProfile, answeredInteractions] =
-    await Promise.all([
-      buildTasteEvidenceProfile(userId),
-      db.recommendationFeedback.findMany({
-        where: { userId },
-        select: { movieId: true },
-      }),
-      buildUserFeedbackProfile(userId),
-      db.movieInteraction.findMany({
-        where: { userId },
-        select: { movieId: true },
-      }),
-    ]);
-
-  const answeredMovieCount = answeredInteractions.length;
-
-  // Scale candidate pool take limit based on user interaction volume
-  let candidatePoolSize = 300;
-  if (answeredMovieCount >= 1000) candidatePoolSize = 1000;
-  else if (answeredMovieCount >= 500) candidatePoolSize = 600;
-  else if (answeredMovieCount >= 250) candidatePoolSize = 450;
-
-  const excludedMovieIds = new Set([
-    ...answeredInteractions.map((i: any) => i.movieId),
-    ...feedbacks.map((f: any) => f.movieId),
+  // 2. Separate User Signals (Taste Evidence vs Availability/Unseen Evidence)
+  const [
+    tasteEvidenceProfile,
+    watchedInteractions,
+    notWatchedInteractions,
+    feedbacks,
+    feedbackProfile,
+    allUserInteractionsCount,
+  ] = await Promise.all([
+    buildTasteEvidenceProfile(userId),
+    db.movieInteraction.findMany({
+      where: { userId, status: "WATCHED" },
+      select: { movieId: true },
+    }),
+    db.movieInteraction.findMany({
+      where: { userId, status: "NOT_WATCHED" },
+      select: { movieId: true },
+    }),
+    db.recommendationFeedback.findMany({
+      where: { userId },
+      select: { movieId: true, action: true },
+    }),
+    buildUserFeedbackProfile(userId),
+    db.movieInteraction.count({ where: { userId } }),
   ]);
 
-  // 3. Query DB candidate movies
-  let rawCandidates = await db.movie.findMany({
-    where: {
-      id: { notIn: Array.from(excludedMovieIds) },
-    },
-    orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-    take: candidatePoolSize,
-  });
+  // Excluded from normal recommendations:
+  // - Movies user WATCHED
+  // - Recommendation feedback actions (NOT_INTERESTED, WATCH_LATER, ALREADY_WATCHED, WATCHED_FROM_RECOMMENDATION)
+  const watchedMovieIds = new Set(watchedInteractions.map((i: any) => i.movieId));
+  const blockedFeedbackIds = new Set(feedbacks.map((f: any) => f.movieId));
+  const notWatchedMovieIds = new Set(notWatchedInteractions.map((i: any) => i.movieId));
 
-  if (rawCandidates.length < limit) {
-    await tmdbClient.seedAndFetchMovies();
-    rawCandidates = await db.movie.findMany({
+  const excludedMovieIds = new Set([
+    ...watchedMovieIds,
+    ...blockedFeedbackIds,
+  ]);
+
+  // Scale candidate pool size based on user interaction volume
+  let candidatePoolSize = 300;
+  if (allUserInteractionsCount >= 1000) candidatePoolSize = 1000;
+  else if (allUserInteractionsCount >= 500) candidatePoolSize = 750;
+  else if (allUserInteractionsCount >= 250) candidatePoolSize = 500;
+
+  // Calculate candidate source quotas
+  const knownUnwatchedEligibleIds = Array.from(notWatchedMovieIds).filter(
+    (id) => !excludedMovieIds.has(id)
+  );
+
+  const targetKnownCount = Math.round(candidatePoolSize * CANDIDATE_MIX_RATIOS.KNOWN_UNWATCHED);
+  const actualKnownCount = Math.min(knownUnwatchedEligibleIds.length, targetKnownCount);
+
+  // Deficit redistribution to FRESH_DISCOVERY
+  const targetFreshCount =
+    Math.round(candidatePoolSize * CANDIDATE_MIX_RATIOS.FRESH_DISCOVERY) +
+    (targetKnownCount - actualKnownCount);
+
+  // 3. Fetch Candidates from 3 Sources
+  // Source A: KNOWN_UNWATCHED
+  let knownUnwatchedRaw: any[] = [];
+  if (knownUnwatchedEligibleIds.length > 0) {
+    knownUnwatchedRaw = await db.movie.findMany({
       where: {
-        id: { notIn: Array.from(excludedMovieIds) },
+        id: { in: knownUnwatchedEligibleIds },
       },
       orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-      take: candidatePoolSize,
+      take: actualKnownCount,
     });
   }
 
-  if (rawCandidates.length === 0) {
-    rawCandidates = await db.movie.findMany({
-      orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-      take: candidatePoolSize,
+  // Source B: FRESH_DISCOVERY (never interacted with)
+  const freshExcludedIds = new Set([
+    ...excludedMovieIds,
+    ...notWatchedMovieIds,
+  ]);
+
+  let freshCandidatesRaw = await db.movie.findMany({
+    where: {
+      id: { notIn: Array.from(freshExcludedIds) },
+    },
+    orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
+    take: targetFreshCount,
+  });
+
+  // Replenish fresh candidates if needed
+  if (freshCandidatesRaw.length < limit) {
+    try {
+      await tmdbClient.seedAndFetchMovies();
+      freshCandidatesRaw = await db.movie.findMany({
+        where: {
+          id: { notIn: Array.from(freshExcludedIds) },
+        },
+        orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
+        take: targetFreshCount,
+      });
+    } catch (e) {
+      console.error("[RecommendationService] TMDB seed error:", e);
+    }
+  }
+
+  // Source C: ADJACENT_DISCOVERY (genre/cluster aligned)
+  const topGenres = (profile.genres || [])
+    .filter((g: any) => g.score >= 0.6)
+    .map((g: any) => g.name);
+
+  let adjacentCandidatesRaw: any[] = [];
+  if (topGenres.length > 0) {
+    const fetchedFreshIds = new Set(freshCandidatesRaw.map((m: any) => m.id));
+    const adjacentExcludedIds = new Set([
+      ...freshExcludedIds,
+      ...fetchedFreshIds,
+    ]);
+
+    adjacentCandidatesRaw = await db.movie.findMany({
+      where: {
+        id: { notIn: Array.from(adjacentExcludedIds) },
+      },
+      orderBy: [{ popularity: "desc" }],
+      take: Math.round(candidatePoolSize * CANDIDATE_MIX_RATIOS.ADJACENT_DISCOVERY),
     });
   }
 
-  // Format candidate movies
-  const candidates: CandidateMovie[] = rawCandidates.map((m: any) => {
+  // Format all candidate movies with source tag
+  const formatCandidate = (m: any, source: CandidateSource): CandidateMovie & { candidateSource: CandidateSource } => {
     const meta = (m.metadata as Record<string, unknown>) || {};
     return {
       id: m.id,
@@ -121,29 +203,86 @@ export async function getPersonalizedRecommendations(
       backdropPath: m.backdropPath,
       genres: (meta.genres as string[]) || [],
       overview: (meta.overview as string) || "",
+      candidateSource: source,
     };
-  });
+  };
 
-  // 4. Calculate Match Engine V3 score with Dislike Penalties
-  const matchedList = candidates.map((m) => {
-    const baseResult = calculateMovieMatch(m, profile, feedbackProfile);
-    const dislikePenalty = calculateDislikePenalty(m, tasteEvidenceProfile);
+  const combinedCandidates = [
+    ...knownUnwatchedRaw.map((m: any) => formatCandidate(m, "KNOWN_UNWATCHED")),
+    ...freshCandidatesRaw.map((m: any) => formatCandidate(m, "FRESH_DISCOVERY")),
+    ...adjacentCandidatesRaw.map((m: any) => formatCandidate(m, "ADJACENT_DISCOVERY")),
+  ];
 
-    const adjustedScore = Math.max(
+  // Deduplicate combined list by movie ID
+  const uniqueCandidatesMap = new Map<string, CandidateMovie & { candidateSource: CandidateSource }>();
+  for (const c of combinedCandidates) {
+    if (!uniqueCandidatesMap.has(c.id)) {
+      uniqueCandidatesMap.set(c.id, c);
+    }
+  }
+  const candidatePool = Array.from(uniqueCandidatesMap.values());
+
+  // 4. Score and Calibrate Candidates (Match Engine v3.1)
+  const referenceUsageMap = new Map<string, number>();
+
+  const scoredCandidates: ScoredCandidate[] = candidatePool.map((candidate) => {
+    // Resolve candidate evidence first
+    const evidence = getEvidenceForRecommendation(
+      tasteEvidenceProfile,
+      candidate,
+      referenceUsageMap
+    );
+
+    const baseResult = calculateMovieMatch(
+      candidate,
+      profile,
+      feedbackProfile,
+      evidence
+    );
+
+    const dislikePenalty = calculateDislikePenalty(candidate, tasteEvidenceProfile);
+    const qualityScore = calculateQualityScore(candidate);
+
+    const rawMatchScore = Math.max(
       0,
-      Math.min(100, baseResult.matchScore + dislikePenalty)
+      Math.min(100, baseResult.rawMatchScore + dislikePenalty)
+    );
+
+    const displayMatchScore = calibrateMatchScore(
+      rawMatchScore,
+      evidence.hasStrongReference
     );
 
     return {
-      ...baseResult,
-      matchScore: adjustedScore,
+      movie: candidate,
+      rawMatchScore,
+      displayMatchScore,
+      qualityScore,
+      matchLabel: baseResult.matchLabel,
+      feedbackAdjustment: baseResult.feedbackAdjustment || 0,
       dislikePenalty,
+      components: baseResult.components,
+      reasons: baseResult.reasons,
+      candidateSource: candidate.candidateSource,
+      evidence,
     };
   });
 
-  // Sort descending by final match score
-  const sortedMatches = matchedList.sort(
-    (a, b) => b.matchScore - a.matchScore || b.movie.popularity - a.movie.popularity
+  // 5. Apply Quality Floor & Filter
+  // Strict rule: DO NOT lower quality to artificially reach 24 items.
+  // Must satisfy minimum display match score (>= 62) and dislike penalty limit (>-20).
+  const qualityFilteredCandidates = scoredCandidates.filter((item) => {
+    if (item.displayMatchScore < 62) return false;
+    if (item.dislikePenalty <= -20) return false;
+    return true;
+  });
+
+  // Sort descending by display match score, then raw match score, then popularity
+  const sortedMatches = qualityFilteredCandidates.sort(
+    (a, b) =>
+      b.displayMatchScore - a.displayMatchScore ||
+      b.rawMatchScore - a.rawMatchScore ||
+      b.movie.popularity - a.movie.popularity
   );
 
   const totalCandidates = sortedMatches.length;
@@ -152,22 +291,12 @@ export async function getPersonalizedRecommendations(
   const startIndex = safePage * limit;
   const pageMatches = sortedMatches.slice(startIndex, startIndex + limit);
 
-  // Track reference movie usage count across recommendation set for soft repetition penalty
-  const referenceUsageMap = new Map<string, number>();
-
-  // 5. Resolve candidate-specific evidence & explanations V3
+  // 6. Resolve Explanations V3.1
   const recommendations: PersonalizedRecommendationItem[] = await Promise.all(
     pageMatches.map(async (item) => {
-      // Resolve candidate-specific evidence
-      const evidence: CandidateEvidence = getEvidenceForRecommendation(
-        tasteEvidenceProfile,
-        item.movie,
-        referenceUsageMap
-      );
-
       // Track reference movie usage
-      if (evidence.hasStrongReference && evidence.positiveReferences[0]) {
-        const refId = evidence.positiveReferences[0].movieId;
+      if (item.evidence.hasStrongReference && item.evidence.positiveReferences[0]) {
+        const refId = item.evidence.positiveReferences[0].movieId;
         referenceUsageMap.set(refId, (referenceUsageMap.get(refId) || 0) + 1);
       }
 
@@ -187,32 +316,40 @@ export async function getPersonalizedRecommendations(
         let cachedReasons: string[] = [];
         try {
           const parsed = JSON.parse(cached.explanation);
-          cachedReasons = Array.isArray(parsed) ? parsed.map((r: any) => String(r)) : [String(cached.explanation)];
+          cachedReasons = Array.isArray(parsed)
+            ? parsed.map((r: any) => String(r))
+            : [String(cached.explanation)];
         } catch {
           cachedReasons = [cached.explanation];
         }
 
         return {
           movie: item.movie,
-          match: item.matchScore,
+          match: item.displayMatchScore,
+          displayMatch: item.displayMatchScore,
+          rawMatch: item.rawMatchScore,
           matchLabel: item.matchLabel,
           headline: cached.headline,
           reasons: cachedReasons,
           isAiGenerated: cached.isAiGenerated,
           components: item.components,
-          evidence,
+          evidence: item.evidence,
+          candidateSource: item.candidateSource,
           ...(debugMode
             ? {
                 debugInfo: {
-                  candidateScore: item.matchScore,
-                  tasteScore: item.matchScore,
-                  contextScore: 1.0,
-                  feedbackAdjustment: item.feedbackAdjustment || 0,
-                  dislikePenalty: item.dislikePenalty || 0,
-                  diversityPenalty: 0,
-                  referenceEvidence: evidence.positiveReferences.map((r) => r.title),
-                  referenceSimilarity: evidence.positiveReferences[0]?.similarityScore || 0,
-                  finalScore: item.matchScore,
+                  candidateSource: item.candidateSource,
+                  rawMatchScore: item.rawMatchScore,
+                  displayMatchScore: item.displayMatchScore,
+                  qualityScore: item.qualityScore,
+                  voteAverage: item.movie.voteAverage,
+                  voteCount: (item.movie as any).voteCount || 0,
+                  categoryFit: 1.0,
+                  knownUnwatched: item.candidateSource === "KNOWN_UNWATCHED",
+                  crossRowDuplicatePenalty: 0,
+                  referenceEvidence: item.evidence.positiveReferences.map((r) => r.title),
+                  referenceSimilarity: item.evidence.positiveReferences[0]?.similarityScore || 0,
+                  finalScore: item.displayMatchScore,
                   explanationSource: "deterministic_cache",
                 },
               }
@@ -223,12 +360,12 @@ export async function getPersonalizedRecommendations(
       // Generate fresh grounded explanation V3
       const explanationResult = await generateRecommendationExplanation(
         item.movie,
-        item,
+        { ...item, matchScore: item.displayMatchScore },
         profile,
-        evidence
+        item.evidence
       );
 
-      // Cache V3 explanation
+      // Cache V3.1 explanation
       try {
         await db.recommendationExplanation.upsert({
           where: {
@@ -255,30 +392,36 @@ export async function getPersonalizedRecommendations(
           },
         });
       } catch (e) {
-        console.error("[RecommendationService V3] Failed to cache explanation:", e);
+        console.error("[RecommendationService V3.1] Failed to cache explanation:", e);
       }
 
       return {
         movie: item.movie,
-        match: item.matchScore,
+        match: item.displayMatchScore,
+        displayMatch: item.displayMatchScore,
+        rawMatch: item.rawMatchScore,
         matchLabel: item.matchLabel,
         headline: explanationResult.headline,
         reasons: explanationResult.reasons,
         isAiGenerated: explanationResult.isAiGenerated,
         components: item.components,
-        evidence,
+        evidence: item.evidence,
+        candidateSource: item.candidateSource,
         ...(debugMode
           ? {
               debugInfo: {
-                candidateScore: item.matchScore,
-                tasteScore: item.matchScore,
-                contextScore: 1.0,
-                feedbackAdjustment: item.feedbackAdjustment || 0,
-                dislikePenalty: item.dislikePenalty || 0,
-                diversityPenalty: 0,
-                referenceEvidence: evidence.positiveReferences.map((r) => r.title),
-                referenceSimilarity: evidence.positiveReferences[0]?.similarityScore || 0,
-                finalScore: item.matchScore,
+                candidateSource: item.candidateSource,
+                rawMatchScore: item.rawMatchScore,
+                displayMatchScore: item.displayMatchScore,
+                qualityScore: item.qualityScore,
+                voteAverage: item.movie.voteAverage,
+                voteCount: (item.movie as any).voteCount || 0,
+                categoryFit: 1.0,
+                knownUnwatched: item.candidateSource === "KNOWN_UNWATCHED",
+                crossRowDuplicatePenalty: 0,
+                referenceEvidence: item.evidence.positiveReferences.map((r) => r.title),
+                referenceSimilarity: item.evidence.positiveReferences[0]?.similarityScore || 0,
+                finalScore: item.displayMatchScore,
                 explanationSource: explanationResult.isAiGenerated ? "ai" : "deterministic_fallback",
               },
             }
@@ -290,7 +433,7 @@ export async function getPersonalizedRecommendations(
   return {
     ready: true,
     required: targetCount,
-    current: answeredMovieCount,
+    current: allUserInteractionsCount,
     profileConfidence: profile.confidence,
     recommendations,
     page: safePage,

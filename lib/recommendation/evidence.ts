@@ -1,5 +1,5 @@
-import { db } from "@/lib/db/client";
-import type { CandidateMovie } from "@/lib/calibration/types";
+import { db } from "../db/client";
+import type { CandidateMovie } from "../calibration/types";
 import type {
   TasteEvidenceMovie,
   TasteEvidenceProfile,

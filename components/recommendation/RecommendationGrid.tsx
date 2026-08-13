@@ -86,8 +86,8 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
                 )}
 
                 {/* Match Percentage Badge */}
-                <div className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-text-primary text-[10px] font-mono font-bold">
-                  %{match} UYUM
+                <div className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-accent text-[10px] font-mono font-bold">
+                  ❤️ %{match} UYUM
                 </div>
               </div>
 
@@ -99,9 +99,16 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
                 >
                   {movie.title}
                 </h4>
-                <p className="text-[10px] font-mono text-text-muted line-clamp-1">
-                  {movie.releaseYear || "Tarihsiz"} • {movie.genres.join(", ")}
-                </p>
+                <div className="flex items-center justify-between text-[10px] font-mono text-text-muted">
+                  <span className="line-clamp-1">
+                    {movie.releaseYear || "Tarihsiz"} • {movie.genres.join(", ")}
+                  </span>
+                  {movie.voteAverage > 0 && (
+                    <span className="text-text-secondary font-bold flex-shrink-0 ml-1">
+                      ⭐ {movie.voteAverage.toFixed(1)}
+                    </span>
+                  )}
+                </div>
 
                 <p className="text-[11px] text-text-secondary font-medium leading-snug pt-0.5">
                   {headline}

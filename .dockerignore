@@ -11,3 +11,4 @@ docker-compose.yml
 .vscode
 .idea
 README.md
+tests/

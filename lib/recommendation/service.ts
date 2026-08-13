@@ -3,25 +3,37 @@ import { getSystemSettings } from "@/lib/config/service";
 import { getOrCalculateUserProfile } from "@/lib/profile/service";
 import { tmdbClient } from "@/lib/tmdb/client";
 import { calculateMovieMatch } from "./matcher";
-import { generateRecommendationExplanation } from "./explanation";
+import {
+  generateRecommendationExplanation,
+  EXPLANATION_ENGINE_VERSION,
+} from "./explanation";
 import { buildUserFeedbackProfile } from "./feedback-profile";
+import {
+  buildTasteEvidenceProfile,
+  getEvidenceForRecommendation,
+  calculateDislikePenalty,
+} from "./evidence";
 import { CandidateMovie } from "@/lib/calibration/types";
 import { FilmDnaResult } from "@/lib/profile/types";
 import {
   PersonalizedRecommendationItem,
   RecommendationResponse,
+  CandidateEvidence,
 } from "./types";
 import { MATCH_ENGINE_VERSION } from "./constants";
 
+export const ENGINE_V3_MATCH_VERSION = 3;
+
 /**
- * Resolves personalized movie recommendations for a user (Match Engine v2.0).
- * Excludes all movies with prior interactions or recommendation feedback.
- * Incorporates feedback-aware recommendation learning.
+ * Resolves personalized movie recommendations for a user (Match Engine v3.0).
+ * Dynamic candidate pool scaling based on user evidence size.
+ * Candidate-specific evidence selection with repetition penalty & dislike scoring.
  */
 export async function getPersonalizedRecommendations(
   userId: string,
-  limit: number = 10,
-  page: number = 0
+  limit: number = 24,
+  page: number = 0,
+  debugMode: boolean = false
 ): Promise<RecommendationResponse> {
   const settings = await getSystemSettings();
   const targetCount = settings.calibrationTarget;
@@ -39,49 +51,43 @@ export async function getPersonalizedRecommendations(
 
   const profile = profileResponse.profile as FilmDnaResult;
 
-  // 2. Fetch all excluded movie IDs, loved movies, and user feedback profile in parallel
-  const [answeredInteractions, feedbacks, feedbackProfile, lovedInteractions] = await Promise.all([
-    db.movieInteraction.findMany({
-      where: { userId },
-      select: { movieId: true },
-    }),
-    db.recommendationFeedback.findMany({
-      where: { userId },
-      select: { movieId: true },
-    }),
-    buildUserFeedbackProfile(userId),
-    db.movieInteraction.findMany({
-      where: { userId, rating: { in: ["LOVE", "LIKE"] } },
-      include: { movie: true },
-      take: 6,
-    }),
-  ]);
-
-  const lovedMovies = lovedInteractions.map((i: any) => {
-    const meta = (i.movie.metadata as Record<string, any>) || {};
-    return {
-      title: i.movie.title,
-      genres: (meta.genres as string[]) || [],
-    };
-  });
+  // 2. Build Taste Evidence Profile & fetch feedback profile
+  const [tasteEvidenceProfile, feedbacks, feedbackProfile, answeredInteractions] =
+    await Promise.all([
+      buildTasteEvidenceProfile(userId),
+      db.recommendationFeedback.findMany({
+        where: { userId },
+        select: { movieId: true },
+      }),
+      buildUserFeedbackProfile(userId),
+      db.movieInteraction.findMany({
+        where: { userId },
+        select: { movieId: true },
+      }),
+    ]);
 
   const answeredMovieCount = answeredInteractions.length;
+
+  // Scale candidate pool take limit based on user interaction volume
+  let candidatePoolSize = 300;
+  if (answeredMovieCount >= 1000) candidatePoolSize = 1000;
+  else if (answeredMovieCount >= 500) candidatePoolSize = 600;
+  else if (answeredMovieCount >= 250) candidatePoolSize = 450;
 
   const excludedMovieIds = new Set([
     ...answeredInteractions.map((i: any) => i.movieId),
     ...feedbacks.map((f: any) => f.movieId),
   ]);
 
-  // 3. Query DB candidate movies (300 candidates)
+  // 3. Query DB candidate movies
   let rawCandidates = await db.movie.findMany({
     where: {
       id: { notIn: Array.from(excludedMovieIds) },
     },
     orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-    take: 300,
+    take: candidatePoolSize,
   });
 
-  // Seeding guardrail if fewer candidates exist than limit
   if (rawCandidates.length < limit) {
     await tmdbClient.seedAndFetchMovies();
     rawCandidates = await db.movie.findMany({
@@ -89,15 +95,14 @@ export async function getPersonalizedRecommendations(
         id: { notIn: Array.from(excludedMovieIds) },
       },
       orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-      take: 300,
+      take: candidatePoolSize,
     });
   }
 
-  // Graceful fallback if unrated candidate pool is still empty
   if (rawCandidates.length === 0) {
     rawCandidates = await db.movie.findMany({
       orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-      take: 300,
+      take: candidatePoolSize,
     });
   }
 
@@ -119,12 +124,24 @@ export async function getPersonalizedRecommendations(
     };
   });
 
-  // 4. Calculate deterministic match score with feedback learning for each candidate
-  const matchedList = candidates.map((m: any) =>
-    calculateMovieMatch(m, profile, feedbackProfile)
-  );
+  // 4. Calculate Match Engine V3 score with Dislike Penalties
+  const matchedList = candidates.map((m) => {
+    const baseResult = calculateMovieMatch(m, profile, feedbackProfile);
+    const dislikePenalty = calculateDislikePenalty(m, tasteEvidenceProfile);
 
-  // Sort descending by match score, then popularity (NO random shuffle)
+    const adjustedScore = Math.max(
+      0,
+      Math.min(100, baseResult.matchScore + dislikePenalty)
+    );
+
+    return {
+      ...baseResult,
+      matchScore: adjustedScore,
+      dislikePenalty,
+    };
+  });
+
+  // Sort descending by final match score
   const sortedMatches = matchedList.sort(
     (a, b) => b.matchScore - a.matchScore || b.movie.popularity - a.movie.popularity
   );
@@ -135,17 +152,33 @@ export async function getPersonalizedRecommendations(
   const startIndex = safePage * limit;
   const pageMatches = sortedMatches.slice(startIndex, startIndex + limit);
 
-  // 5. Resolve explanations (DB cache -> AI -> Fallback)
+  // Track reference movie usage count across recommendation set for soft repetition penalty
+  const referenceUsageMap = new Map<string, number>();
+
+  // 5. Resolve candidate-specific evidence & explanations V3
   const recommendations: PersonalizedRecommendationItem[] = await Promise.all(
     pageMatches.map(async (item) => {
-      // Check cached explanation in DB (uses matchVersion = 2)
+      // Resolve candidate-specific evidence
+      const evidence: CandidateEvidence = getEvidenceForRecommendation(
+        tasteEvidenceProfile,
+        item.movie,
+        referenceUsageMap
+      );
+
+      // Track reference movie usage
+      if (evidence.hasStrongReference && evidence.positiveReferences[0]) {
+        const refId = evidence.positiveReferences[0].movieId;
+        referenceUsageMap.set(refId, (referenceUsageMap.get(refId) || 0) + 1);
+      }
+
+      // Check Explanation V3 Cache
       const cached = await db.recommendationExplanation.findUnique({
         where: {
           userId_movieId_profileVersion_matchVersion: {
             userId,
             movieId: item.movie.id,
             profileVersion: profile.version,
-            matchVersion: MATCH_ENGINE_VERSION,
+            matchVersion: ENGINE_V3_MATCH_VERSION,
           },
         },
       });
@@ -154,11 +187,7 @@ export async function getPersonalizedRecommendations(
         let cachedReasons: string[] = [];
         try {
           const parsed = JSON.parse(cached.explanation);
-          if (Array.isArray(parsed)) {
-            cachedReasons = parsed.map((r: any) => String(r));
-          } else {
-            cachedReasons = [String(cached.explanation)];
-          }
+          cachedReasons = Array.isArray(parsed) ? parsed.map((r: any) => String(r)) : [String(cached.explanation)];
         } catch {
           cachedReasons = [cached.explanation];
         }
@@ -171,18 +200,35 @@ export async function getPersonalizedRecommendations(
           reasons: cachedReasons,
           isAiGenerated: cached.isAiGenerated,
           components: item.components,
+          evidence,
+          ...(debugMode
+            ? {
+                debugInfo: {
+                  candidateScore: item.matchScore,
+                  tasteScore: item.matchScore,
+                  contextScore: 1.0,
+                  feedbackAdjustment: item.feedbackAdjustment || 0,
+                  dislikePenalty: item.dislikePenalty || 0,
+                  diversityPenalty: 0,
+                  referenceEvidence: evidence.positiveReferences.map((r) => r.title),
+                  referenceSimilarity: evidence.positiveReferences[0]?.similarityScore || 0,
+                  finalScore: item.matchScore,
+                  explanationSource: "deterministic_cache",
+                },
+              }
+            : {}),
         };
       }
 
-      // Generate fresh structured explanation
+      // Generate fresh grounded explanation V3
       const explanationResult = await generateRecommendationExplanation(
         item.movie,
         item,
         profile,
-        lovedMovies
+        evidence
       );
 
-      // Save generated explanation to DB cache
+      // Cache V3 explanation
       try {
         await db.recommendationExplanation.upsert({
           where: {
@@ -190,7 +236,7 @@ export async function getPersonalizedRecommendations(
               userId,
               movieId: item.movie.id,
               profileVersion: profile.version,
-              matchVersion: MATCH_ENGINE_VERSION,
+              matchVersion: ENGINE_V3_MATCH_VERSION,
             },
           },
           update: {
@@ -202,14 +248,14 @@ export async function getPersonalizedRecommendations(
             userId,
             movieId: item.movie.id,
             profileVersion: profile.version,
-            matchVersion: MATCH_ENGINE_VERSION,
+            matchVersion: ENGINE_V3_MATCH_VERSION,
             headline: explanationResult.headline,
             explanation: JSON.stringify(explanationResult.reasons),
             isAiGenerated: explanationResult.isAiGenerated,
           },
         });
       } catch (e) {
-        console.error("[RecommendationService] Failed to cache explanation:", e);
+        console.error("[RecommendationService V3] Failed to cache explanation:", e);
       }
 
       return {
@@ -220,6 +266,23 @@ export async function getPersonalizedRecommendations(
         reasons: explanationResult.reasons,
         isAiGenerated: explanationResult.isAiGenerated,
         components: item.components,
+        evidence,
+        ...(debugMode
+          ? {
+              debugInfo: {
+                candidateScore: item.matchScore,
+                tasteScore: item.matchScore,
+                contextScore: 1.0,
+                feedbackAdjustment: item.feedbackAdjustment || 0,
+                dislikePenalty: item.dislikePenalty || 0,
+                diversityPenalty: 0,
+                referenceEvidence: evidence.positiveReferences.map((r) => r.title),
+                referenceSimilarity: evidence.positiveReferences[0]?.similarityScore || 0,
+                finalScore: item.matchScore,
+                explanationSource: explanationResult.isAiGenerated ? "ai" : "deterministic_fallback",
+              },
+            }
+          : {}),
       };
     })
   );

@@ -1,4 +1,4 @@
-import { GenrePreference, EraPreference } from "@/lib/profile/types";
+import type { GenrePreference, EraPreference } from "@/lib/profile/types";
 
 export interface CandidateMovie {
   id: string;

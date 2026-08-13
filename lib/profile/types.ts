@@ -1,4 +1,4 @@
-import { InteractionStatus, RatingStatus } from "@prisma/client";
+import type { InteractionStatus, RatingStatus } from "@prisma/client";
 
 export interface RawInteractionData {
   id: string;

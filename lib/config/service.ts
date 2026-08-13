@@ -1,6 +1,6 @@
 import { db } from "@/lib/db/client";
 import { encryptSecret, decryptSecret } from "@/lib/security/crypto";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
 export interface IntegrationStatusInfo {
   provider: string;

@@ -13,10 +13,10 @@ export function TasteTraits({ traits, popularityLabel, familiarityDesc }: TasteT
     <div className="p-6 md:p-8 rounded-3xl bg-surface border border-border/80 space-y-6 shadow-cinematic">
       <div>
         <h3 className="font-display text-lg font-bold text-text-primary tracking-tight">
-          Sinema Kimlik Etiketleri (Taste Archetypes)
+          🎭 Seni Anlatan Sinema Kimlikleri
         </h3>
         <p className="text-xs text-text-muted font-mono mt-0.5">
-          Film tercihlerinden çıkarılan deterministik karakter rozetleri
+          İzleme alışkanlıkların, atmosfer beklentin ve hikaye anlatımına yaklaşımın.
         </p>
       </div>
 

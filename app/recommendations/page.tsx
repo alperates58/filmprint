@@ -25,7 +25,7 @@ export default function RecommendationsPage() {
       if (data) setIsRefreshing(true);
       else setIsLoading(true);
 
-      const res = await fetch(`/api/recommendations?limit=10&page=${targetPage}`);
+      const res = await fetch(`/api/recommendations?limit=24&page=${targetPage}`);
       if (!res.ok) throw new Error("Öneriler alınamadı");
       const json: RecommendationResponse = await res.json();
       setData(json);
@@ -83,6 +83,12 @@ export default function RecommendationsPage() {
   const progressCount = data?.current || 0;
   const progressTarget = data?.required || 30;
 
+  const allRecs = data?.recommendations || [];
+  const heroRec = allRecs[0] || null;
+  const topMatches = allRecs.slice(1, 9);
+  const safeMatches = allRecs.slice(9, 17);
+  const discoveryGems = allRecs.slice(17, 25);
+
   return (
     <div className="min-h-screen bg-background text-text-primary flex flex-col font-sans selection:bg-accent/20">
       <Header progressCount={progressCount} progressTarget={progressTarget} />
@@ -100,7 +106,7 @@ export default function RecommendationsPage() {
               Sana Özel Film Önerileri
             </h1>
             <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
-              Film DNA profiliniz ve kalibrasyon sinyalleriniz kullanılarak oluşturulmuş, tam uyumlu ve açıklanabilir sinema önerileri.
+              Film DNA profiliniz, izlediğiniz filmler ve kalibrasyon sinyalleriniz kullanılarak oluşturulmuş, yüksek uyumlu ve örnek film referanslı seçki.
             </p>
           </div>
 
@@ -114,7 +120,7 @@ export default function RecommendationsPage() {
               <span className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-accent" : ""}`}>
                 🔄
               </span>
-              <span>{isRefreshing ? "Yenileniyor..." : "Önerileri Yenile"}</span>
+              <span>{isRefreshing ? "Yenileniyor..." : "Farklı Öneriler Getir"}</span>
             </button>
           )}
         </div>
@@ -171,7 +177,7 @@ export default function RecommendationsPage() {
 
             <div>
               <Link
-                href="/"
+                href="/calibrate"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent text-white font-medium text-xs hover:bg-accent-hover transition-all shadow-md"
               >
                 Kalibrasyona Devam Et
@@ -180,25 +186,99 @@ export default function RecommendationsPage() {
           </div>
         )}
 
-        {/* Ready State: Recommendations Render */}
-        {!isLoading && data && data.ready && data.recommendations && (
+        {/* Ready State: Segmented Recommendations Render */}
+        {!isLoading && data && data.ready && allRecs.length > 0 && (
           <div className="space-y-12">
             {/* Top #1 Hero Recommendation */}
-            {data.recommendations.length > 0 && (
+            {heroRec && (
               <HeroRecommendation
-                item={data.recommendations[0]}
+                item={heroRec}
                 onFeedbackAction={handleFeedbackAction}
                 onOpenDetails={handleOpenDetails}
               />
             )}
 
-            {/* Grid Recommendations (#2 to #10) */}
-            {data.recommendations.length > 1 && (
-              <RecommendationGrid
-                items={data.recommendations.slice(1)}
-                onFeedbackAction={handleFeedbackAction}
-                onOpenDetails={handleOpenDetails}
-              />
+            {/* Segment 1: En Uyumlu Seçimler (%85+ Uyum) */}
+            {topMatches.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                  <h3 className="font-display text-lg md:text-xl font-bold text-text-primary flex items-center gap-2">
+                    <span>🎯</span>
+                    <span>En Uyumlu Seçimler</span>
+                  </h3>
+                  <span className="text-xs font-mono text-text-muted">
+                    Yüksek Uyum Skorları
+                  </span>
+                </div>
+                <RecommendationGrid
+                  items={topMatches}
+                  onFeedbackAction={handleFeedbackAction}
+                  onOpenDetails={handleOpenDetails}
+                />
+              </div>
+            )}
+
+            {/* Segment 2: Daha Güvenli Seçimler */}
+            {safeMatches.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                  <h3 className="font-display text-lg md:text-xl font-bold text-text-primary flex items-center gap-2">
+                    <span>🛡️</span>
+                    <span>Daha Güvenli Seçimler</span>
+                  </h3>
+                  <span className="text-xs font-mono text-text-muted">
+                    Popüler & İzleyici Konsensüsü
+                  </span>
+                </div>
+                <RecommendationGrid
+                  items={safeMatches}
+                  onFeedbackAction={handleFeedbackAction}
+                  onOpenDetails={handleOpenDetails}
+                />
+              </div>
+            )}
+
+            {/* Segment 3: Biraz Daha Keşif & Gizli Cevherler */}
+            {discoveryGems.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                  <h3 className="font-display text-lg md:text-xl font-bold text-text-primary flex items-center gap-2">
+                    <span>💎</span>
+                    <span>Biraz Daha Keşif & Gizli Cevherler</span>
+                  </h3>
+                  <span className="text-xs font-mono text-text-muted">
+                    Yüksek Puanlı Niche Yapımlar
+                  </span>
+                </div>
+                <RecommendationGrid
+                  items={discoveryGems}
+                  onFeedbackAction={handleFeedbackAction}
+                  onOpenDetails={handleOpenDetails}
+                />
+              </div>
+            )}
+
+            {/* Page Navigation Controls */}
+            {(data.totalPages || 0) > 1 && (
+              <div className="flex items-center justify-center gap-4 pt-6 font-mono text-xs border-t border-border/60">
+                <button
+                  disabled={page <= 0 || isRefreshing}
+                  onClick={() => fetchRecommendations(Math.max(0, page - 1))}
+                  className="px-5 py-2.5 rounded-xl bg-surface border border-border disabled:opacity-40 hover:border-accent text-text-primary transition-all"
+                >
+                  ← Önceki Seçki
+                </button>
+                <span className="text-text-muted font-bold">
+                  Sayfa {page + 1} / {data.totalPages}
+                </span>
+                <button
+                  disabled={!data.hasMore || isRefreshing}
+                  onClick={() => fetchRecommendations(page + 1)}
+                  className="px-5 py-2.5 rounded-xl bg-surface border border-border disabled:opacity-40 hover:border-accent text-text-primary transition-all"
+                >
+                  Farklı Öneriler →
+                </button>
+              </div>
             )}
           </div>
         )}

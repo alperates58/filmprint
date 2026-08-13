@@ -3,35 +3,48 @@ import { CandidateMovie } from "@/lib/calibration/types";
 import { FilmDnaResult } from "@/lib/profile/types";
 import { MovieMatchResult, ExplanationResult } from "./types";
 
+export interface ReferenceMovie {
+  title: string;
+  genres: string[];
+}
+
 /**
  * Generates a deterministic fallback explanation with 2-3 structured reasons
- * when DeepSeek is disabled, unavailable, or times out.
+ * referencing user's loved movies when available.
  */
 export function generateDeterministicExplanation(
   movie: CandidateMovie,
   matchResult: MovieMatchResult,
-  profile: FilmDnaResult
+  profile: FilmDnaResult,
+  lovedMovies?: ReferenceMovie[]
 ): ExplanationResult {
   const topGenre = movie.genres[0] || "Sinema";
   const matchPct = matchResult.matchScore;
   const { components } = matchResult;
 
+  // Find a matching loved reference movie if possible
+  const matchingLoved = lovedMovies?.find((m) =>
+    m.genres.some((g) => movie.genres.includes(g))
+  ) || lovedMovies?.[0];
+
   let headline = `${topGenre} zevkinle güçlü biçimde örtüşüyor.`;
-  if (matchPct >= 90) {
+  if (matchingLoved) {
+    headline = `Daha önce sevdiğin "${matchingLoved.title}" tarzında bir ${topGenre} yapımı.`;
+  } else if (matchPct >= 90) {
     headline = `Tam senin kaleminde bir ${topGenre} yapımı.`;
   } else if (matchPct >= 80) {
     headline = `Zevkine yüksek derecede uygun bir ${topGenre} filmi.`;
-  } else if (matchPct < 70) {
-    headline = `Sinema keşif listen için farklı bir ${topGenre} alternatifi.`;
   }
 
   const reasons: string[] = [];
 
-  // Reason 1: Genre fit
-  if (components.genre >= 0.7) {
+  // Reason 1: Reference loved movie or genre fit
+  if (matchingLoved) {
+    reasons.push(
+      `Daha önce yüksek puan verdiğin "${matchingLoved.title}" filmi benzeri tempolu ve sürükleyici bir anlatı sunuyor.`
+    );
+  } else if (components.genre >= 0.7) {
     reasons.push(`${topGenre}, Film DNA'ındaki en güçlü sinema alanlarından biri.`);
-  } else if (components.genre >= 0.5) {
-    reasons.push(`${topGenre} türüyle belirgin bir ilgi uyumun bulunuyor.`);
   } else {
     reasons.push(`${topGenre} türü sinema profilinle uyumlu sinyaller taşıyor.`);
   }
@@ -41,26 +54,21 @@ export function generateDeterministicExplanation(
     const decade = Math.floor(movie.releaseYear / 10) * 10;
     reasons.push(`${decade}'lar yapımlarına olan eğiliminle doğrudan örtüşüyor.`);
   } else if (movie.voteAverage && movie.voteAverage >= 7.5) {
-    reasons.push(`${movie.voteAverage.toFixed(1)}/10 puanıyla yüksek kalite beklentinle uyumlu.`);
-  } else if (components.popularity >= 0.7) {
+    reasons.push(`${movie.voteAverage.toFixed(1)}/10 IMDb puanıyla yüksek kalite beklentinle uyumlu.`);
+  } else {
     reasons.push(`Popülerlik ve izleyici beğeni dengenle uyum gösteriyor.`);
   }
 
-  // Reason 3: Archetype / Discovery / Contrast
-  if (matchPct < 85 && components.era < 0.5 && movie.releaseYear) {
-    reasons.push(`Dönem tercihinle tam örtüşmese de tür ve içerik uyumu çok güçlü.`);
-  } else if (profile.traits && profile.traits[0]) {
+  // Reason 3: Archetype / Discovery / Traits
+  if (profile.traits && profile.traits[0]) {
     reasons.push(`"${profile.traits[0]}" sinema karakterinle güçlü biçimde eşleşiyor.`);
   } else {
     reasons.push(`Keşif ve kalite dengen gözetilerek senin için özel seçildi.`);
   }
 
-  // Ensure 2 to 3 reasons
-  const finalReasons = reasons.slice(0, 3);
-
   return {
     headline,
-    reasons: finalReasons,
+    reasons: reasons.slice(0, 3),
     isAiGenerated: false,
   };
 }
@@ -72,24 +80,25 @@ export function generateDeterministicExplanation(
 export async function generateRecommendationExplanation(
   movie: CandidateMovie,
   matchResult: MovieMatchResult,
-  profile: FilmDnaResult
+  profile: FilmDnaResult,
+  lovedMovies?: ReferenceMovie[]
 ): Promise<ExplanationResult> {
   const config = await getDeepSeekConfig();
 
   if (!config.enabled || !config.apiKey) {
-    return generateDeterministicExplanation(movie, matchResult, profile);
+    return generateDeterministicExplanation(movie, matchResult, profile, lovedMovies);
   }
 
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-    // Minimal privacy-safe prompt payload (NO user ID, NO raw interaction history)
     const promptPayload = {
       movieTitle: movie.title,
       genres: movie.genres,
       releaseYear: movie.releaseYear,
       matchScore: matchResult.matchScore,
+      userLovedMovies: lovedMovies?.slice(0, 3).map((m) => m.title) || [],
       userTopGenres: profile.genres.slice(0, 3).map((g: any) => g.name),
       userTopEra: profile.eras[0]?.label || "",
       userTraits: profile.traits.slice(0, 3),
@@ -110,7 +119,7 @@ export async function generateRecommendationExplanation(
           {
             role: "system",
             content:
-              'Sen Filmprint sinema asistanısın. Kullanıcıya filmi neden önerdiğini doğal, etkileyici ve kısa Türkçe ile açıkla. Sadece ve sadece geçerli JSON formatında yanıt ver: {"headline": "kısa ilgi çekici başlık", "reasons": ["kısa neden 1", "kısa neden 2", "kısa neden 3"]}',
+              'Sen Filmprint sinema asistanısın. Kullanıcıya filmi neden önerdiğini doğal, samimi ve örnek film referanslı Türkçe cümlelerle açıkla. Eğer kullanıcının sevdiği filmler (userLovedMovies) verilmişse mutlaka "Daha önce sevdiğin [Film Adı] benzeri..." şeklinde doğrudan atıfta bulun. Sadece ve sadece geçerli JSON formatında yanıt ver: {"headline": "kısa ilgi çekici başlık", "reasons": ["kısa neden 1", "kısa neden 2", "kısa neden 3"]}',
           },
           {
             role: "user",
@@ -125,7 +134,7 @@ export async function generateRecommendationExplanation(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return generateDeterministicExplanation(movie, matchResult, profile);
+      return generateDeterministicExplanation(movie, matchResult, profile, lovedMovies);
     }
 
     const data = await response.json();
@@ -155,8 +164,8 @@ export async function generateRecommendationExplanation(
       }
     }
 
-    return generateDeterministicExplanation(movie, matchResult, profile);
+    return generateDeterministicExplanation(movie, matchResult, profile, lovedMovies);
   } catch {
-    return generateDeterministicExplanation(movie, matchResult, profile);
+    return generateDeterministicExplanation(movie, matchResult, profile, lovedMovies);
   }
 }

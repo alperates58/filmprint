@@ -14,10 +14,10 @@ export function EraSignature({ eras }: EraSignatureProps) {
     <div className="p-6 md:p-8 rounded-3xl bg-surface border border-border/80 space-y-6 shadow-cinematic">
       <div>
         <h3 className="font-display text-lg font-bold text-text-primary tracking-tight">
-          Dönem Spektrumu (Era Signature)
+          ⌛ En Güçlü Dönemlerin
         </h3>
         <p className="text-xs text-text-muted font-mono mt-0.5">
-          Sinema tarihindeki dönemlere göre zevk dağılımın
+          Sinema yolculuğunda en çok etkileşime girdiğin ve yüksek puan verdiğin yapım yılları.
         </p>
       </div>
 

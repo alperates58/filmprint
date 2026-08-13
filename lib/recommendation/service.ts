@@ -39,8 +39,8 @@ export async function getPersonalizedRecommendations(
 
   const profile = profileResponse.profile as FilmDnaResult;
 
-  // 2. Fetch all excluded movie IDs and user feedback profile in parallel
-  const [answeredInteractions, feedbacks, feedbackProfile] = await Promise.all([
+  // 2. Fetch all excluded movie IDs, loved movies, and user feedback profile in parallel
+  const [answeredInteractions, feedbacks, feedbackProfile, lovedInteractions] = await Promise.all([
     db.movieInteraction.findMany({
       where: { userId },
       select: { movieId: true },
@@ -50,7 +50,20 @@ export async function getPersonalizedRecommendations(
       select: { movieId: true },
     }),
     buildUserFeedbackProfile(userId),
+    db.movieInteraction.findMany({
+      where: { userId, rating: { in: ["LOVE", "LIKE"] } },
+      include: { movie: true },
+      take: 6,
+    }),
   ]);
+
+  const lovedMovies = lovedInteractions.map((i: any) => {
+    const meta = (i.movie.metadata as Record<string, any>) || {};
+    return {
+      title: i.movie.title,
+      genres: (meta.genres as string[]) || [],
+    };
+  });
 
   const answeredMovieCount = answeredInteractions.length;
 
@@ -165,7 +178,8 @@ export async function getPersonalizedRecommendations(
       const explanationResult = await generateRecommendationExplanation(
         item.movie,
         item,
-        profile
+        profile,
+        lovedMovies
       );
 
       // Save generated explanation to DB cache

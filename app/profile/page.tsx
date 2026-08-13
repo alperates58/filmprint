@@ -179,6 +179,45 @@ export default async function ProfilePage() {
                 <p>{data.profile.summary.replace(/\*\*(.*?)\*\*/g, "$1")}</p>
               </div>
 
+              {/* Top Quick Insight Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                <div className="p-4 rounded-2xl bg-surface-elevated border border-border/60 space-y-1">
+                  <p className="text-[10px] uppercase font-mono text-accent font-semibold">🍿 EN SEVDİĞİN TÜR</p>
+                  <p className="text-sm font-bold text-text-primary">
+                    {data.profile.genres[0]?.name || "Sinema"}
+                  </p>
+                  <p className="text-[10px] font-mono text-text-muted">
+                    %{Math.round((data.profile.genres[0]?.score || 0) * 100)} Baskınlık
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-surface-elevated border border-border/60 space-y-1">
+                  <p className="text-[10px] uppercase font-mono text-accent font-semibold">⌛ EN GÜÇLÜ DÖNEM</p>
+                  <p className="text-sm font-bold text-text-primary">
+                    {data.profile.eras[0]?.label || "Günümüz Sineması"}
+                  </p>
+                  <p className="text-[10px] font-mono text-text-muted">
+                    {data.profile.eras[0]?.key || "2010s"}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-surface-elevated border border-border/60 space-y-1">
+                  <p className="text-[10px] uppercase font-mono text-accent font-semibold">🎭 İZLEME TARZIN</p>
+                  <p className="text-sm font-bold text-text-primary line-clamp-1">
+                    {data.profile.traits[0] || "Dengeli Sinefil"}
+                  </p>
+                  <p className="text-[10px] font-mono text-text-muted">Ana Karakter Özelliği</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-surface-elevated border border-border/60 space-y-1">
+                  <p className="text-[10px] uppercase font-mono text-accent font-semibold">🧭 KEŞİF SEVİYEN</p>
+                  <p className="text-sm font-bold text-text-primary line-clamp-1">
+                    {data.profile.popularity.label || "Dengeli"}
+                  </p>
+                  <p className="text-[10px] font-mono text-text-muted">Popülerlik Dengesi</p>
+                </div>
+              </div>
+
               {/* Action Buttons */}
               <div className="pt-2 flex flex-col sm:flex-row gap-3">
                 <Link

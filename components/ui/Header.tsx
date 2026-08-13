@@ -14,19 +14,20 @@ interface HeaderProps {
 }
 
 export function Header({
-  progressCount = 0,
+  progressCount,
   progressTarget = 30,
   userName = "",
   userAvatar = "",
   userEmail = "",
 }: HeaderProps) {
   const pathname = usePathname();
-  const progression = getProgressionForCount(progressCount);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [displayName, setDisplayName] = useState(userName);
   const [avatar, setAvatar] = useState(userAvatar);
   const [email, setEmail] = useState(userEmail);
+  const [fetchedCount, setFetchedCount] = useState<number | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
 
   useEffect(() => {
     if (userName) setDisplayName(userName);
@@ -35,19 +36,28 @@ export function Header({
   }, [userName, userAvatar, userEmail]);
 
   useEffect(() => {
-    if (!userName) {
-      fetch("/api/auth/me")
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data?.user) {
-            setDisplayName(data.user.name || data.user.email?.split("@")[0] || "Filmprint Kullanıcısı");
-            setAvatar(data.user.image || "");
-            setEmail(data.user.email || "");
-          }
-        })
-        .catch(() => {});
-    }
-  }, [userName]);
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user) {
+          setDisplayName(data.user.name || data.user.email?.split("@")[0] || "Filmprint Kullanıcısı");
+          setAvatar(data.user.image || "");
+          setEmail(data.user.email || "");
+        }
+        if (data?.progression) {
+          setFetchedCount(data.progression.evaluatedCount);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsLoadingUser(false));
+  }, []);
+
+  const activeCount =
+    typeof progressCount === "number" && progressCount > 0
+      ? progressCount
+      : fetchedCount ?? (typeof progressCount === "number" ? progressCount : 0);
+
+  const progression = getProgressionForCount(activeCount);
 
   return (
     <header className="w-full border-b border-border/60 bg-background/90 backdrop-blur-md sticky top-0 z-50 transition-all duration-300">
@@ -123,13 +133,17 @@ export function Header({
 
           {/* Progress Pill & User Identity Dropdown */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated border border-border text-xs font-mono font-medium text-text-primary">
-              <span className="w-2 h-2 rounded-full bg-accent" />
-              <span className="text-text-secondary">
-                {progression.currentRank.label} • {progressCount}
-                {progression.nextRank ? `/${progression.nextRank.minimum}` : ""}
-              </span>
-            </div>
+            {isLoadingUser && fetchedCount === null && typeof progressCount !== "number" ? (
+              <div className="w-32 h-7 rounded-full bg-surface-elevated border border-border animate-pulse" />
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated border border-border text-xs font-mono font-medium text-text-primary">
+                <span className="w-2 h-2 rounded-full bg-accent" />
+                <span className="text-text-secondary">
+                  {progression.currentRank.label} • {activeCount}
+                  {progression.nextRank ? `/${progression.nextRank.minimum}` : ""}
+                </span>
+              </div>
+            )}
 
             <div className="relative">
               <button
@@ -183,7 +197,7 @@ export function Header({
         {/* Mobile Navigation Toggle Button */}
         <div className="flex items-center gap-2 md:hidden">
           <div className="px-2.5 py-1 rounded-full bg-surface-elevated border border-border text-[10px] font-mono text-text-secondary">
-            {progression.currentRank.label} • {progressCount}
+            {progression.currentRank.label} • {activeCount}
           </div>
 
           <button

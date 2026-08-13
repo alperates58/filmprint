@@ -15,10 +15,10 @@ export function GenreSignature({ genres }: GenreSignatureProps) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-display text-lg font-bold text-text-primary tracking-tight">
-            Tür İmzan (Genre Signature)
+            🍿 En Sevdiğin Türler
           </h3>
           <p className="text-xs text-text-muted font-mono mt-0.5">
-            Ağırlıklı değerlendirme puanına göre favori sinema türlerin
+            Filmprint algoritmasının değerlendirdiğin filmlerden çıkardığı baskın sinema türü ağırlıkların.
           </p>
         </div>
         <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest">

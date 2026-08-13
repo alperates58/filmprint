@@ -50,6 +50,7 @@ export function DiscoveryHome({
     movieId: string;
     initialData?: any;
   } | null>(null);
+  const [homeMatchScoresMap, setHomeMatchScoresMap] = useState<Record<string, any>>({});
 
   const progression = getProgressionForCount(answeredCount);
 
@@ -65,6 +66,26 @@ export function DiscoveryHome({
       .catch((e) => console.error("[DiscoveryHome Fetch Error]:", e))
       .finally(() => setIsLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (modules.length > 0) {
+      const allMovieIds = Array.from(
+        new Set(modules.flatMap((m) => m.movies.map((mov: any) => mov.id)))
+      );
+      fetch("/api/movies/match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ movieIds: allMovieIds }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.matches) {
+            setHomeMatchScoresMap(data.matches);
+          }
+        })
+        .catch((e) => console.error("[Home Batch Match Fetch Error]:", e));
+    }
+  }, [modules]);
 
   const handleDismissMilestone = () => {
     setShowMilestoneNotice(false);
@@ -353,6 +374,9 @@ export function DiscoveryHome({
                             posterPath: movie.posterPath,
                             releaseYear: movie.releaseYear,
                             genres: movie.genres,
+                            matchScore: movie.matchScore || homeMatchScoresMap[movie.id]?.displayScore,
+                            reasons: homeMatchScoresMap[movie.id]?.reasons,
+                            headline: homeMatchScoresMap[movie.id]?.headline,
                           },
                         })
                       }
@@ -375,11 +399,15 @@ export function DiscoveryHome({
                         )}
 
                         {/* Top-Right Badge: Match % if available */}
-                        {movie.matchScore ? (
-                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-accent text-[10px] font-mono font-bold">
-                            ❤️ %{movie.matchScore}
-                          </div>
-                        ) : null}
+                        {(() => {
+                          const displayScore = movie.matchScore || (homeMatchScoresMap[movie.id]?.available ? homeMatchScoresMap[movie.id].displayScore : null);
+                          if (!displayScore || displayScore <= 0) return null;
+                          return (
+                            <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-accent text-[10px] font-mono font-bold z-10">
+                              ❤️ %{displayScore}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Info & TMDB rating */}

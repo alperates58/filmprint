@@ -3,6 +3,7 @@ import { db } from "@/lib/db/client";
 import { getCurrentUser } from "@/lib/auth/service";
 import { tmdbClient } from "@/lib/tmdb/client";
 import { InteractionStatus, RatingStatus } from "@prisma/client";
+import { getMoviePersonalMatch } from "@/lib/recommendation/universal-matcher";
 
 export async function GET(
   request: Request,
@@ -85,6 +86,15 @@ export async function GET(
         : `https://image.tmdb.org/t/p/w1280${movie.backdropPath}`
       : null;
 
+    let personalMatch = null;
+    if (currentUser) {
+      try {
+        personalMatch = await getMoviePersonalMatch(currentUser.id, movie.id);
+      } catch (e) {
+        console.error("[GET /api/movies/[movieId] Match Error]:", e);
+      }
+    }
+
     return NextResponse.json({
       id: movie.id,
       tmdbId: movie.tmdbId,
@@ -102,6 +112,7 @@ export async function GET(
       trailer: (meta.trailer as any) || null,
       userStatus,
       userRating,
+      personalMatch,
     });
   } catch (error) {
     console.error("[GET /api/movies/[movieId] Error]:", error);

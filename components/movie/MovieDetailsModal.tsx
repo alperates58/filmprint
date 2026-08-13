@@ -36,6 +36,16 @@ interface FullMovieDetails {
   trailer: { provider: "youtube"; key: string } | null;
   userStatus: "WATCHED" | "NOT_WATCHED" | "UNSURE" | "WATCH_LATER" | null;
   userRating: "LOVE" | "LIKE" | "NEUTRAL" | "DISLIKE" | null;
+  personalMatch?: {
+    movieId: string;
+    rawScore: number;
+    displayScore: number;
+    label: string;
+    evidenceStrength: string;
+    available: boolean;
+    reasons: string[];
+    headline?: string;
+  } | null;
 }
 
 const RATING_LABELS: Record<string, { label: string; emoji: string }> = {
@@ -248,27 +258,34 @@ export function MovieDetailsModal({
 
               {/* Title & Metadata */}
               <div className="space-y-2 flex-1">
-                <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-text-muted">
-                  {details?.voteAverage ? (
-                    <span className="px-2.5 py-1 rounded-full bg-background/80 backdrop-blur-md border border-accent/40 text-text-primary font-bold">
-                      ⭐ {details.voteAverage.toFixed(1)}/10
-                    </span>
-                  ) : null}
+                {(() => {
+                  const matchScore = initialData?.matchScore || (details?.personalMatch?.available ? details.personalMatch.displayScore : null);
+                  const matchLabel = details?.personalMatch?.label || null;
 
-                  {(initialData?.matchScore || details) && initialData?.matchScore ? (
-                    <span className="px-2.5 py-1 rounded-full bg-accent/20 border border-accent/40 text-accent font-bold">
-                      ❤️ %{initialData.matchScore} UYUM
-                    </span>
-                  ) : null}
+                  return (
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-text-muted">
+                      {details?.voteAverage ? (
+                        <span className="px-2.5 py-1 rounded-full bg-background/80 backdrop-blur-md border border-accent/40 text-text-primary font-bold">
+                          ⭐ {details.voteAverage.toFixed(1)}/10
+                        </span>
+                      ) : null}
 
-                  {(details?.releaseYear || initialData?.releaseYear) && (
-                    <span>{details?.releaseYear || initialData?.releaseYear}</span>
-                  )}
+                      {matchScore ? (
+                        <span className="px-2.5 py-1 rounded-full bg-accent/20 border border-accent/40 text-accent font-bold">
+                          ❤️ %{matchScore} UYUM {matchLabel ? `(${matchLabel})` : ""}
+                        </span>
+                      ) : null}
 
-                  {details?.runtime && (
-                    <span>• {formatRuntime(details.runtime)}</span>
-                  )}
-                </div>
+                      {(details?.releaseYear || initialData?.releaseYear) && (
+                        <span>{details?.releaseYear || initialData?.releaseYear}</span>
+                      )}
+
+                      {details?.runtime && (
+                        <span>• {formatRuntime(details.runtime)}</span>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <h2
                   id="movie-modal-title"
@@ -402,27 +419,33 @@ export function MovieDetailsModal({
               )}
             </div>
 
-            {/* Why Recommended Section (If coming from recommendation context) */}
-            {initialData?.reasons && initialData.reasons.length > 0 && (
-              <div className="p-5 rounded-2xl bg-surface-elevated/80 border border-border/70 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-display text-sm font-bold text-text-primary">
-                    {initialData.headline || "Neden Sana Uygun?"}
-                  </h3>
-                  <span className="text-[10px] font-mono text-text-muted bg-surface border border-border/60 px-2 py-0.5 rounded-full">
-                    Filmprint yorumu
-                  </span>
+            {/* Why Recommended Section (Universal Match Context) */}
+            {(() => {
+              const reasons = initialData?.reasons || details?.personalMatch?.reasons || [];
+              const headline = initialData?.headline || details?.personalMatch?.headline || "Neden Sana Uygun?";
+              if (!reasons || reasons.length === 0) return null;
+
+              return (
+                <div className="p-5 rounded-2xl bg-surface-elevated/80 border border-border/70 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-display text-sm font-bold text-text-primary">
+                      {headline}
+                    </h3>
+                    <span className="text-[10px] font-mono text-text-muted bg-surface border border-border/60 px-2 py-0.5 rounded-full">
+                      Filmprint yorumu
+                    </span>
+                  </div>
+                  <ul className="space-y-1.5 text-xs text-text-secondary pt-1 border-t border-border/40">
+                    {reasons.map((r: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-accent font-bold">•</span>
+                        <span>{r.replace(/\*\*(.*?)\*\*/g, "$1")}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <ul className="space-y-1.5 text-xs text-text-secondary pt-1 border-t border-border/40">
-                  {initialData.reasons.map((r, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-accent font-bold">•</span>
-                      <span>{r.replace(/\*\*(.*?)\*\*/g, "$1")}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Full Overview */}
             <div className="space-y-2">

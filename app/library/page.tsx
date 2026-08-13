@@ -57,6 +57,7 @@ function LibraryContent() {
   const [ratingFilter, setRatingFilter] = useState("ALL");
   const [sort, setSort] = useState("newest");
   const [isLoading, setIsLoading] = useState(true);
+  const [matchScoresMap, setMatchScoresMap] = useState<Record<string, any>>({});
 
   // Active inline action states
   const [activeRatingMovieId, setActiveRatingMovieId] = useState<string | null>(null);
@@ -109,6 +110,24 @@ function LibraryContent() {
   useEffect(() => {
     fetchLibrary();
   }, [fetchLibrary]);
+
+  useEffect(() => {
+    if (items.length > 0) {
+      const movieIds = items.map((i) => i.movieId);
+      fetch("/api/movies/match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ movieIds }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.matches) {
+            setMatchScoresMap(data.matches);
+          }
+        })
+        .catch((e) => console.error("[Batch Match Fetch Error]:", e));
+    }
+  }, [items]);
 
   const handleTabChange = (newTab: string) => {
     setPage(1);
@@ -364,6 +383,9 @@ function LibraryContent() {
                             posterPath,
                             releaseYear,
                             genres,
+                            matchScore: matchScoresMap[movieId]?.displayScore,
+                            reasons: matchScoresMap[movieId]?.reasons,
+                            headline: matchScoresMap[movieId]?.headline,
                           },
                         })
                       }
@@ -386,9 +408,20 @@ function LibraryContent() {
 
                       {/* Current Rating Badge (If Watched) */}
                       {status === "WATCHED" && rating && (
-                        <div className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-text-primary text-[10px] font-mono font-bold flex items-center gap-1">
+                        <div className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-text-primary text-[10px] font-mono font-bold flex items-center gap-1 z-10">
                           <span>{RATING_LABELS[rating]?.emoji}</span>
                           <span>{RATING_LABELS[rating]?.label}</span>
+                        </div>
+                      )}
+
+                      {/* Filmprint Match Score Badge */}
+                      {matchScoresMap[movieId]?.available && matchScoresMap[movieId]?.displayScore > 0 && (
+                        <div
+                          className={`absolute ${
+                            status === "WATCHED" && rating ? "top-2 left-2 text-[9px] px-2 py-0.5" : "top-2 right-2 text-[10px] px-2.5 py-1"
+                          } rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-accent font-mono font-bold z-10`}
+                        >
+                          ❤️ %{matchScoresMap[movieId].displayScore} UYUM
                         </div>
                       )}
                     </div>

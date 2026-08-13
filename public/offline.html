@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#09090b" />
+  <title>Filmprint — Çevrimdışı</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #09090b;
+      color: #f4f4f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    .logo-container {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      background: rgba(229, 9, 20, 0.15);
+      border: 1px solid rgba(229, 9, 20, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .logo-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: #e50914;
+      box-shadow: 0 0 16px rgba(229, 9, 20, 0.6);
+    }
+    .brand-title {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      margin-bottom: 12px;
+      color: #f4f4f5;
+    }
+    .status-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #f4f4f5;
+      margin-bottom: 8px;
+    }
+    .status-desc {
+      font-size: 14px;
+      color: #a1a1aa;
+      max-width: 320px;
+      line-height: 1.5;
+      margin-bottom: 28px;
+    }
+    .retry-btn {
+      background-color: #e50914;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px 28px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+      box-shadow: 0 4px 14px rgba(229, 9, 20, 0.4);
+    }
+    .retry-btn:hover {
+      background-color: #f41f2a;
+    }
+    .retry-btn:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body>
+  <div class="logo-container">
+    <div class="logo-dot"></div>
+  </div>
+  <div class="brand-title">FILMPRINT</div>
+  <h1 class="status-title">Şu anda internet bağlantısı yok.</h1>
+  <p class="status-desc">Bağlantın geri geldiğinde kaldığın yerden devam edebilirsin.</p>
+  <button class="retry-btn" onclick="window.location.reload()">Tekrar Dene</button>
+
+  <script>
+    window.addEventListener('online', function() {
+      window.location.reload();
+    });
+  </script>
+</body>
+</html>

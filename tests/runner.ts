@@ -15,6 +15,7 @@ import { runRecommendationMatcherTests } from "./recommendation_matcher.test";
 import { runRecommendationUpgradeTests } from "./recommendation_upgrade.test";
 import { runRecommendationV2Tests } from "./recommendation_v2.test";
 import { runRecommendationV3Tests } from "./recommendation_v3.test";
+import { runPwaTests } from "./pwa.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -40,6 +41,7 @@ async function runAllUnitAndRegressionTests() {
     { name: "Recommendation Upgrade Tests", fn: runRecommendationUpgradeTests },
     { name: "Recommendation Engine V2 Tests", fn: runRecommendationV2Tests },
     { name: "Recommendation Engine V3 Tests", fn: runRecommendationV3Tests },
+    { name: "PWA & Safe Offline Foundation Tests", fn: runPwaTests },
   ];
 
   let passedSuites = 0;

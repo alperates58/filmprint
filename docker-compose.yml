@@ -11,11 +11,17 @@ services:
       DEEPSEEK_MODEL_ID: ${DEEPSEEK_MODEL_ID:-deepseek-v4-flash}
       MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY:-}
       SESSION_SECRET: ${SESSION_SECRET:-}
+      AUTH_SECRET: ${AUTH_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://filmprint.alperates.com.tr}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-}
       NODE_ENV: production
     expose:
       - "3000"
+    ports:
+      - "${PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy

@@ -33,8 +33,8 @@ export function runRankIntegrityTests() {
   const prog184 = getProgressionForCount(184);
   assert(prog184.currentRank.key === "CINEPHILE", "184 interactions rank is Sinefil");
   assert(prog184.evaluatedCount === 184, "Evaluated count matches 184");
-  assert(prog184.nextTarget === 250, "Next target for Sinefil is 250 (Küratör)");
-  assert(prog184.remainingToNext === 66, "Remaining count to Küratör is 66 (250 - 184)");
+  assert(prog184.nextRank?.minimum === 250, "Next target for Sinefil is 250 (Küratör)");
+  assert(prog184.remaining === 66, "Remaining count to Küratör is 66 (250 - 184)");
 
   // 3. Status update immutability simulation
   // Updating rating on an existing interaction should NOT decrease or increase total count

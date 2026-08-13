@@ -12,3 +12,8 @@ docker-compose.yml
 .idea
 README.md
 tests/
+e2e/
+test-results/
+playwright-report/
+scripts/
+

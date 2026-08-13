@@ -1,0 +1,89 @@
+name: Filmprint CI & Production Safety Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    name: Validate, Test & Verify Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: filmprint_test
+          POSTGRES_PASSWORD: test_password_123
+          POSTGRES_DB: filmprint_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://filmprint_test:test_password_123@localhost:5432/filmprint_test?schema=public
+      AUTH_SECRET: ci_test_auth_secret_32_characters_long_key
+      SESSION_SECRET: ci_test_session_secret_32_characters_long_key
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      TMDB_API_KEY: mock_ci_tmdb_key
+
+    steps:
+      - name: 1. Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: 3. Install Dependencies
+        run: npm ci
+
+      - name: 4. Prisma Schema Validation & Client Generation
+        run: |
+          npx prisma validate
+          npx prisma generate
+
+      - name: 5. ESLint & TypeScript Type-Check
+        run: |
+          npm run lint
+          npm run type-check
+
+      - name: 6. Run Unit & Regression Test Suite
+        run: npm test
+
+      - name: 7. Apply Database Migrations on Fresh Test DB
+        run: npx prisma migrate deploy
+
+      - name: 8. Verify Schema Drift & Database Integrity
+        run: npm run db:verify
+
+      - name: 9. Next.js Production Build
+        run: npm run build
+
+      - name: 10. Install Playwright Browsers & Dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: 11. Run Playwright E2E Tests
+        run: npm run test:e2e
+
+      - name: 12. Upload E2E Playwright Artifacts on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+      - name: 13. Validate Production Docker Image Build
+        run: docker build -t filmprint:ci .

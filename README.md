@@ -46,9 +46,23 @@ Open `http://localhost:3000` in your browser.
 # Build and launch both web & postgres containers
 docker compose up --build -d
 ```
-Access the application at `http://localhost:3000` and test health status at `http://localhost:3000/api/health`.
+### 3. Testing & Production Safety
+```bash
+# Run unit & regression test suite (17 test suites)
+npm test
+
+# Run Playwright E2E tests
+npm run test:e2e
+
+# Run schema drift & migration integrity detector
+npm run db:verify
+
+# Pre-deploy verification gate (validate + type-check + unit tests + db verify + build)
+npm run verify
+```
 
 ---
+
 
 ## Coolify Deployment
 

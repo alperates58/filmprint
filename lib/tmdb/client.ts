@@ -789,41 +789,97 @@ export class TMDBClient {
   }
 
   /**
-   * Synchronizes candidate pool dynamically advancing TMDB page offsets.
+   * Discovers movies using TMDB discover endpoint with custom filter criteria.
+   */
+  public async discoverMovies(params: Record<string, string | number>): Promise<TMDBMovie[]> {
+    const apiKey = await this.resolveApiKey();
+    if (!apiKey) return [];
+
+    try {
+      const query = new URLSearchParams({
+        api_key: apiKey,
+        language: "tr-TR",
+        include_adult: "false",
+        ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
+      });
+
+      const response = await fetch(`${TMDB_API_BASE}/discover/movie?${query.toString()}`, {
+        next: { revalidate: 3600 },
+      });
+
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.results || [];
+    } catch (e) {
+      console.error("[TMDB Client] Error discovering movies:", e);
+      return [];
+    }
+  }
+
+  /**
+   * Synchronizes candidate pool dynamically using multi-stream discovery and page rotation.
    * Ensures candidate pool never runs dry even when users evaluate hundreds of movies.
+   * Multi-stream covers popular, top-rated, drama, crime, scifi, action, thriller, comedy, and animation.
    */
   public async seedAndFetchMovies(): Promise<CachedMovieData[]> {
     const apiKey = await this.resolveApiKey();
     const syncedMovies: CachedMovieData[] = [];
     const processedIds = new Set<number>();
 
-    if (apiKey) {
-      // Calculate dynamic page offset based on current total movies in database
-      const existingCount = await db.movie.count();
-      const pageOffset = Math.floor(existingCount / 20) + 1;
-
-      const [popA, popB, topA, topB] = await Promise.all([
-        this.getPopularMovies(pageOffset),
-        this.getPopularMovies(pageOffset + 1),
-        this.getTopRatedMovies(pageOffset),
-        this.getTopRatedMovies(pageOffset + 1),
-      ]);
-
-      const combined = [...topA, ...popA, ...topB, ...popB];
-      for (const m of combined) {
-        if (!processedIds.has(m.id)) {
-          processedIds.add(m.id);
-          const synced = await this.syncMovieToDatabase(m);
-          syncedMovies.push(synced);
-        }
+    // 1. Sync fallback movies for resilience
+    for (const m of FALLBACK_MOVIES) {
+      if (!processedIds.has(m.id)) {
+        processedIds.add(m.id);
+        const synced = await this.syncMovieToDatabase(m);
+        syncedMovies.push(synced);
       }
-    } else {
-      for (const m of FALLBACK_MOVIES) {
-        if (!processedIds.has(m.id)) {
-          processedIds.add(m.id);
-          const synced = await this.syncMovieToDatabase(m);
-          syncedMovies.push(synced);
+    }
+
+    if (apiKey) {
+      try {
+        const existingCount = await db.movie.count();
+        // Dynamic page rotation: cycles across pages 1..10 to constantly bring varied quality titles
+        const basePage = ((Math.floor(existingCount / 20)) % 10) + 1;
+        const nextPage = (basePage % 10) + 1;
+
+        const [popA, popB, topA, topB, drama, crime, scifi, action, thriller, comedy, animation] =
+          await Promise.all([
+            this.getPopularMovies(basePage),
+            this.getPopularMovies(nextPage),
+            this.getTopRatedMovies(basePage),
+            this.getTopRatedMovies(nextPage),
+            this.discoverMovies({ with_genres: "18", sort_by: "popularity.desc", "vote_count.gte": 40, page: basePage }),
+            this.discoverMovies({ with_genres: "80", sort_by: "popularity.desc", "vote_count.gte": 40, page: basePage }),
+            this.discoverMovies({ with_genres: "878", sort_by: "popularity.desc", "vote_count.gte": 40, page: basePage }),
+            this.discoverMovies({ with_genres: "28", sort_by: "popularity.desc", "vote_count.gte": 40, page: basePage }),
+            this.discoverMovies({ with_genres: "53", sort_by: "popularity.desc", "vote_count.gte": 40, page: basePage }),
+            this.discoverMovies({ with_genres: "35", sort_by: "popularity.desc", "vote_count.gte": 40, page: basePage }),
+            this.discoverMovies({ with_genres: "16", sort_by: "popularity.desc", "vote_count.gte": 40, page: basePage }),
+          ]);
+
+        const combined = [
+          ...topA,
+          ...popA,
+          ...topB,
+          ...popB,
+          ...drama,
+          ...crime,
+          ...scifi,
+          ...action,
+          ...thriller,
+          ...comedy,
+          ...animation,
+        ];
+
+        for (const m of combined) {
+          if (!processedIds.has(m.id)) {
+            processedIds.add(m.id);
+            const synced = await this.syncMovieToDatabase(m);
+            syncedMovies.push(synced);
+          }
         }
+      } catch (err) {
+        console.error("[TMDB Client] Error during multi-stream movie replenishment:", err);
       }
     }
 

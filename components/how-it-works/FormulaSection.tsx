@@ -338,6 +338,84 @@ export function FormulaSection() {
             🛡️ <strong>Sıfır Garanti Prensibi:</strong> %100 garanti anlamına gelen bir skor yoktur. Sinema sanatı kişiseldir ve matematik her zaman keşfe açık bir pay bırakır.
           </div>
         </div>
+
+        {/* FORMULA 5: Hibrit AI Öneri Skoru (Hybrid Score) */}
+        <div className="p-6 sm:p-8 rounded-3xl bg-surface border border-border/90 space-y-6 shadow-cinematic relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-4">
+            <div className="space-y-1">
+              <span className="text-xs font-mono font-bold text-accent">FORMÜL 5</span>
+              <h3 className="font-display text-lg sm:text-xl font-bold text-text-primary">
+                Hibrit AI Öneri Skoru (Hybrid Reranker)
+              </h3>
+            </div>
+            <span className="self-start sm:self-auto px-3 py-1 rounded-full bg-accent/15 border border-accent/30 text-xs font-mono font-semibold text-accent">
+              Hibrit AI Sentezi
+            </span>
+          </div>
+
+          <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
+            Deterministik Match Engine'in filtrelediği güvenli adaylar, DeepSeek AI Taste Profile'ın semantik yakınlık değerlendirmesiyle kontrollü olarak birleştirilir.
+          </p>
+
+          {/* Math Render Card */}
+          <div className="p-5 sm:p-8 rounded-2xl bg-background/90 border border-accent/30 text-center flex flex-col items-center justify-center space-y-2 shadow-inner overflow-x-auto">
+            <MathFormula
+              tex={"H = w_m \\cdot M + w_a \\cdot A \\quad (w_m + w_a = 1, \\; w_a \\le 0.50, \\; H \\le 97)"}
+              className="text-accent text-lg sm:text-xl md:text-2xl font-bold"
+            />
+          </div>
+
+          {/* Variables Breakdown */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-mono">
+            <div className="p-4 rounded-xl bg-surface-elevated border border-border/70 space-y-1">
+              <div className="text-accent font-bold flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded bg-accent/10 border border-accent/20">M</span>
+                <span>Match Score</span>
+              </div>
+              <p className="text-text-secondary font-sans text-xs">
+                Deterministik Match Engine skoru
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-surface-elevated border border-border/70 space-y-1">
+              <div className="text-accent font-bold flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded bg-accent/10 border border-accent/20">A</span>
+                <span>AI Affinity</span>
+              </div>
+              <p className="text-text-secondary font-sans text-xs">
+                AI Taste semantik yakınlık skoru
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-surface-elevated border border-border/70 space-y-1">
+              <div className="text-accent font-bold flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded bg-accent/10 border border-accent/20">w_m</span>
+                <span>Match Ağırlığı</span>
+              </div>
+              <p className="text-text-secondary font-sans text-xs">
+                Motor ana otorite ağırlığı (Film: %55, TV: %60)
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-surface-elevated border border-border/70 space-y-1">
+              <div className="text-accent font-bold flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded bg-accent/10 border border-accent/20">w_a</span>
+                <span>AI Ağırlığı</span>
+              </div>
+              <p className="text-text-secondary font-sans text-xs">
+                Semantik rerank ağırlığı (Film: %45, TV: %40)
+              </p>
+            </div>
+          </div>
+
+          {/* Explanatory Note */}
+          <div className="p-3.5 rounded-xl bg-surface-elevated border border-border/60 text-xs text-text-muted font-sans italic">
+            🧠 <strong>Açıklayıcı Model:</strong> Match Engine ana otoriteyi korur; AI ağırlığı yönetim paneli ayarları ve profil güvenine göre sınırlandırılır. %97 güvenlik tavanı geçerliliğini korur.
+          </div>
+        </div>
       </div>
     </section>
   );

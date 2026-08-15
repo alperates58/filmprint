@@ -50,7 +50,6 @@ export function DiscoveryHome({
     movieId: string;
     initialData?: any;
   } | null>(null);
-  const [homeMatchScoresMap, setHomeMatchScoresMap] = useState<Record<string, any>>({});
 
   const progression = getProgressionForCount(answeredCount);
 
@@ -66,26 +65,6 @@ export function DiscoveryHome({
       .catch((e) => console.error("[DiscoveryHome Fetch Error]:", e))
       .finally(() => setIsLoading(false));
   }, []);
-
-  useEffect(() => {
-    if (modules.length > 0) {
-      const allMovieIds = Array.from(
-        new Set(modules.flatMap((m) => m.movies.map((mov: any) => mov.id)))
-      );
-      fetch("/api/movies/match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ movieIds: allMovieIds }),
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data?.matches) {
-            setHomeMatchScoresMap(data.matches);
-          }
-        })
-        .catch((e) => console.error("[Home Batch Match Fetch Error]:", e));
-    }
-  }, [modules]);
 
   const handleDismissMilestone = () => {
     setShowMilestoneNotice(false);
@@ -330,11 +309,26 @@ export function DiscoveryHome({
           </div>
         )}
 
-        {/* Loading State */}
+        {/* Loading Skeleton Rows */}
         {isLoading && (
-          <div className="p-12 text-center text-text-muted font-mono text-xs space-y-3 rounded-3xl bg-surface border border-border">
-            <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
-            <p>Keşif kategorileriniz hazırlanıyor...</p>
+          <div className="space-y-8 animate-pulse">
+            {[1, 2, 3].map((row) => (
+              <div key={row} className="space-y-3 pt-2">
+                <div className="flex items-center gap-2 border-b border-border/60 pb-3">
+                  <div className="w-6 h-6 rounded-md bg-surface-elevated" />
+                  <div className="h-5 w-48 rounded-md bg-surface-elevated" />
+                </div>
+                <div className="flex gap-4 overflow-hidden pt-1">
+                  {[1, 2, 3, 4, 5, 6].map((card) => (
+                    <div key={card} className="flex-shrink-0 w-36 sm:w-44 space-y-2">
+                      <div className="w-full aspect-[2/3] rounded-2xl bg-surface-elevated border border-border/60" />
+                      <div className="h-3.5 w-3/4 rounded bg-surface-elevated" />
+                      <div className="h-2.5 w-1/2 rounded bg-surface-elevated" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -374,9 +368,9 @@ export function DiscoveryHome({
                             posterPath: movie.posterPath,
                             releaseYear: movie.releaseYear,
                             genres: movie.genres,
-                            matchScore: movie.matchScore || homeMatchScoresMap[movie.id]?.displayScore,
-                            reasons: homeMatchScoresMap[movie.id]?.reasons,
-                            headline: homeMatchScoresMap[movie.id]?.headline,
+                            matchScore: movie.matchScore,
+                            reasons: movie.reasons,
+                            headline: movie.headline,
                           },
                         })
                       }
@@ -399,15 +393,11 @@ export function DiscoveryHome({
                         )}
 
                         {/* Top-Right Badge: Match % if available */}
-                        {(() => {
-                          const displayScore = movie.matchScore || (homeMatchScoresMap[movie.id]?.available ? homeMatchScoresMap[movie.id].displayScore : null);
-                          if (!displayScore || displayScore <= 0) return null;
-                          return (
-                            <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-accent text-[10px] font-mono font-bold z-10">
-                              ❤️ %{displayScore}
-                            </div>
-                          );
-                        })()}
+                        {typeof movie.matchScore === "number" && movie.matchScore > 0 && (
+                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-accent text-[10px] font-mono font-bold z-10">
+                            ❤️ %{movie.matchScore}
+                          </div>
+                        )}
                       </div>
 
                       {/* Info & TMDB rating */}

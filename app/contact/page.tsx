@@ -162,7 +162,7 @@ export default function ContactPage() {
             <div className="p-4 rounded-2xl bg-background border border-border/60 space-y-1">
               <h3 className="font-bold text-text-primary text-sm">Match skoru neden %100 olamıyor?</h3>
               <p className="text-text-muted leading-relaxed">
-                Match Engine v3.1 prensiplerine göre hiçbir film %100 eşleşme garantisi veremez. Gösterim üst sınırı %97'dir ve %90+ skor için sevdiğiniz filmlerle matematiksel referans şarttır.
+                Match Engine v3.2 prensiplerine göre hiçbir film %100 eşleşme garantisi veremez. Gösterim üst sınırı %97'dir ve %90+ skor için sevdiğiniz filmlerle matematiksel referans şarttır.
               </p>
             </div>
 

@@ -4,35 +4,43 @@ export function HowItWorksSteps() {
   const steps = [
     {
       number: "01",
-      title: "Sen sinyal verirsin",
+      title: "Sen Değerlendirirsin",
       description:
-        "İzledim, Çok Sevdim, Beğendim, Sevmedim gibi kararların profilini besler.",
+        "Film veya dizileri LOVE, LIKE, NEUTRAL, DISLIKE ile değerlendirirsin. Ham sinyaller profili besler.",
       icon: "👆",
       highlight: "Ham Tercih Sinyalleri",
     },
     {
       number: "02",
-      title: "Film DNA oluşur",
+      title: "DNA Oluşur",
       description:
-        "Tür, dönem, popülerlik yönelimi, keşif açıklığı ve benzeri sinyallerden kişisel zevk modeli çıkarılır.",
+        "Film DNA ve Dizi DNA bağımsız olarak vektörel düzeyde modellenir; tür, dönem ve format tercihleri çıkarılır.",
       icon: "🧬",
       highlight: "Vektörel Profil Modelleme",
     },
     {
       number: "03",
-      title: "Match Engine adayları sıralar",
+      title: "Match Engine Adayları Bulur",
       description:
-        "Film kalitesi, profil uyumu, keşif dengesi, kanıt gücü ve tekrar cezaları birlikte değerlendirilir.",
+        "Binlerce içerikten kalite, tür, dönem, süre, yetişkin filtreleri ve dislike cezalarıyla güvenli bir shortlist oluşturur.",
       icon: "⚙️",
-      highlight: "Çok Boyutlu Sıralama",
+      highlight: "Deterministik Güvenli Shortlist",
     },
     {
       number: "04",
-      title: "Açıklanabilir öneriler gelir",
+      title: "AI Semantic Reranker",
       description:
-        "Sadece filmi değil, neden sana uygun olduğunu da görürsün.",
-      icon: "💡",
-      highlight: "Gerekçelendirilmiş Öneriler",
+        "DeepSeek yalnızca filtrelenmiş shortlist'i analiz eder; anlatım biçimi, psikolojik ton, story structure ve tema derinliğini inceler.",
+      icon: "🧠",
+      highlight: "İkinci Aşama Semantik Analiz",
+    },
+    {
+      number: "05",
+      title: "Hibrit Skor Hesaplanır",
+      description:
+        "Matematiksel eşleşme skoru ile AI semantik yakınlığı kontrollü ağırlıklarla birleşerek final sıralamayı oluşturur.",
+      icon: "✨",
+      highlight: "Kalibre Edilmiş Hibrit Sıralama",
     },
   ];
 
@@ -43,18 +51,18 @@ export function HowItWorksSteps() {
           Akış Mimarisi
         </span>
         <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-text-primary">
-          4 Adımda Nasıl Çalışıyor?
+          5 Adımda Hibrit Öneri Mimarisi
         </h2>
         <p className="text-xs sm:text-sm text-text-secondary">
-          Kullanıcı kararından kişiselleştirilmiş gerekçeli önerilere uzanan uçtan uca akış.
+          Kullanıcı değerlendirmesinden matematiksel filtreye ve semantik yapay zeka sıralamasına uzanan uçtan uca akış.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {steps.map((step, idx) => (
           <div
             key={idx}
-            className="group relative p-6 rounded-2xl bg-surface border border-border/80 hover:border-accent/40 transition-all duration-300 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md hover:shadow-accent/5"
+            className="group relative p-5 rounded-2xl bg-surface border border-border/80 hover:border-accent/40 transition-all duration-300 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md hover:shadow-accent/5"
           >
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -63,7 +71,7 @@ export function HowItWorksSteps() {
                   {step.number}
                 </span>
               </div>
-              <h3 className="font-display text-base font-bold text-text-primary group-hover:text-accent transition-colors">
+              <h3 className="font-display text-sm font-bold text-text-primary group-hover:text-accent transition-colors">
                 {step.title}
               </h3>
               <p className="text-xs text-text-secondary leading-relaxed">
@@ -71,7 +79,7 @@ export function HowItWorksSteps() {
               </p>
             </div>
 
-            <div className="pt-3 border-t border-border/40 text-[11px] font-mono text-text-muted">
+            <div className="pt-3 border-t border-border/40 text-[10px] font-mono text-text-muted">
               {step.highlight}
             </div>
           </div>

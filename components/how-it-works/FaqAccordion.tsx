@@ -46,6 +46,21 @@ export function FaqAccordion() {
       answer:
         "Açıklamalarda gösterilen filmler sadece kullanıcının daha önce izleyip 'Çok Sevdim' veya 'Beğendim' dediği kütüphaneden seçilir. Aday film ile benzerlik eşiği yakalanamazsa yapay referans uydurulmaz, profil genel sinyalleri kullanılır.",
     },
+    {
+      question: "AI Confidence Gating (Güven Kısıtı) nedir?",
+      answer:
+        "Filmprint profiliniz henüz yeniyse veya yeterince veri oluşmamışsa, yapay zekanın etkisi otomatik olarak sınırlandırılır ve matematiksel Match Engine daha baskın tutulur. Profil olgunlaştıkça semantik AI ağırlığı yapılandırılan seviyeye yükselir.",
+    },
+    {
+      question: "AI Taste Profile ne sıklıkla yenilenir?",
+      answer:
+        "AI Taste Profile her istekte baştan çağrılmaz. Yaklaşık 25 yeni değerlendirme yapıldığında veya anlamlı bir zevk kayması tespit edildiğinde arka planda asenkron yenilenir. Böylece sayfalar her zaman anında (sıfır gecikmeyle) açılır.",
+    },
+    {
+      question: "'Neden Sana Uygun?' açıklaması nasıl çalışır?",
+      answer:
+        "Öneri sıralamasında çalışan semantik reranker ile 'Neden sana uygun?' butonuna basıldığında açılan doğal dil açıklaması iki bağımsız servistir. Açıklama üretimi yalnızca siz butona tıkladığınızda istek üzerine (on-demand) çalışır ve önbelleğe alınır.",
+    },
   ];
 
   const toggleIndex = (idx: number) => {

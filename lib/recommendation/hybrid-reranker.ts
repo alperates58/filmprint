@@ -264,6 +264,7 @@ export interface HybridRerankOptions {
   shortlistSize?: number;
   matchVersion?: number;
   frozenRankingMap?: Map<string, { affinity: number; signals: string[] }>;
+  forceGenerate?: boolean;
 }
 
 /**
@@ -281,13 +282,26 @@ export async function rerankCandidatesWithAi(
 ): Promise<{
   rankedCandidates: HybridScoredCandidate[];
   isAiApplied: boolean;
+  hybridPending?: boolean;
+  candidateFingerprint?: string;
   source: "snapshot_cache" | "generated" | "deterministic_fallback";
+  effectiveWeights?: { matchWeight: number; aiWeight: number };
 }> {
-  // Fallback: If no AI Taste profile or empty candidate list, return deterministic order
-  if (!aiTasteProfile || candidates.length === 0) {
+  // Fallback: If no AI Taste profile or empty candidate list, return deterministic order immediately
+  if (candidates.length === 0) {
     return {
       rankedCandidates: candidates,
       isAiApplied: false,
+      hybridPending: false,
+      source: "deterministic_fallback",
+    };
+  }
+
+  if (!aiTasteProfile) {
+    return {
+      rankedCandidates: candidates,
+      isAiApplied: false,
+      hybridPending: true,
       source: "deterministic_fallback",
     };
   }
@@ -311,6 +325,7 @@ export async function rerankCandidatesWithAi(
     return {
       rankedCandidates: candidates,
       isAiApplied: false,
+      hybridPending: false,
       source: "deterministic_fallback",
     };
   }
@@ -367,14 +382,28 @@ export async function rerankCandidatesWithAi(
     dnaProfile.confidence || 0.5
   );
 
-  // 3. Cache Miss: Execute Batch DeepSeek Reranker (with in-memory concurrency guard)
+  // 3. Cache Miss: Execute Batch DeepSeek Reranker only if forceGenerate is requested
   if (rankingMap.size === 0) {
-    if (activeRerankLocks.has(lockKey)) {
-      // Another request is currently generating this snapshot -> return deterministic immediately
+    if (!options.forceGenerate) {
+      // Non-blocking: Return deterministic immediately and signal client to trigger background refresh
       return {
         rankedCandidates: candidates,
         isAiApplied: false,
+        hybridPending: true,
+        candidateFingerprint,
         source: "deterministic_fallback",
+        effectiveWeights: { matchWeight: effectiveMatchWeight, aiWeight: effectiveAiWeight },
+      };
+    }
+
+    if (activeRerankLocks.has(lockKey)) {
+      return {
+        rankedCandidates: candidates,
+        isAiApplied: false,
+        hybridPending: true,
+        candidateFingerprint,
+        source: "deterministic_fallback",
+        effectiveWeights: { matchWeight: effectiveMatchWeight, aiWeight: effectiveAiWeight },
       };
     }
 
@@ -385,7 +414,6 @@ export async function rerankCandidatesWithAi(
       const aiResult = await callDeepSeekBatchReranker(promptPayload);
 
       if (aiResult && aiResult.rankings && aiResult.rankings.length > 0) {
-        // Validate candidate IDs: Only accept candidates present in input shortlist
         const validShortlistIdSet = new Set(candidateIds);
         const validatedRankings: AiRerankRankingItem[] = [];
 
@@ -446,7 +474,10 @@ export async function rerankCandidatesWithAi(
     return {
       rankedCandidates: candidates,
       isAiApplied: false,
+      hybridPending: false,
+      candidateFingerprint,
       source: "deterministic_fallback",
+      effectiveWeights: { matchWeight: effectiveMatchWeight, aiWeight: effectiveAiWeight },
     };
   }
 

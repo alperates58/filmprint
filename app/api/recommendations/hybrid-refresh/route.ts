@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getOrCreateSession } from "@/lib/session";
 import { getSystemSettings } from "@/lib/config/service";
 import { getOrRefreshUserAiTasteProfile } from "@/lib/recommendation/ai-taste-service";
+import { getPersonalizedRecommendations } from "@/lib/recommendation/service";
 
 export async function POST(request: Request) {
   try {
@@ -34,11 +35,16 @@ export async function POST(request: Request) {
       refreshThreshold: settings.aiTasteRefreshEvidenceCount,
     });
 
+    const recResult = await getPersonalizedRecommendations(userId, 24, 0, false, {
+      forceAiRefresh: true,
+    });
+
     return NextResponse.json({
       success: true,
       tasteProfileReady: tasteResult.profile !== null,
       refreshed: tasteResult.refreshed,
       source: tasteResult.source,
+      hybridApplied: recResult.hybridApplied,
     });
   } catch (error) {
     console.error("[Hybrid Refresh API Error]:", error);

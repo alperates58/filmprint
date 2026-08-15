@@ -23,6 +23,8 @@ import { runHybridRecommendationTests } from "./recommendation_hybrid.test";
 import { runTvDnaCalculatorTests } from "./tv_dna_calculator.test";
 import { runTvRecommendationMatcherTests } from "./tv_recommendation_matcher.test";
 import { runTvHybridRecommendationTests } from "./recommendation_hybrid_tv.test";
+import { runTvCalibrationSupplyTests } from "./tv_calibration_supply.test";
+import { runHybridIntegrationRuntimeTests } from "./hybrid_integration_runtime.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -52,10 +54,12 @@ async function runAllUnitAndRegressionTests() {
     { name: "Global Movie Eligibility & Adult Content Tests", fn: runMovieEligibilityTests },
     { name: "TV Phase 0 Foundation & Regression Tests", fn: runTvFoundationTests },
     { name: "TV Phase 1 Core Flow & Calibration Engine Tests", fn: runTvCalibrationTests },
+    { name: "TV Phase 1.5 Calibration Supply & Replenishment Tests", fn: runTvCalibrationSupplyTests },
     { name: "Phase 9.5 Hybrid Recommendation & AI Controls Tests", fn: runHybridRecommendationTests },
     { name: "TV Phase 2 Dizi DNA Calculator & Profile Tests", fn: runTvDnaCalculatorTests },
     { name: "TV Phase 3 Deterministic Match Engine & Candidate Selector Tests", fn: runTvRecommendationMatcherTests },
     { name: "TV Phase 3.5 Shared Hybrid AI Recommendation & Controls Tests", fn: runTvHybridRecommendationTests },
+    { name: "Hybrid AI Runtime Integration & Real Order Permutation Tests", fn: runHybridIntegrationRuntimeTests },
   ];
 
   let passedSuites = 0;

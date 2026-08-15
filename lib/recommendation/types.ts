@@ -63,6 +63,11 @@ export interface RecommendationResponse {
   page?: number;
   totalPages?: number;
   hasMore?: boolean;
+  hybridEnabled?: boolean;
+  hybridApplied?: boolean;
+  hybridPending?: boolean;
+  candidateFingerprint?: string;
+  hybridWeights?: { matchWeight: number; aiWeight: number };
 }
 
 export interface TasteEvidenceMovie {

@@ -48,6 +48,8 @@ export interface RecommendationServiceOptions {
   limit?: number;
   page?: number;
   debugMode?: boolean;
+  allowHybrid?: boolean;
+  forceAiRefresh?: boolean;
   hybridEnabledOverride?: boolean;
   hybridMatchWeightOverride?: number;
   hybridAiWeightOverride?: number;
@@ -63,15 +65,17 @@ export async function getPersonalizedRecommendations(
   userId: string,
   limitOrOptions: number | RecommendationServiceOptions = 24,
   pageArg: number = 0,
-  debugModeArg: boolean = false
+  debugModeArg: boolean = false,
+  optionsArg: Partial<RecommendationServiceOptions> = {}
 ): Promise<RecommendationResponse> {
   const options: RecommendationServiceOptions =
     typeof limitOrOptions === "object" && limitOrOptions !== null
-      ? limitOrOptions
+      ? { ...limitOrOptions, ...optionsArg }
       : {
           limit: typeof limitOrOptions === "number" ? limitOrOptions : 24,
           page: pageArg,
           debugMode: debugModeArg,
+          ...optionsArg,
         };
 
   const limit = options.limit ?? 24;
@@ -302,9 +306,16 @@ export async function getPersonalizedRecommendations(
 
   // 5. Hybrid AI Semantic Reranking (Phase 9.5)
   let effectiveCandidates = scoredCandidates;
-  const isHybridEnabled = options?.hybridEnabledOverride !== undefined
-    ? options.hybridEnabledOverride
-    : settings.hybridRerankEnabled;
+  let isHybridApplied = false;
+  let isHybridPending = false;
+  let candidateFingerprint: string | undefined = undefined;
+  let hybridWeights: { matchWeight: number; aiWeight: number } | undefined = undefined;
+
+  const isHybridEnabled =
+    options?.allowHybrid !== false &&
+    (options?.hybridEnabledOverride !== undefined
+      ? options.hybridEnabledOverride
+      : settings.hybridRerankEnabled && settings.aiEnabled);
 
   if (isHybridEnabled) {
     try {
@@ -314,14 +325,14 @@ export async function getPersonalizedRecommendations(
 
       let aiTaste = tasteRecord ? (tasteRecord.tasteJson as any) : null;
 
-      if (!aiTaste && !options?.frozenAiAffinityMap) {
+      if (!aiTaste && !options?.frozenAiAffinityMap && options?.forceAiRefresh) {
         const generated = await getOrRefreshUserAiTasteProfile(userId, "FILM", {
           refreshThreshold: settings.aiTasteRefreshEvidenceCount,
         });
         aiTaste = generated.profile;
       }
 
-      if (aiTaste || options?.frozenAiAffinityMap) {
+      if (aiTaste || options?.frozenAiAffinityMap || !options?.forceAiRefresh) {
         const rerankResult = await rerankCandidatesWithAi(
           userId,
           "FILM",
@@ -334,9 +345,14 @@ export async function getPersonalizedRecommendations(
             shortlistSize: settings.aiRerankShortlistSize,
             matchVersion: ENGINE_V3_MATCH_VERSION,
             frozenRankingMap: options?.frozenAiAffinityMap,
+            forceGenerate: options?.forceAiRefresh,
           }
         );
         effectiveCandidates = rerankResult.rankedCandidates;
+        isHybridApplied = rerankResult.isAiApplied;
+        isHybridPending = rerankResult.hybridPending ?? false;
+        candidateFingerprint = rerankResult.candidateFingerprint;
+        hybridWeights = rerankResult.effectiveWeights;
       }
     } catch (e) {
       console.error("[RecommendationService] Hybrid reranking error, fallback to deterministic:", e);
@@ -487,5 +503,10 @@ export async function getPersonalizedRecommendations(
     page: safePage,
     totalPages,
     hasMore: safePage < totalPages - 1,
+    hybridEnabled: isHybridEnabled,
+    hybridApplied: isHybridApplied,
+    hybridPending: isHybridPending,
+    candidateFingerprint,
+    hybridWeights,
   };
 }

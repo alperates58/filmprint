@@ -14,7 +14,7 @@ export function HeroSection() {
       {/* Version Tag */}
       <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-accent/10 border border-accent/30 text-xs font-mono font-semibold text-accent backdrop-blur-md">
         <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-        Match Engine v3.2 — Şeffaf Algoritmik Mimari
+        FILMPRINT HYBRID ENGINE — Deterministik Motor + AI Semantik Sıralama
       </div>
 
       {/* Main Title */}

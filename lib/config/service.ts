@@ -219,8 +219,8 @@ export async function getSystemSettings() {
   const settings = await db.systemSetting.findMany();
   const settingsMap = new Map<string, string>(settings.map((s: any) => [s.key, String(s.value)]));
 
-  const rawMatchWeight = parseInt(settingsMap.get("hybrid_match_weight") || "60", 10);
-  const rawAiWeight = parseInt(settingsMap.get("hybrid_ai_weight") || "40", 10);
+  const rawMatchWeight = parseInt(settingsMap.get("hybrid_match_weight") || "55", 10);
+  const rawAiWeight = parseInt(settingsMap.get("hybrid_ai_weight") || "45", 10);
   const { matchWeight, aiWeight } = validateHybridWeights(rawMatchWeight, rawAiWeight);
 
   const rawRefresh = parseInt(settingsMap.get("ai_taste_refresh_evidence_count") || "25", 10);

@@ -22,10 +22,14 @@ export default function RecommendationsPage() {
     initialData?: any;
   } | null>(null);
 
-  const fetchRecommendations = async (targetPage: number = 0) => {
+  const refreshedFingerprintsRef = React.useRef<Set<string>>(new Set());
+
+  const fetchRecommendations = async (targetPage: number = 0, silent: boolean = false) => {
     try {
-      if (data) setIsRefreshing(true);
-      else setIsLoading(true);
+      if (!silent) {
+        if (data) setIsRefreshing(true);
+        else setIsLoading(true);
+      }
 
       const res = await fetch(`/api/recommendations?limit=24&page=${targetPage}`);
       if (!res.ok) throw new Error("Öneriler alınamadı");
@@ -33,16 +37,42 @@ export default function RecommendationsPage() {
       setData(json);
       setPage(targetPage);
     } catch (err) {
-      setError((err as Error).message);
+      if (!silent) setError((err as Error).message);
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (!silent) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   };
 
   useEffect(() => {
     fetchRecommendations(0);
   }, []);
+
+  // Background Hybrid Auto-Refresh: Triggers single background generation & silent refetch
+  useEffect(() => {
+    if (data?.hybridPending && data?.candidateFingerprint) {
+      const fp = data.candidateFingerprint;
+      if (refreshedFingerprintsRef.current.has(fp)) {
+        return;
+      }
+      refreshedFingerprintsRef.current.add(fp);
+
+      fetch("/api/recommendations/hybrid-refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((refreshRes) => {
+          if (refreshRes?.success) {
+            // Silently refetch once to load the updated hybrid-ranked recommendations
+            fetchRecommendations(page, true);
+          }
+        })
+        .catch((e) => console.error("[Hybrid Auto-Refresh Error]:", e));
+    }
+  }, [data?.hybridPending, data?.candidateFingerprint, page]);
 
   const handleRefresh = () => {
     if (isLoading || isRefreshing) return;

@@ -37,7 +37,8 @@ export interface CalibrationQueueResult {
  */
 export async function getIntelligentCalibrationQueue(
   userId: string,
-  limit: number = 5
+  limit: number = 5,
+  options?: { forceReplenish?: boolean }
 ): Promise<CalibrationQueueResult> {
   const settings = await getSystemSettings();
   const targetCount = settings.calibrationTarget;
@@ -89,58 +90,46 @@ export async function getIntelligentCalibrationQueue(
     };
   }
 
-  // 3. Query DB candidate pool (Fetch up to 200 candidate movies not answered by user)
-  let rawCandidates = await db.movie.findMany({
-    where: {
-      id: { notIn: Array.from(answeredMovieIds) },
-    },
-    orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-    take: 200,
-  });
-
-  // Replenish seeding guardrail dynamically if unrated candidate pool drops below 30 movies
-  if (rawCandidates.length < 30) {
-    await tmdbClient.seedAndFetchMovies();
-    rawCandidates = await db.movie.findMany({
+  // 3. Query DB candidate pool and evaluate post-eligibility replenishment
+  const fetchEligibleCandidatePool = async (): Promise<CandidateMovie[]> => {
+    const raw = await db.movie.findMany({
       where: {
         id: { notIn: Array.from(answeredMovieIds) },
       },
       orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-      take: 200,
+      take: 250,
     });
-  }
 
-  // Graceful fallback: If candidate pool is still completely empty, fallback to catalog movies
-  if (rawCandidates.length === 0) {
-    rawCandidates = await db.movie.findMany({
-      orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-      take: 200,
+    const formatted: (CandidateMovie & { metadata?: any })[] = raw.map((m: any) => {
+      const meta = (m.metadata as Record<string, unknown>) || {};
+      return {
+        id: m.id,
+        tmdbId: m.tmdbId,
+        title: m.title,
+        originalTitle: m.originalTitle,
+        releaseYear: m.releaseYear,
+        popularity: m.popularity,
+        voteAverage: m.voteAverage,
+        posterPath: m.posterPath,
+        backdropPath: m.backdropPath,
+        genres: (meta.genres as string[]) || [],
+        overview: (meta.overview as string) || "",
+        adult: (meta.adult as boolean) || false,
+        voteCount: (meta.voteCount as number) || undefined,
+        metadata: meta,
+      };
     });
+
+    return filterEligibleMovies(formatted, "CALIBRATION");
+  };
+
+  let candidatePool = await fetchEligibleCandidatePool();
+
+  // Replenish seeding guardrail dynamically if eligible unanswered candidate pool drops below 30 movies
+  if (candidatePool.length < 30 || options?.forceReplenish) {
+    await tmdbClient.seedAndFetchMovies();
+    candidatePool = await fetchEligibleCandidatePool();
   }
-
-  // Format raw candidate movies
-  const candidatePoolRaw: (CandidateMovie & { metadata?: any })[] = rawCandidates.map((m: any) => {
-    const meta = (m.metadata as Record<string, unknown>) || {};
-    return {
-      id: m.id,
-      tmdbId: m.tmdbId,
-      title: m.title,
-      originalTitle: m.originalTitle,
-      releaseYear: m.releaseYear,
-      popularity: m.popularity,
-      voteAverage: m.voteAverage,
-      posterPath: m.posterPath,
-      backdropPath: m.backdropPath,
-      genres: (meta.genres as string[]) || [],
-      overview: (meta.overview as string) || "",
-      adult: (meta.adult as boolean) || false,
-      voteCount: (meta.voteCount as number) || undefined,
-      metadata: meta,
-    };
-  });
-
-  // Apply Global Movie Eligibility Filter for CALIBRATION
-  const candidatePool: CandidateMovie[] = filterEligibleMovies(candidatePoolRaw, "CALIBRATION");
 
   // 4. Rank candidates using Active Learning or Fallback
   let selectedMovies: QueueMovieResponseItem[] = [];

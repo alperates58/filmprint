@@ -113,7 +113,10 @@ export default async function TvRecommendationsPage() {
             </div>
 
             {/* Recommendations Grid */}
-            <TvRecommendationGrid items={data.recommendations} />
+            <TvRecommendationGrid
+              items={data.recommendations}
+              hybridPending={data.hybridPending}
+            />
           </div>
         )}
       </main>

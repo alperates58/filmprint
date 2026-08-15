@@ -11,10 +11,15 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") || "5", 10)), 15);
+    const forceReplenish = searchParams.get("refresh") === "true";
 
-    const queueResult = await getTvCalibrationQueue(user.id, limit);
+    const queueResult = await getTvCalibrationQueue(user.id, limit, { forceReplenish });
 
-    return NextResponse.json(queueResult);
+    return NextResponse.json(queueResult, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    });
   } catch (error) {
     console.error("[GET /api/tv/calibration Error]:", error);
     return NextResponse.json(

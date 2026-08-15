@@ -1,16 +1,36 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import type { PersonalizedTvRecommendationItem } from "@/lib/tv/recommendation/types";
 
 interface TvRecommendationGridProps {
   items: PersonalizedTvRecommendationItem[];
   onFeedbackAction?: (tvShowId: string, action: string, rating?: string) => void;
+  hybridPending?: boolean;
 }
 
-export function TvRecommendationGrid({ items, onFeedbackAction }: TvRecommendationGridProps) {
+export function TvRecommendationGrid({ items, onFeedbackAction, hybridPending }: TvRecommendationGridProps) {
+  const router = useRouter();
+  const refreshedRef = useRef(false);
   const [activeRatingShowId, setActiveRatingShowId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (hybridPending && !refreshedRef.current) {
+      refreshedRef.current = true;
+      fetch("/api/tv/recommendations/hybrid-refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+        .then((res) => {
+          if (res.ok) {
+            router.refresh();
+          }
+        })
+        .catch((e) => console.error("[TV Hybrid Auto-Refresh Error]:", e));
+    }
+  }, [hybridPending, router]);
   const [submittedShowIds, setSubmittedShowIds] = useState<Set<string>>(new Set());
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
   const [explanations, setExplanations] = useState<

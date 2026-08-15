@@ -2,8 +2,12 @@
 
 import React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export function Footer() {
+  const pathname = usePathname();
+  const isTvMode = pathname?.startsWith("/tv");
+
   return (
     <footer className="w-full border-t border-border/60 bg-surface/80 backdrop-blur-md mt-16 text-text-muted">
       <div className="max-w-6xl mx-auto px-4 py-12">
@@ -23,7 +27,7 @@ export function Footer() {
             </p>
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-elevated border border-border/80 text-[10px] font-mono text-accent">
               <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-              <span>Match Engine v3.1 Calibrated</span>
+              <span>{isTvMode ? "TV Match Engine v1 + Hybrid AI" : "Match Engine v3.2 + Hybrid AI"}</span>
             </div>
           </div>
 
@@ -115,8 +119,8 @@ export function Footer() {
           <div>
             FILMPRINT &copy; {new Date().getFullYear()} — Tüm Hakları Saklıdır.
           </div>
-          <div className="text-[10px] text-text-muted text-center md:text-right max-w-md leading-tight">
-            Bu ürün TMDB API verilerini kullanmaktadır ancak TMDB tarafından onaylanmamış veya sertifikalandırılmamıştır.
+          <div className="text-[10px] text-text-muted text-center md:text-right">
+            Matematiksel Modeller • Şeffaf Algoritma • Kişiselleştirilmiş Öneri
           </div>
         </div>
       </div>

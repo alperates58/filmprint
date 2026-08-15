@@ -64,6 +64,45 @@ export function DoAndDont() {
           </ul>
         </div>
       </div>
+
+      {/* AI Boundaries Card */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-surface border border-accent/30 space-y-4 shadow-cinematic">
+        <div className="flex items-center gap-2.5 text-accent font-mono font-bold text-sm border-b border-border/60 pb-3">
+          <span>🧠</span>
+          <span>YAPAY ZEKA (AI) NE YAPMAZ?</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+          <div className="p-4 rounded-xl bg-surface-elevated border border-border/70 space-y-1">
+            <div className="font-bold text-text-primary flex items-center gap-1.5">
+              <span>🚫</span>
+              <span>Kafasına Göre Film Seçmez</span>
+            </div>
+            <p className="text-text-muted leading-relaxed">
+              Katalogdan rastgele seçim yapamaz; yalnızca Match Engine'in onayladığı shortlist'i semantik olarak sıralar.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-surface-elevated border border-border/70 space-y-1">
+            <div className="font-bold text-text-primary flex items-center gap-1.5">
+              <span>🛡️</span>
+              <span>Güvenlik Filtresini Aşamaz</span>
+            </div>
+            <p className="text-text-muted leading-relaxed">
+              Yetişkin içerik, düşük kalite veya dislike kısıtlamalarını baypas edemez.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-surface-elevated border border-border/70 space-y-1">
+            <div className="font-bold text-text-primary flex items-center gap-1.5">
+              <span>🎯</span>
+              <span>%100 Garanti Uyduramaz</span>
+            </div>
+            <p className="text-text-muted leading-relaxed">
+              Tüm skorlar %97 tavan sınırına tabidir. Hayali veya uydurma referans film üretemez.
+            </p>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

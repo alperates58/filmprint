@@ -6,406 +6,11 @@ import {
   TMDBTvDetails,
   TV_GENRE_MAP,
 } from "./types";
+import { COMPREHENSIVE_FALLBACK_TV_SHOWS } from "./fallback-catalog";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 
-// Rich iconic TV shows dataset across genres & eras for guaranteed fallback/dev calibration
-export const FALLBACK_TV_SHOWS: TMDBTvShow[] = [
-  {
-    id: 1396,
-    name: "Breaking Bad",
-    original_name: "Breaking Bad",
-    poster_path: "/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg",
-    backdrop_path: "/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg",
-    first_air_date: "2008-01-20",
-    last_air_date: "2013-09-29",
-    status: "Ended",
-    popularity: 180.5,
-    vote_average: 8.9,
-    vote_count: 14000,
-    overview: "Ölümcül akciğer kanseri teşhisi konan bir lise kimya öğretmeni, ailesinin mali geleceğini güvence altına almak için eski bir öğrencisiyle metamfetamin üretip satmaya başlar.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [18, 80],
-    number_of_seasons: 5,
-    number_of_episodes: 62,
-    episode_run_time: [47],
-  },
-  {
-    id: 1399,
-    name: "Game of Thrones",
-    original_name: "Game of Thrones",
-    poster_path: "/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg",
-    backdrop_path: "/2OMB0ynKlyIenMJWI2Dy9IWT4c.jpg",
-    first_air_date: "2011-04-17",
-    last_air_date: "2019-05-19",
-    status: "Ended",
-    popularity: 210.0,
-    vote_average: 8.4,
-    vote_count: 23000,
-    overview: "Westeros'un yedi krallığında soylu hanedanlar Demir Taht'ı ele geçirmek için ölümcül entrikalar ve savaşlar yürütürken, kuzeyden antik bir tehdit yaklaşmaktadır.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [10765, 18, 10759],
-    number_of_seasons: 8,
-    number_of_episodes: 73,
-    episode_run_time: [60],
-  },
-  {
-    id: 87108,
-    name: "Chernobyl",
-    original_name: "Chernobyl",
-    poster_path: "/hlLXt2tOPT6RRnjiUmoxyG1LTFi.jpg",
-    backdrop_path: "/uL6Ad12W09L1s2z49w1mO20k.jpg",
-    first_air_date: "2019-05-06",
-    last_air_date: "2019-06-03",
-    status: "Ended",
-    popularity: 95.4,
-    vote_average: 8.7,
-    vote_count: 6000,
-    overview: "1986 Nisan ayında Sovyetler Birliği'nde meydana gelen Çernobil nükleer santral patlamasını ve faciayı kontrol altına almak için hayatlarını feda eden insanların gerçek hikayesini anlatan mini dizi.",
-    original_language: "en",
-    origin_country: ["US", "GB"],
-    genre_ids: [18, 36],
-    number_of_seasons: 1,
-    number_of_episodes: 5,
-    episode_run_time: [65],
-  },
-  {
-    id: 1398,
-    name: "The Sopranos",
-    original_name: "The Sopranos",
-    poster_path: "/6nO0L4kE0d5o1g1u1v.jpg",
-    backdrop_path: "/s8j80.jpg",
-    first_air_date: "1999-01-10",
-    last_air_date: "2007-06-10",
-    status: "Ended",
-    popularity: 115.2,
-    vote_average: 8.6,
-    vote_count: 2800,
-    overview: "New Jersey mafya lideri Tony Soprano'nun aile hayatı, suç imparatorluğu ve psikiyatrist seansları arasındaki dengeleri kurma mücadelesi.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [18, 80],
-    number_of_seasons: 6,
-    number_of_episodes: 86,
-    episode_run_time: [55],
-  },
-  {
-    id: 76479,
-    name: "Succession",
-    original_name: "Succession",
-    poster_path: "/7r0eE.jpg",
-    backdrop_path: "/s9.jpg",
-    first_air_date: "2018-06-03",
-    last_air_date: "2023-05-28",
-    status: "Ended",
-    popularity: 130.8,
-    vote_average: 8.5,
-    vote_count: 1800,
-    overview: "Dünyanın en büyük medya ve eğlence imparatorluklarından birini yöneten Roy ailesinin yaşlanan patriği Logan Roy'un ardından kontrolü ele geçirme savaşı.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [18],
-    number_of_seasons: 4,
-    number_of_episodes: 39,
-    episode_run_time: [60],
-  },
-  {
-    id: 66732,
-    name: "Stranger Things",
-    original_name: "Stranger Things",
-    poster_path: "/49WJfeN0moxb9IPfGn8AIqMGskD.jpg",
-    backdrop_path: "/56v2KjBlU4XaOv9rVYEQypROD7P.jpg",
-    first_air_date: "2016-07-15",
-    status: "Returning Series",
-    popularity: 195.0,
-    vote_average: 8.6,
-    vote_count: 17000,
-    overview: "1980'lerde Indiana'nın küçük bir kasabasında genç bir çocuğun kaybolmasıyla başlayan olaylar; gizli deneyler, doğaüstü güçler ve gizemli bir küçük kızın ortaya çıkışıyla derinleşir.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [10765, 18, 9648],
-    number_of_seasons: 4,
-    number_of_episodes: 34,
-    episode_run_time: [50],
-  },
-  {
-    id: 70523,
-    name: "Dark",
-    original_name: "Dark",
-    poster_path: "/apbrkMD9w25jF33z89Q.jpg",
-    backdrop_path: "/3lBD.jpg",
-    first_air_date: "2017-12-01",
-    last_air_date: "2020-06-27",
-    status: "Ended",
-    popularity: 125.0,
-    vote_average: 8.5,
-    vote_count: 6500,
-    overview: "Almanya'nın Winden kasabasında iki çocuğun kaybolması, dört ailenin karmaşık ilişkilerini ve üç nesli kapsayan bir zaman yolculuğu gizemini açığa çıkarır.",
-    original_language: "de",
-    origin_country: ["DE"],
-    genre_ids: [10765, 18, 9648],
-    number_of_seasons: 3,
-    number_of_episodes: 26,
-    episode_run_time: [60],
-  },
-  {
-    id: 1438,
-    name: "The Wire",
-    original_name: "The Wire",
-    poster_path: "/4lbcl.jpg",
-    backdrop_path: "/wire.jpg",
-    first_air_date: "2002-06-02",
-    last_air_date: "2008-03-09",
-    status: "Ended",
-    popularity: 90.0,
-    vote_average: 8.6,
-    vote_count: 2500,
-    overview: "Baltimore kentindeki uyuşturucu ticareti, polis teşkilatı, liman işçileri, belediye yönetimi ve okul sisteminin iç içe geçmiş sosyolojik ve gerçekçi portresi.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [80, 18],
-    number_of_seasons: 5,
-    number_of_episodes: 60,
-    episode_run_time: [58],
-  },
-  {
-    id: 60059,
-    name: "Better Call Saul",
-    original_name: "Better Call Saul",
-    poster_path: "/fC2rG.jpg",
-    backdrop_path: "/bcs.jpg",
-    first_air_date: "2015-02-08",
-    last_air_date: "2022-08-15",
-    status: "Ended",
-    popularity: 140.0,
-    vote_average: 8.7,
-    vote_count: 5200,
-    overview: "Eski dolandırıcı Jimmy McGill'in ahlaki sınırları aşarak suç dünyasının meşhur avukatı Saul Goodman'a dönüşme sürecini anlatan Breaking Bad spin-off'u.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [18, 80],
-    number_of_seasons: 6,
-    number_of_episodes: 63,
-    episode_run_time: [50],
-  },
-  {
-    id: 60625,
-    name: "Rick and Morty",
-    original_name: "Rick and Morty",
-    poster_path: "/cvhNj.jpg",
-    backdrop_path: "/rm.jpg",
-    first_air_date: "2013-12-02",
-    status: "Returning Series",
-    popularity: 160.0,
-    vote_average: 8.7,
-    vote_count: 9500,
-    overview: "Sosyopat dahi bilim insanı Rick Sanchez ve saf torunu Morty Smith'in boyutlar ve uzaylar arası tehlikeli, komik ve çılgın maceraları.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [16, 35, 10765, 10759],
-    number_of_seasons: 7,
-    number_of_episodes: 71,
-    episode_run_time: [22],
-  },
-  {
-    id: 94605,
-    name: "Arcane",
-    original_name: "Arcane",
-    poster_path: "/fqldf.jpg",
-    backdrop_path: "/arcane.jpg",
-    first_air_date: "2021-11-06",
-    status: "Ended",
-    popularity: 155.0,
-    vote_average: 8.7,
-    vote_count: 4200,
-    overview: "Ütopik Piltover şehri ile baskı altındaki Zaun yeraltı dünyası arasındaki derin gerilimde, büyülü teknolojiler ve iki kız kardeşin karşı saflarda savaşı.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [16, 10765, 10759, 18],
-    number_of_seasons: 2,
-    number_of_episodes: 18,
-    episode_run_time: [40],
-  },
-  {
-    id: 93405,
-    name: "Squid Game",
-    original_name: "오징어 게임",
-    poster_path: "/dDlEc.jpg",
-    backdrop_path: "/sg.jpg",
-    first_air_date: "2021-09-17",
-    status: "Returning Series",
-    popularity: 175.0,
-    vote_average: 7.8,
-    vote_count: 14000,
-    overview: "Ağır borç batağındaki 456 çaresiz insanın 45.6 milyar wonluk büyük ödülü kazanmak için ölümcül çocuk oyunlarında hayatta kalma mücadelesi.",
-    original_language: "ko",
-    origin_country: ["KR"],
-    genre_ids: [10759, 9648, 18],
-    number_of_seasons: 2,
-    number_of_episodes: 15,
-    episode_run_time: [55],
-  },
-  {
-    id: 4614,
-    name: "The Office",
-    original_name: "The Office",
-    poster_path: "/qW4t.jpg",
-    backdrop_path: "/office.jpg",
-    first_air_date: "2005-03-24",
-    last_air_date: "2013-05-16",
-    status: "Ended",
-    popularity: 150.0,
-    vote_average: 8.6,
-    vote_count: 4000,
-    overview: "Dunder Mifflin kağıt şirketinin Scranton şubesinde çalışan renkli karakterlerin ve beceriksiz müdürleri Michael Scott'ın ofis komedisi.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [35],
-    number_of_seasons: 9,
-    number_of_episodes: 201,
-    episode_run_time: [22],
-  },
-  {
-    id: 1104,
-    name: "Mad Men",
-    original_name: "Mad Men",
-    poster_path: "/mad.jpg",
-    backdrop_path: "/madbg.jpg",
-    first_air_date: "2007-07-19",
-    last_air_date: "2015-05-17",
-    status: "Ended",
-    popularity: 80.0,
-    vote_average: 8.1,
-    vote_count: 1200,
-    overview: "1960'ların New York Madison Avenue reklam dünyasında karizmatik ve gizemli yaratıcı yönetmen Don Draper'ın yükselişi ve dönemin toplumsal değişimi.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [18],
-    number_of_seasons: 7,
-    number_of_episodes: 92,
-    episode_run_time: [47],
-  },
-  {
-    id: 85271,
-    name: "WandaVision",
-    original_name: "WandaVision",
-    poster_path: "/wv.jpg",
-    backdrop_path: "/wvbg.jpg",
-    first_air_date: "2021-01-15",
-    last_air_date: "2021-03-05",
-    status: "Ended",
-    popularity: 98.0,
-    vote_average: 8.2,
-    vote_count: 11500,
-    overview: "Wanda Maximoff ve Vision'ın banliyöde ideal hayatlar yaşamaya çalışırken çevrelerindeki gerçekliğin göründüğü gibi olmadığını fark etmeleri.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [10765, 9648, 18],
-    number_of_seasons: 1,
-    number_of_episodes: 9,
-    episode_run_time: [35],
-  },
-  {
-    id: 100088,
-    name: "The Last of Us",
-    original_name: "The Last of Us",
-    poster_path: "/tlou.jpg",
-    backdrop_path: "/tloubg.jpg",
-    first_air_date: "2023-01-15",
-    status: "Returning Series",
-    popularity: 185.0,
-    vote_average: 8.6,
-    vote_count: 5300,
-    overview: "Modern uygarlığın yok oluşundan 20 yıl sonra, sertleşmiş bir hayatta kalan olan Joel'in insanlığın son umudu olabilecek 14 yaşındaki Ellie'yi kaçırma görevi.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [18, 10759, 10765],
-    number_of_seasons: 1,
-    number_of_episodes: 9,
-    episode_run_time: [60],
-  },
-  {
-    id: 63333,
-    name: "The Crown",
-    original_name: "The Crown",
-    poster_path: "/crown.jpg",
-    backdrop_path: "/crownbg.jpg",
-    first_air_date: "2016-11-04",
-    last_air_date: "2023-12-14",
-    status: "Ended",
-    popularity: 105.0,
-    vote_average: 8.2,
-    vote_count: 1900,
-    overview: "Kraliçe II. Elizabeth'in tahta çıkışından itibaren İngiliz monarşisinin perde arkasındaki siyasi rekabetleri, aşkları ve 20. yüzyıla damga vuran olayları.",
-    original_language: "en",
-    origin_country: ["GB", "US"],
-    genre_ids: [18, 36],
-    number_of_seasons: 6,
-    number_of_episodes: 60,
-    episode_run_time: [58],
-  },
-  {
-    id: 84958,
-    name: "Loki",
-    original_name: "Loki",
-    poster_path: "/loki.jpg",
-    backdrop_path: "/lokibg.jpg",
-    first_air_date: "2021-06-09",
-    last_air_date: "2023-11-09",
-    status: "Ended",
-    popularity: 145.0,
-    vote_average: 8.1,
-    vote_count: 11000,
-    overview: "Fesatlık Tanrısı Loki'nin Tesseract'ı çaldıktan sonra Zaman Değişimi Otoritesi (TVA) tarafından yakalanıp zaman çizelgesini düzeltmeye zorlanması.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [18, 10765, 10759],
-    number_of_seasons: 2,
-    number_of_episodes: 12,
-    episode_run_time: [50],
-  },
-  {
-    id: 97546,
-    name: "Ted Lasso",
-    original_name: "Ted Lasso",
-    poster_path: "/ted.jpg",
-    backdrop_path: "/tedbg.jpg",
-    first_air_date: "2020-08-14",
-    last_air_date: "2023-05-31",
-    status: "Ended",
-    popularity: 110.0,
-    vote_average: 8.5,
-    vote_count: 1600,
-    overview: "Amerikan futbolu antrenörü Ted Lasso'nun hiçbir tecrübesi olmadığı halde bir İngiliz Premier League futbol takımını yönetmek için işe alınmasıyla başlayan sıcak ve komik hikaye.",
-    original_language: "en",
-    origin_country: ["US", "GB"],
-    genre_ids: [35, 18],
-    number_of_seasons: 3,
-    number_of_episodes: 34,
-    episode_run_time: [45],
-  },
-  {
-    id: 119051,
-    name: "Wednesday",
-    original_name: "Wednesday",
-    poster_path: "/wed.jpg",
-    backdrop_path: "/wedbg.jpg",
-    first_air_date: "2022-11-23",
-    status: "Returning Series",
-    popularity: 170.0,
-    vote_average: 8.4,
-    vote_count: 8500,
-    overview: "Wednesday Addams'ın Nevermore Akademisi'ndeki öğrencilik yıllarında yeni keşfettiği psişik yeteneklerinde ustalaşırken kasabayı dehşete düşüren cinayetleri çözmesi.",
-    original_language: "en",
-    origin_country: ["US"],
-    genre_ids: [10765, 9648, 35],
-    number_of_seasons: 1,
-    number_of_episodes: 8,
-    episode_run_time: [50],
-  },
-];
+export const FALLBACK_TV_SHOWS: TMDBTvShow[] = COMPREHENSIVE_FALLBACK_TV_SHOWS;
 
 /**
  * Server-side TMDB TV Client.
@@ -788,39 +393,71 @@ export class TMDBTvClient {
   }
 
   /**
-   * Synchronizes candidate pool dynamically advancing TMDB page offsets for TV shows.
+   * Synchronizes candidate pool dynamically using multi-stream discovery and page rotation.
+   * Fetches diverse, high-quality TV shows across popular, top-rated, and key genre discovery streams.
+   * Guarantees idempotency and deduplication.
    */
-  public async seedAndFetchTvShows(): Promise<CachedTvShowData[]> {
+  public async seedAndFetchTvShows(options?: {
+    forceFullSeed?: boolean;
+    targetCount?: number;
+  }): Promise<CachedTvShowData[]> {
     const apiKey = await this.resolveApiKey();
     const syncedShows: CachedTvShowData[] = [];
     const processedIds = new Set<number>();
 
-    if (apiKey) {
-      const existingCount = await db.tvShow.count();
-      const pageOffset = Math.floor(existingCount / 20) + 1;
-
-      const [popA, popB, topA, topB] = await Promise.all([
-        this.getPopularTv(pageOffset),
-        this.getPopularTv(pageOffset + 1),
-        this.getTopRatedTv(pageOffset),
-        this.getTopRatedTv(pageOffset + 1),
-      ]);
-
-      const combined = [...topA, ...popA, ...topB, ...popB];
-      for (const s of combined) {
-        if (!processedIds.has(s.id)) {
-          processedIds.add(s.id);
-          const synced = await this.syncTvShowToDatabase(s);
-          syncedShows.push(synced);
-        }
+    // 1. Always ensure all 105+ iconic fallback shows are synced in local DB
+    for (const fallback of COMPREHENSIVE_FALLBACK_TV_SHOWS) {
+      if (!processedIds.has(fallback.id)) {
+        processedIds.add(fallback.id);
+        const synced = await this.syncTvShowToDatabase(fallback);
+        syncedShows.push(synced);
       }
-    } else {
-      for (const s of FALLBACK_TV_SHOWS) {
-        if (!processedIds.has(s.id)) {
-          processedIds.add(s.id);
-          const synced = await this.syncTvShowToDatabase(s);
-          syncedShows.push(synced);
+    }
+
+    // 2. If TMDB API key is available, fetch live dynamic multi-stream pool
+    if (apiKey) {
+      try {
+        const existingCount = await db.tvShow.count();
+        // Dynamic page rotation: cycles across pages 1..10 to constantly bring varied quality titles
+        const basePage = ((Math.floor(existingCount / 20)) % 10) + 1;
+        const nextPage = (basePage % 10) + 1;
+
+        const [popA, popB, topA, topB, drama, crime, mystery, scifi, comedy, animation] =
+          await Promise.all([
+            this.getPopularTv(basePage),
+            this.getPopularTv(nextPage),
+            this.getTopRatedTv(basePage),
+            this.getTopRatedTv(nextPage),
+            this.discoverTv({ with_genres: "18", sort_by: "popularity.desc", "vote_count.gte": 30, page: basePage }),
+            this.discoverTv({ with_genres: "80", sort_by: "popularity.desc", "vote_count.gte": 30, page: basePage }),
+            this.discoverTv({ with_genres: "9648", sort_by: "popularity.desc", "vote_count.gte": 30, page: basePage }),
+            this.discoverTv({ with_genres: "10765", sort_by: "popularity.desc", "vote_count.gte": 30, page: basePage }),
+            this.discoverTv({ with_genres: "35", sort_by: "popularity.desc", "vote_count.gte": 30, page: basePage }),
+            this.discoverTv({ with_genres: "16", sort_by: "popularity.desc", "vote_count.gte": 30, page: basePage }),
+          ]);
+
+        const combined = [
+          ...popA,
+          ...popB,
+          ...topA,
+          ...topB,
+          ...drama,
+          ...crime,
+          ...mystery,
+          ...scifi,
+          ...comedy,
+          ...animation,
+        ];
+
+        for (const s of combined) {
+          if (!processedIds.has(s.id)) {
+            processedIds.add(s.id);
+            const synced = await this.syncTvShowToDatabase(s);
+            syncedShows.push(synced);
+          }
         }
+      } catch (err) {
+        console.error("[TMDB TV Client] Error during multi-stream replenishment:", err);
       }
     }
 

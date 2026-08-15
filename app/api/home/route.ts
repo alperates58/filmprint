@@ -62,8 +62,10 @@ export async function GET() {
       ...blockedFeedbackIds,
     ]);
 
-    // 2. Fetch top hero recommendation match
-    const topRecommendations = await getPersonalizedRecommendations(userId, 1);
+    // 2. Fetch top hero recommendation match (Fast non-blocking)
+    const topRecommendations = await getPersonalizedRecommendations(userId, 1, 0, false, {
+      allowHybrid: false,
+    });
     const topHeroMatch = topRecommendations.recommendations?.[0] || null;
 
     // 3. Primary Candidate Pool (take up to 1000 eligible movies from local DB catalog)
@@ -75,7 +77,7 @@ export async function GET() {
       take: 1000,
     });
 
-    const candidatesMap = new Map<string, CandidateMovie & { candidateSource: string; knownUnwatched: boolean; metadata?: any; adult?: boolean; voteCount?: number }>();
+    const candidatesMap = new Map<string, CandidateMovie & { candidateSource: string; knownUnwatched: boolean; metadata?: any; adult?: boolean; voteCount?: number; matchScore?: number }>();
 
     for (const m of rawCandidates) {
       const meta = (m.metadata as Record<string, unknown>) || {};
@@ -105,7 +107,7 @@ export async function GET() {
     const diagnosticsList: CategoryDiagnostics[] = [];
 
     // Helper to score and filter candidate movies for a specific editorial category mode
-    const scoreCategoryMovies = (mode: EditorialCategoryMode): CandidateMovie[] => {
+    const scoreCategoryMovies = (mode: EditorialCategoryMode): (CandidateMovie & { matchScore?: number })[] => {
       const initialCount = allCandidates.length;
 
       // Filter candidates matching category context fit floor (>= 0.20)
@@ -135,7 +137,10 @@ export async function GET() {
             dislikePenalty;
 
           return {
-            candidate,
+            candidate: {
+              ...candidate,
+              matchScore: Math.round(matchRes.displayMatchScore),
+            },
             finalHomeScore,
             contextFit,
           };
@@ -159,7 +164,7 @@ export async function GET() {
       return scored;
     };
 
-    const formatMovie = (m: CandidateMovie) => ({
+    const formatMovie = (m: CandidateMovie & { matchScore?: number }) => ({
       id: m.id,
       tmdbId: m.tmdbId,
       title: m.title,
@@ -171,6 +176,7 @@ export async function GET() {
       voteAverage: m.voteAverage,
       genres: m.genres,
       overview: m.overview,
+      matchScore: m.matchScore ?? 80,
     });
 
     // 4. Build candidate lists for all editorial categories in meaningful sequence

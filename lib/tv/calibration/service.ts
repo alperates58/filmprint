@@ -48,7 +48,8 @@ export interface TvCalibrationQueueResult {
  */
 export async function getTvCalibrationQueue(
   userId: string,
-  limit: number = 5
+  limit: number = 5,
+  options?: { forceReplenish?: boolean }
 ): Promise<TvCalibrationQueueResult> {
   const targetCount = TV_CALIBRATION_TARGET;
 
@@ -117,55 +118,51 @@ export async function getTvCalibrationQueue(
       };
     });
 
-  // 3. Cache-First Candidate Query from local PostgreSQL TvShow table
-  let rawCandidates = await db.tvShow.findMany({
-    where: {
-      id: { notIn: Array.from(answeredTvShowIds) },
-    },
-    orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-    take: 150,
-  });
-
-  // Bounded Dynamic Replenishment: only execute TMDB fetch if local candidate supply is critically low (< 20)
-  if (rawCandidates.length < 20) {
-    await tmdbTvClient.seedAndFetchTvShows();
-    rawCandidates = await db.tvShow.findMany({
+  // 3. Helper to query & filter eligible candidate TV shows
+  async function fetchCandidatePool(): Promise<CandidateTvShow[]> {
+    const raw = await db.tvShow.findMany({
       where: {
         id: { notIn: Array.from(answeredTvShowIds) },
       },
-      orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-      take: 150,
+      orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
+      take: 250,
     });
+
+    const candidatePoolRaw: CandidateTvShow[] = raw.map((s: any) => {
+      const meta = (s.metadata as Record<string, unknown>) || {};
+      return {
+        id: s.id,
+        tmdbId: s.tmdbId,
+        name: s.name,
+        originalName: s.originalName,
+        firstAirDate: s.firstAirDate,
+        lastAirDate: s.lastAirDate,
+        status: s.status,
+        originalLanguage: s.originalLanguage,
+        popularity: s.popularity,
+        voteAverage: s.voteAverage,
+        voteCount: s.voteCount || (meta.voteCount as number) || undefined,
+        posterPath: s.posterPath,
+        backdropPath: s.backdropPath,
+        genres: (meta.genres as string[]) || [],
+        overview: s.overview || (meta.overview as string) || "",
+        numberOfSeasons: (meta.numberOfSeasons as number | null) || null,
+        numberOfEpisodes: (meta.numberOfEpisodes as number | null) || null,
+        adult: (meta.adult as boolean) || false,
+        metadata: meta,
+      };
+    });
+
+    return filterEligibleTvShows(candidatePoolRaw, "CALIBRATION");
   }
 
-  // Format raw candidate TV shows
-  const candidatePoolRaw: CandidateTvShow[] = rawCandidates.map((s: any) => {
-    const meta = (s.metadata as Record<string, unknown>) || {};
-    return {
-      id: s.id,
-      tmdbId: s.tmdbId,
-      name: s.name,
-      originalName: s.originalName,
-      firstAirDate: s.firstAirDate,
-      lastAirDate: s.lastAirDate,
-      status: s.status,
-      originalLanguage: s.originalLanguage,
-      popularity: s.popularity,
-      voteAverage: s.voteAverage,
-      voteCount: s.voteCount || (meta.voteCount as number) || undefined,
-      posterPath: s.posterPath,
-      backdropPath: s.backdropPath,
-      genres: (meta.genres as string[]) || [],
-      overview: s.overview || (meta.overview as string) || "",
-      numberOfSeasons: (meta.numberOfSeasons as number | null) || null,
-      numberOfEpisodes: (meta.numberOfEpisodes as number | null) || null,
-      adult: (meta.adult as boolean) || false,
-      metadata: meta,
-    };
-  });
+  // 4. Resolve candidate pool with automated TMDB replenishment guardrail
+  let candidatePool = await fetchCandidatePool();
 
-  // 4. Apply Global TV Eligibility Filter for CALIBRATION
-  const candidatePool: CandidateTvShow[] = filterEligibleTvShows(candidatePoolRaw, "CALIBRATION");
+  if (candidatePool.length < 30 || options?.forceReplenish) {
+    await tmdbTvClient.seedAndFetchTvShows();
+    candidatePool = await fetchCandidatePool();
+  }
 
   // 5. Rank candidate shows deterministically
   const rankedResults = rankCandidateTvShows(candidatePool, userState, recentInteractions);

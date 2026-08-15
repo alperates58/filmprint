@@ -176,13 +176,19 @@ export default function AdminSettingsPage() {
                   </p>
                 </div>
                 <span
-                  className={`px-3 py-1 rounded-full text-xs font-mono font-medium ${
-                    hybridRerankEnabled
+                  className={`text-[11px] font-mono px-2.5 py-1 rounded-full font-bold ${
+                    !aiEnabled
+                      ? "bg-warning/15 border border-warning/30 text-warning"
+                      : hybridRerankEnabled
                       ? "bg-success/15 border border-success/30 text-success"
                       : "bg-surface-elevated border border-border text-text-muted"
                   }`}
                 >
-                  {hybridRerankEnabled ? "Hibrit AI Aktif" : "Tam Deterministik (v3.2)"}
+                  {!aiEnabled
+                    ? "AI Global Kapalı"
+                    : hybridRerankEnabled
+                    ? `Film Hibrit AI Aktif (%${hybridMatchWeight} / %${hybridAiWeight})`
+                    : "Tam Deterministik (v3.2)"}
                 </span>
               </div>
 
@@ -242,7 +248,18 @@ export default function AdminSettingsPage() {
                         : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
                     }`}
                   >
-                    Balanced Hybrid (60 / 40) [Önerilen]
+                    Balanced (60 / 40)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset(55, 45)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
+                      hybridMatchWeight === 55 && hybridAiWeight === 45
+                        ? "bg-accent/20 border-accent text-accent font-bold"
+                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    Recommended (55 / 45) [Önerilen]
                   </button>
                   <button
                     type="button"
@@ -362,8 +379,20 @@ export default function AdminSettingsPage() {
                   <h2 className="font-display text-lg font-bold text-text-primary flex items-center gap-2">
                     <span>📺</span> Dizi Hibrit AI Öneri Motoru (TV Hybrid AI)
                   </h2>
-                  <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-accent/10 text-accent font-bold border border-accent/20">
-                    Phase 3.5 Media-Aware
+                  <span
+                    className={`text-[11px] font-mono px-2.5 py-1 rounded-full font-bold ${
+                      !aiEnabled
+                        ? "bg-warning/15 border border-warning/30 text-warning"
+                        : tvHybridRerankEnabled
+                        ? "bg-success/15 border border-success/30 text-success"
+                        : "bg-surface-elevated border border-border text-text-muted"
+                    }`}
+                  >
+                    {!aiEnabled
+                      ? "AI Global Kapalı"
+                      : tvHybridRerankEnabled
+                      ? `TV Hibrit AI Aktif (%${tvHybridMatchWeight} / %${tvHybridAiWeight})`
+                      : "Tam Deterministik (TV v1)"}
                   </span>
                 </div>
                 <p className="text-xs text-text-secondary mt-2">
@@ -427,7 +456,7 @@ export default function AdminSettingsPage() {
                         : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
                     }`}
                   >
-                    Balanced (60 / 40)
+                    Recommended (60 / 40) [Önerilen]
                   </button>
                   <button
                     type="button"

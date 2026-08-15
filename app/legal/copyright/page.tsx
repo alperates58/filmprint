@@ -53,7 +53,7 @@ export default function CopyrightPage() {
           <section className="space-y-2">
             <h2 className="font-display text-base font-bold text-text-primary">2. Filmprint Algoritma ve Marka Hakları</h2>
             <p>
-              "Filmprint", "Film DNA", "Match Engine v3.1" markaları, vektörel eşleşme yazılımları, veri kalibrasyon formülleri ve özgün arayüz tasarımları Filmprint'e aittir. İzinsiz kopyalanamaz veya ticari amaçla kullanılamaz.
+              "Filmprint", "Film DNA", "Match Engine" markaları, vektörel eşleşme yazılımları, veri kalibrasyon formülleri ve özgün arayüz tasarımları Filmprint'e aittir. İzinsiz kopyalanamaz veya ticari amaçla kullanılamaz.
             </p>
           </section>
 

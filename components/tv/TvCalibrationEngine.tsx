@@ -56,14 +56,19 @@ export function TvCalibrationEngine({
     });
   }, []);
 
-  // Fetch candidate queue from API
+  // Fetch candidate queue from API (with optional forced replenishment)
   const fetchQueue = useCallback(
-    async (limit: number = 5) => {
+    async (limit: number = 5, forceRefresh: boolean = false) => {
       if (isFetchingRef.current) return;
       isFetchingRef.current = true;
+      if (forceRefresh) setIsLoading(true);
 
       try {
-        const res = await fetch(`/api/tv/calibration?limit=${limit}`);
+        const url = forceRefresh
+          ? `/api/tv/calibration?limit=${limit}&refresh=true`
+          : `/api/tv/calibration?limit=${limit}`;
+
+        const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to load TV calibration queue");
 
         const data = await res.json();
@@ -280,10 +285,10 @@ export function TvCalibrationEngine({
             </div>
 
             <button
-              onClick={() => fetchQueue(5)}
-              className="px-5 py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-all shadow-md"
+              onClick={() => fetchQueue(5, true)}
+              className="px-5 py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 mx-auto"
             >
-              Dizileri Yenile
+              <span>Dizileri Yenile</span>
             </button>
           </div>
         )}

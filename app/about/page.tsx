@@ -87,7 +87,7 @@ export default function AboutPage() {
         {/* System Architecture Showcase */}
         <div className="p-8 rounded-3xl bg-gradient-to-br from-surface to-surface-elevated border border-accent/30 space-y-6 text-center">
           <h2 className="font-display text-2xl font-bold text-text-primary">
-            Match Engine v3.1 Mimarisi
+            Match Engine v3.2 Mimarisi
           </h2>
           <p className="text-xs text-text-muted max-w-xl mx-auto leading-relaxed">
             Filmprint, TMDB (The Movie Database) veri havuzu üzerinde çalışan gelişmiş bir dinamik kalibrasyon ve gerekçelendirme katmanına sahiptir.

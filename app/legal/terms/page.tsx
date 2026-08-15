@@ -49,7 +49,7 @@ export default function TermsPage() {
           <section className="space-y-2">
             <h2 className="font-display text-base font-bold text-text-primary">4. Fikri Mülkiyet Hakları</h2>
             <p>
-              Filmprint algoritması, kaynak kodları, Match Engine v3.1 matematiksel modelleri ve arayüz tasarımları Filmprint'e aittir. Film metadataları, poster görselleri ve film bilgileri TMDB API üzerinden sağlanmakta olup ilgili telif sahiplerinin mülkiyetindedir.
+              Filmprint algoritması, kaynak kodları, Match Engine v3.2 matematiksel modelleri ve arayüz tasarımları Filmprint'e aittir. Film metadataları, poster görselleri ve film bilgileri TMDB API üzerinden sağlanmakta olup ilgili telif sahiplerinin mülkiyetindedir.
             </p>
           </section>
 

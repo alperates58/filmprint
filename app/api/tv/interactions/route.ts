@@ -21,6 +21,10 @@ const VALID_RATINGS = new Set<string>([
   RatingStatus.DISLIKE,
 ]);
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 export async function POST(request: Request) {
   try {
     const user = await getAuthenticatedUser();
@@ -89,9 +93,14 @@ export async function POST(request: Request) {
     }
 
     // 4. Verify TV Show Eligibility
-    const eligibilityInput = {
+    const normalizedMetadata: Record<string, unknown> | undefined = isRecord(show.metadata)
+      ? show.metadata
+      : undefined;
+
+    const eligibilityInput: EligibleTvShowInput = {
       ...show,
       voteCount: show.voteCount ?? undefined,
+      metadata: normalizedMetadata,
     };
     const eligibility = evaluateTvEligibility(eligibilityInput, "CALIBRATION");
     if (!eligibility.isEligible) {

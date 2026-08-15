@@ -110,12 +110,35 @@ export async function mergeAnonymousUserIntoAccount(
   anonymousUserId: string,
   targetUserId: string
 ): Promise<void> {
-  const [anonInteractions, targetInteractions] = await Promise.all([
+  if (!anonymousUserId || !targetUserId || anonymousUserId === targetUserId) {
+    return;
+  }
+
+  // Verify anonymous user actually exists in the database
+  const anonUser = await db.user.findUnique({
+    where: { id: anonymousUserId },
+    select: { id: true, accountType: true },
+  });
+
+  // If no record exists or it's already a registered user, nothing to merge
+  if (!anonUser || anonUser.accountType !== "ANONYMOUS") {
+    return;
+  }
+
+  const [
+    anonInteractions,
+    targetInteractions,
+    anonTvInteractions,
+    targetTvInteractions,
+  ] = await Promise.all([
     db.movieInteraction.findMany({ where: { userId: anonymousUserId } }),
     db.movieInteraction.findMany({ where: { userId: targetUserId } }),
+    db.tvInteraction.findMany({ where: { userId: anonymousUserId } }),
+    db.tvInteraction.findMany({ where: { userId: targetUserId } }),
   ]);
 
   const targetInteractionMap = new Map(targetInteractions.map((i: any) => [i.movieId, i]));
+  const targetTvInteractionMap = new Map(targetTvInteractions.map((i: any) => [i.tvShowId, i]));
 
   await db.$transaction(async (tx) => {
     // 1. Merge MovieInteractions
@@ -148,7 +171,40 @@ export async function mergeAnonymousUserIntoAccount(
       }
     }
 
-    // 2. Merge RecommendationFeedback
+    // 2. Merge TvInteractions
+    for (const anonTv of anonTvInteractions as any[]) {
+      const targetTv: any = targetTvInteractionMap.get(anonTv.tvShowId);
+
+      if (!targetTv) {
+        // Move TV interaction to target user
+        await tx.tvInteraction.update({
+          where: { id: anonTv.id },
+          data: { userId: targetUserId },
+        });
+      } else {
+        const getTvScore = (status: string) => {
+          if (status === "WATCHED") return 3;
+          if (status === "PARTIALLY_WATCHED") return 2;
+          if (status === "UNSURE") return 1;
+          return 0;
+        };
+
+        const anonScore = getTvScore(anonTv.status);
+        const targetScore = getTvScore(targetTv.status);
+
+        if (anonScore > targetScore) {
+          await tx.tvInteraction.delete({ where: { id: targetTv.id } });
+          await tx.tvInteraction.update({
+            where: { id: anonTv.id },
+            data: { userId: targetUserId },
+          });
+        } else {
+          await tx.tvInteraction.delete({ where: { id: anonTv.id } });
+        }
+      }
+    }
+
+    // 3. Merge Movie RecommendationFeedback
     const anonFeedbacks = await tx.recommendationFeedback.findMany({ where: { userId: anonymousUserId } });
     const targetFeedbacks = await tx.recommendationFeedback.findMany({ where: { userId: targetUserId } });
     const targetFeedbackMap = new Map(targetFeedbacks.map((f: any) => [f.movieId, f]));
@@ -174,7 +230,32 @@ export async function mergeAnonymousUserIntoAccount(
       }
     }
 
-    // 3. Merge RecommendationExplanations
+    // 4. Merge TV RecommendationFeedback
+    const anonTvFeedbacks = await tx.tvRecommendationFeedback.findMany({ where: { userId: anonymousUserId } });
+    const targetTvFeedbacks = await tx.tvRecommendationFeedback.findMany({ where: { userId: targetUserId } });
+    const targetTvFeedbackMap = new Map(targetTvFeedbacks.map((f: any) => [f.tvShowId, f]));
+
+    for (const fb of anonTvFeedbacks as any[]) {
+      const targetFb: any = targetTvFeedbackMap.get(fb.tvShowId);
+      if (!targetFb) {
+        await tx.tvRecommendationFeedback.update({
+          where: { id: fb.id },
+          data: { userId: targetUserId },
+        });
+      } else {
+        if (fb.updatedAt > targetFb.updatedAt) {
+          await tx.tvRecommendationFeedback.delete({ where: { id: targetFb.id } });
+          await tx.tvRecommendationFeedback.update({
+            where: { id: fb.id },
+            data: { userId: targetUserId },
+          });
+        } else {
+          await tx.tvRecommendationFeedback.delete({ where: { id: fb.id } });
+        }
+      }
+    }
+
+    // 5. Merge RecommendationExplanations
     const anonExplanations = await tx.recommendationExplanation.findMany({ where: { userId: anonymousUserId } });
     for (const exp of anonExplanations as any[]) {
       const exists = await tx.recommendationExplanation.findFirst({
@@ -195,7 +276,7 @@ export async function mergeAnonymousUserIntoAccount(
       }
     }
 
-    // 4. Merge Movie Night Sessions & Memberships
+    // 6. Merge Movie Night Sessions & Memberships
     await tx.movieNightSession.updateMany({
       where: { hostUserId: anonymousUserId },
       data: { hostUserId: targetUserId },
@@ -216,11 +297,13 @@ export async function mergeAnonymousUserIntoAccount(
       }
     }
 
-    // 5. Clean up old anonymous taste profile and User record
+    // 7. Clean up old anonymous sessions, taste profiles and User record safely
+    await tx.userSession.deleteMany({ where: { userId: anonymousUserId } });
     await tx.userTasteProfile.deleteMany({ where: { userId: anonymousUserId } });
-    await tx.user.delete({ where: { id: anonymousUserId } });
+    await tx.userTvTasteProfile.deleteMany({ where: { userId: anonymousUserId } });
+    await tx.user.deleteMany({ where: { id: anonymousUserId } });
   });
 
-  // 6. Recalculate Taste Profile for target user
+  // 8. Recalculate Taste Profile for target user
   await getOrCalculateUserProfile(targetUserId).catch(() => {});
 }

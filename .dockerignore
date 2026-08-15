@@ -1,6 +1,7 @@
 node_modules
 .next
 .git
+.github
 .env
 .env.local
 .env*.local
@@ -10,10 +11,16 @@ Dockerfile
 docker-compose.yml
 .vscode
 .idea
-README.md
+*.md
+NEW_CHAT_PROMPT.txt
+docs/
 tests/
 e2e/
 test-results/
 playwright-report/
 scripts/
+playwright.config.ts
+tsconfig.test.json
+tsconfig.tsbuildinfo
+
 

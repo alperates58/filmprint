@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForTokens, getGoogleUserInfo } from "@/lib/auth/google";
 import { linkIdentityToAccount } from "@/lib/auth/migration";
-import { LEGACY_ANONYMOUS_COOKIE_NAME } from "@/lib/auth/service";
+import { USER_SESSION_COOKIE_NAME, LEGACY_ANONYMOUS_COOKIE_NAME } from "@/lib/auth/service";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -45,6 +45,14 @@ export async function GET(request: NextRequest) {
 
     const response = NextResponse.redirect(`${baseUrl}/`);
     response.cookies.delete("filmprint_oauth_state");
+    response.cookies.delete(LEGACY_ANONYMOUS_COOKIE_NAME);
+    response.cookies.set(USER_SESSION_COOKIE_NAME, result.sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60,
+    });
 
     return response;
   } catch (err: any) {
@@ -54,3 +62,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

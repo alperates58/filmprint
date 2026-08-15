@@ -3,8 +3,7 @@ FROM node:24-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache libc6-compat openssl
 COPY package.json package-lock.json ./
-COPY prisma ./prisma/
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --no-audit --no-fund
 
 # Stage 2: Builder
 FROM node:24-alpine AS builder
@@ -15,7 +14,7 @@ COPY . .
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx prisma generate
-RUN npm run build
+RUN --mount=type=cache,target=/app/.next/cache npm run build
 
 # Stage 3: Production Runner
 FROM node:24-alpine AS runner
@@ -33,8 +32,8 @@ RUN adduser --system --uid 1001 nextjs
 # Copy standalone output
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-# Ensure complete node_modules overlay so Prisma CLI dependencies are intact for migrations
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+# Ensure complete node_modules overlay so Prisma CLI dependencies and generated client are intact
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 
@@ -46,3 +45,4 @@ USER nextjs
 EXPOSE 3000
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
+

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "@/lib/security/crypto";
 import { linkIdentityToAccount } from "@/lib/auth/migration";
-import { LEGACY_ANONYMOUS_COOKIE_NAME } from "@/lib/auth/service";
+import { USER_SESSION_COOKIE_NAME, LEGACY_ANONYMOUS_COOKIE_NAME } from "@/lib/auth/service";
 import { db } from "@/lib/db/client";
 
 export async function POST(request: NextRequest) {
@@ -50,7 +50,17 @@ export async function POST(request: NextRequest) {
       provider: "EMAIL",
     });
 
-    return NextResponse.json({ success: true, userId: result.userId });
+    const response = NextResponse.json({ success: true, userId: result.userId });
+    response.cookies.delete(LEGACY_ANONYMOUS_COOKIE_NAME);
+    response.cookies.set(USER_SESSION_COOKIE_NAME, result.sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60,
+    });
+
+    return response;
   } catch (err: any) {
     console.error("Register error:", err);
     return NextResponse.json(

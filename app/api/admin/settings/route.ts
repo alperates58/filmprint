@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession, logAdminAudit } from "@/lib/admin/auth";
-import { getSystemSettings, updateSystemSetting } from "@/lib/config/service";
+import { getSystemSettings, updateSystemSetting, validateHybridWeights } from "@/lib/config/service";
 
 export async function GET() {
   try {
@@ -19,7 +19,17 @@ export async function PUT(request: Request) {
   try {
     const admin = await requireAdminSession();
     const body = await request.json();
-    const { calibrationTarget, queuePreloadCount, aiEnabled, activeLearningEnabled } = body;
+    const {
+      calibrationTarget,
+      queuePreloadCount,
+      aiEnabled,
+      activeLearningEnabled,
+      hybridRerankEnabled,
+      hybridMatchWeight,
+      hybridAiWeight,
+      aiTasteRefreshEvidenceCount,
+      aiRerankShortlistSize,
+    } = body;
 
     if (typeof calibrationTarget === "number" && calibrationTarget > 0) {
       await updateSystemSetting("calibration_target", calibrationTarget.toString());
@@ -35,6 +45,28 @@ export async function PUT(request: Request) {
 
     if (typeof activeLearningEnabled === "boolean") {
       await updateSystemSetting("active_learning_enabled", activeLearningEnabled.toString());
+    }
+
+    if (typeof hybridRerankEnabled === "boolean") {
+      await updateSystemSetting("hybrid_rerank_enabled", hybridRerankEnabled.toString());
+    }
+
+    if (typeof hybridMatchWeight === "number" || typeof hybridAiWeight === "number") {
+      const curMatch = typeof hybridMatchWeight === "number" ? hybridMatchWeight : 60;
+      const curAi = typeof hybridAiWeight === "number" ? hybridAiWeight : 40;
+      const { matchWeight, aiWeight } = validateHybridWeights(curMatch, curAi);
+      await updateSystemSetting("hybrid_match_weight", matchWeight.toString());
+      await updateSystemSetting("hybrid_ai_weight", aiWeight.toString());
+    }
+
+    if (typeof aiTasteRefreshEvidenceCount === "number") {
+      const clamped = Math.max(10, Math.min(100, Math.round(aiTasteRefreshEvidenceCount)));
+      await updateSystemSetting("ai_taste_refresh_evidence_count", clamped.toString());
+    }
+
+    if (typeof aiRerankShortlistSize === "number") {
+      const clamped = Math.max(40, Math.min(60, Math.round(aiRerankShortlistSize)));
+      await updateSystemSetting("ai_rerank_shortlist_size", clamped.toString());
     }
 
     await logAdminAudit(admin.id, "SYSTEM_SETTINGS_UPDATED", "SystemSetting", undefined, body);

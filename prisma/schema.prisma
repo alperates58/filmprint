@@ -59,6 +59,11 @@ enum AuthProvider {
   EMAIL
 }
 
+enum MediaType {
+  FILM
+  TV
+}
+
 model User {
   id                      String                   @id @default(uuid())
   email                   String?                  @unique
@@ -76,6 +81,8 @@ model User {
   tvInteractions          TvInteraction[]
   tvTasteProfile          UserTvTasteProfile?
   tvRecommendationFeedbacks TvRecommendationFeedback[]
+  aiTasteProfiles         UserAiTasteProfile[]
+  aiRecommendationSnapshots AiRecommendationSnapshot[]
   hostedMovieNights       MovieNightSession[]      @relation("HostedMovieNights")
   movieNightMemberships   MovieNightMember[]
   sessions                UserSession[]
@@ -339,5 +346,44 @@ model TvRecommendationFeedback {
   @@unique([userId, tvShowId])
   @@index([userId])
   @@index([tvShowId])
+}
+
+model UserAiTasteProfile {
+  id                     String    @id @default(uuid())
+  userId                 String
+  mediaType              MediaType @default(FILM)
+  profileVersion         Int       @default(1)
+  aiTasteVersion         Int       @default(1)
+  model                  String
+  tasteJson              Json      @default("{}")
+  sourceEvidenceCount    Int       @default(0)
+  inputFingerprint       String
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mediaType])
+  @@index([userId])
+  @@index([mediaType])
+}
+
+model AiRecommendationSnapshot {
+  id                   String    @id @default(uuid())
+  userId               String
+  mediaType            MediaType @default(FILM)
+  profileVersion       Int       @default(1)
+  matchVersion         Int       @default(32)
+  aiTasteVersion       Int       @default(1)
+  candidateFingerprint String
+  model                String
+  resultJson           Json      @default("{}")
+  createdAt            DateTime  @default(now())
+  expiresAt            DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mediaType, profileVersion, matchVersion, aiTasteVersion, candidateFingerprint])
+  @@index([userId, mediaType, candidateFingerprint])
 }
 

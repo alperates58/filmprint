@@ -36,6 +36,8 @@ export interface ExplanationResult {
   isAiGenerated: boolean;
 }
 
+import type { HybridScoreBreakdown } from "./ai-taste-types";
+
 export interface PersonalizedRecommendationItem {
   movie: CandidateMovie;
   match: number;
@@ -48,6 +50,7 @@ export interface PersonalizedRecommendationItem {
   components: MatchComponents;
   evidence?: CandidateEvidence;
   candidateSource?: CandidateSource;
+  hybridBreakdown?: HybridScoreBreakdown;
   debugInfo?: DebugDiagnosticInfo;
 }
 

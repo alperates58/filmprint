@@ -19,6 +19,9 @@ import { runPwaTests } from "./pwa.test";
 import { runMovieEligibilityTests } from "./movie_eligibility.test";
 import { runTvFoundationTests } from "./tv_foundation.test";
 import { runTvCalibrationTests } from "./tv_calibration.test";
+import { runHybridRecommendationTests } from "./recommendation_hybrid.test";
+import { runTvDnaCalculatorTests } from "./tv_dna_calculator.test";
+import { runTvRecommendationMatcherTests } from "./tv_recommendation_matcher.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -48,6 +51,9 @@ async function runAllUnitAndRegressionTests() {
     { name: "Global Movie Eligibility & Adult Content Tests", fn: runMovieEligibilityTests },
     { name: "TV Phase 0 Foundation & Regression Tests", fn: runTvFoundationTests },
     { name: "TV Phase 1 Core Flow & Calibration Engine Tests", fn: runTvCalibrationTests },
+    { name: "Phase 9.5 Hybrid Recommendation & AI Controls Tests", fn: runHybridRecommendationTests },
+    { name: "TV Phase 2 Dizi DNA Calculator & Profile Tests", fn: runTvDnaCalculatorTests },
+    { name: "TV Phase 3 Deterministic Match Engine & Candidate Selector Tests", fn: runTvRecommendationMatcherTests },
   ];
 
   let passedSuites = 0;

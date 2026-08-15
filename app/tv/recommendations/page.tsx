@@ -4,12 +4,22 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { getCurrentUser } from "@/lib/auth/service";
+import { getPersonalizedTvRecommendations } from "@/lib/tv/recommendation/service";
+import { TvRecommendationGrid } from "@/components/tv/TvRecommendationGrid";
+
+export const dynamic = "force-dynamic";
 
 export default async function TvRecommendationsPage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     redirect("/auth?returnTo=/tv/recommendations");
   }
+
+  const data = await getPersonalizedTvRecommendations(currentUser.id, {
+    limit: 28,
+  });
+
+  const isLowEvidence = data.recommendations.length === 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-text-primary selection:bg-accent selection:text-white">
@@ -19,40 +29,87 @@ export default async function TvRecommendationsPage() {
         userEmail={currentUser.email || undefined}
       />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 md:py-12 flex flex-col items-center justify-center animate-fadeIn">
-        <div className="w-full max-w-xl text-center space-y-6 bg-surface border border-border/80 rounded-3xl p-8 md:p-12 shadow-cinematic">
-          <div className="w-16 h-16 rounded-2xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center mx-auto text-2xl font-bold font-mono">
-            ✨
-          </div>
-
-          <div className="space-y-2">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 md:py-12 space-y-8 animate-fadeIn">
+        {/* Navigation & Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2 text-xs font-mono">
+              <Link href="/tv" className="text-text-muted hover:text-text-primary transition-colors">
+                DİZİLER
+              </Link>
+              <span className="text-text-muted">/</span>
+              <span className="text-accent font-semibold">ÖNERİLER</span>
+            </div>
             <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
-              Kişisel Dizi Önerileri
+              Kişisel Dizi Önerileriniz
             </h1>
-            <p className="text-text-secondary text-sm leading-relaxed">
-              Dizi öneri motoru ve uyum skorları (Match Engine) TV Phase 3 ile birlikte aktif olacaktır.
+            <p className="text-xs text-text-secondary">
+              Dizi DNA profilinize göre deterministik olarak eşleştirilen yapımlar.
             </p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-surface-elevated border border-border/80 text-xs font-mono text-text-muted space-y-1">
-            <div>TV Recommendation Feedback & Candidate Pool altyapısı hazır.</div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <div className="flex items-center gap-3">
             <Link
-              href="/tv"
-              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-accent text-white font-mono text-xs font-semibold shadow-cinematic hover:bg-accent/90 transition-colors"
+              href="/tv/profile"
+              className="px-3.5 py-2 rounded-xl bg-surface-elevated border border-border hover:border-accent/40 text-text-secondary hover:text-text-primary text-xs font-mono transition-colors flex items-center gap-1.5"
             >
-              TV Ana Sayfasına Dön
+              <span>🧬</span> Dizi DNA
             </Link>
             <Link
               href="/recommendations"
-              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-surface-elevated border border-border hover:border-text-muted text-text-secondary font-mono text-xs font-semibold transition-colors"
+              className="px-3.5 py-2 rounded-xl bg-surface-elevated border border-border hover:border-text-muted text-text-secondary hover:text-text-primary text-xs font-mono transition-colors flex items-center gap-1.5"
             >
-              🎬 Film Önerilerine Git
+              <span>🎬</span> Film Önerileri
             </Link>
           </div>
         </div>
+
+        {/* Low Evidence / Calibration Required State */}
+        {isLowEvidence ? (
+          <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface border border-border/80 rounded-3xl p-8 md:p-12 shadow-cinematic my-8">
+            <div className="w-16 h-16 rounded-2xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center mx-auto text-2xl font-bold font-mono">
+              📺
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="font-display text-2xl font-bold tracking-tight text-text-primary">
+                Öneriler İçin Dizi DNA Oluşturun
+              </h2>
+              <p className="text-text-secondary text-sm leading-relaxed">
+                Size özel dizi önerileri üretebilmemiz için en az birkaç diziyi izledim, yarım bıraktım veya
+                izlemedim şeklinde yanıtlamanız gerekmektedir.
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <Link
+                href="/tv/calibration"
+                className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-accent text-white font-mono text-xs font-semibold shadow-cinematic hover:bg-accent/90 transition-all"
+              >
+                Dizi Kalibrasyonuna Başla →
+              </Link>
+            </div>
+          </div>
+        ) : (
+          /* Recommendation Grid & Status */
+          <div className="space-y-8">
+            {/* Hero Insight Pill */}
+            <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-surface border border-border/80 text-xs font-mono">
+              <div className="flex items-center gap-2 text-text-secondary">
+                <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                <span>Toplam {data.totalEligible} uygun dizi analiz edildi</span>
+              </div>
+              <div className="flex items-center gap-3 text-text-muted">
+                <span>Profil Güveni: <strong className="text-accent">%{Math.round(data.profileConfidence * 100)}</strong> ({data.confidenceLabel})</span>
+                <span>•</span>
+                <span>Olgunluk: <strong className="text-text-primary">{data.maturityLabel}</strong></span>
+              </div>
+            </div>
+
+            {/* Recommendations Grid */}
+            <TvRecommendationGrid items={data.recommendations} />
+          </div>
+        )}
       </main>
 
       <Footer />

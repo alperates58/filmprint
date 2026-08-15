@@ -195,12 +195,39 @@ export async function updateIntegrationMetadata(
   }
 }
 
+export interface HybridWeightConfig {
+  enabled: boolean;
+  matchWeight: number;
+  aiWeight: number;
+  refreshEvidenceCount: number;
+  shortlistSize: number;
+}
+
 /**
- * System Settings Resolution (e.g. calibrationTarget, queuePreloadCount, aiEnabled, activeLearningEnabled, recommendationsEnabled, aiExplanationsEnabled).
+ * Validates and normalizes hybrid weights (sum must equal 100%, AI weight strictly <= 50%).
+ */
+export function validateHybridWeights(matchWeight: number, aiWeight: number): { matchWeight: number; aiWeight: number } {
+  const clampedAi = Math.max(0, Math.min(50, Math.round(aiWeight)));
+  const clampedMatch = 100 - clampedAi;
+  return { matchWeight: clampedMatch, aiWeight: clampedAi };
+}
+
+/**
+ * System Settings Resolution (e.g. calibrationTarget, queuePreloadCount, aiEnabled, activeLearningEnabled, recommendationsEnabled, aiExplanationsEnabled, hybrid recommendation settings).
  */
 export async function getSystemSettings() {
   const settings = await db.systemSetting.findMany();
   const settingsMap = new Map<string, string>(settings.map((s: any) => [s.key, String(s.value)]));
+
+  const rawMatchWeight = parseInt(settingsMap.get("hybrid_match_weight") || "60", 10);
+  const rawAiWeight = parseInt(settingsMap.get("hybrid_ai_weight") || "40", 10);
+  const { matchWeight, aiWeight } = validateHybridWeights(rawMatchWeight, rawAiWeight);
+
+  const rawRefresh = parseInt(settingsMap.get("ai_taste_refresh_evidence_count") || "25", 10);
+  const aiTasteRefreshEvidenceCount = Math.max(10, Math.min(100, isNaN(rawRefresh) ? 25 : rawRefresh));
+
+  const rawShortlist = parseInt(settingsMap.get("ai_rerank_shortlist_size") || "50", 10);
+  const aiRerankShortlistSize = Math.max(40, Math.min(60, isNaN(rawShortlist) ? 50 : rawShortlist));
 
   return {
     calibrationTarget: parseInt(settingsMap.get("calibration_target") || "30", 10),
@@ -210,6 +237,11 @@ export async function getSystemSettings() {
     recentHistoryWindow: parseInt(settingsMap.get("recent_history_window") || "10", 10),
     recommendationsEnabled: settingsMap.get("recommendations_enabled") !== "false",
     aiExplanationsEnabled: settingsMap.get("ai_explanations_enabled") !== "false",
+    hybridRerankEnabled: settingsMap.get("hybrid_rerank_enabled") === "true",
+    hybridMatchWeight: matchWeight,
+    hybridAiWeight: aiWeight,
+    aiTasteRefreshEvidenceCount,
+    aiRerankShortlistSize,
   };
 }
 

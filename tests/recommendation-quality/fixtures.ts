@@ -25,9 +25,16 @@ export async function setupFixtureUser(
   // 1. Clean up any previous fixture records for this ID
   await cleanupFixtureUser(userId);
 
-  // 2. Create synthetic test User
-  const user = await db.user.create({
-    data: {
+  // 2. Create synthetic test User with upsert to guarantee persistence
+  const user = await db.user.upsert({
+    where: { id: userId },
+    update: {
+      name: `Fixture ${spec.name}`,
+      email: `${userId}@filmprint.test`,
+      accountType: "ANONYMOUS",
+      provider: "ANONYMOUS",
+    },
+    create: {
       id: userId,
       name: `Fixture ${spec.name}`,
       email: `${userId}@filmprint.test`,
@@ -326,6 +333,8 @@ export function generateIndependentGroundTruth(
  * Completely cleans up fixture user and all related records from DB.
  */
 export async function cleanupFixtureUser(userId: string): Promise<void> {
+  await db.aiRecommendationSnapshot.deleteMany({ where: { userId } });
+  await db.userAiTasteProfile.deleteMany({ where: { userId } });
   await db.recommendationExplanation.deleteMany({ where: { userId } });
   await db.recommendationFeedback.deleteMany({ where: { userId } });
   await db.movieInteraction.deleteMany({ where: { userId } });

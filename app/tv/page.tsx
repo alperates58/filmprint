@@ -1,17 +1,22 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { getCurrentUser } from "@/lib/auth/service";
 import { db } from "@/lib/db/client";
+import { getTvHomeModules } from "@/lib/tv/recommendation/service";
+
+export const dynamic = "force-dynamic";
+
 export default async function TvHomePage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     redirect("/auth?returnTo=/tv");
   }
 
-  const [tvInteractionCount, watchedCount, partiallyWatchedCount] = await Promise.all([
+  const [tvInteractionCount, watchedCount, partiallyWatchedCount, homeModules] = await Promise.all([
     db.tvInteraction.count({ where: { userId: currentUser.id } }),
     db.tvInteraction.count({
       where: { userId: currentUser.id, status: "WATCHED" },
@@ -19,6 +24,7 @@ export default async function TvHomePage() {
     db.tvInteraction.count({
       where: { userId: currentUser.id, status: "PARTIALLY_WATCHED" },
     }),
+    getTvHomeModules(currentUser.id),
   ]);
 
   return (
@@ -29,12 +35,12 @@ export default async function TvHomePage() {
         userEmail={currentUser.email || undefined}
       />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 md:py-12 space-y-10 animate-fadeIn">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 md:py-12 space-y-10 animate-fadeIn">
         {/* Hero Section */}
         <div className="relative overflow-hidden rounded-3xl bg-surface border border-border/80 p-8 md:p-12 shadow-cinematic text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-mono font-medium">
             <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-            Filmprint TV Foundation
+            Filmprint TV Discovery
           </div>
 
           <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight text-text-primary">
@@ -42,8 +48,8 @@ export default async function TvHomePage() {
           </h1>
 
           <p className="max-w-2xl mx-auto text-text-secondary text-sm md:text-base leading-relaxed">
-            Filmprint artık dizi zevkinizi de modelliyor. Film dünyanızdan tamamen bağımsız,
-            size özel Dizi DNA profili ve öneri altyapısı kuruluyor.
+            Film dünyanızdan tamamen bağımsız, size özel Dizi DNA profili ve deterministik eşleşme motoruyla
+            yeni favori dizinizi bulun.
           </p>
 
           {/* Quick Stat Pill */}
@@ -61,91 +67,157 @@ export default async function TvHomePage() {
         </div>
 
         {/* Feature Hub Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: Dizi Kalibrasyonu */}
           <Link
             href="/tv/calibration"
-            className="group block p-6 md:p-8 rounded-3xl bg-surface border border-border/80 hover:border-accent/50 transition-all shadow-cinematic hover:shadow-glow space-y-4"
+            className="group block p-6 rounded-3xl bg-surface border border-border/80 hover:border-accent/50 transition-all shadow-cinematic hover:shadow-glow space-y-3"
           >
-            <div className="w-12 h-12 rounded-2xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center text-xl font-bold font-mono group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center text-lg font-bold font-mono group-hover:scale-105 transition-transform">
               🎯
             </div>
             <div>
-              <h2 className="font-display text-xl font-bold text-text-primary group-hover:text-accent transition-colors">
+              <h2 className="font-display text-base font-bold text-text-primary group-hover:text-accent transition-colors">
                 Dizi Kalibrasyonu
               </h2>
-              <p className="text-text-secondary text-xs md:text-sm mt-1 leading-relaxed">
-                İzlediğiniz, kısmen bıraktığınız veya henüz görmediğiniz dizileri yanıtlayarak zevk profilinizi oluşturun.
+              <p className="text-text-secondary text-xs mt-1 leading-relaxed line-clamp-2">
+                İzlediğiniz veya yarım bıraktığınız dizileri yanıtlayın.
               </p>
             </div>
-            <div className="flex items-center text-xs font-mono text-accent font-semibold pt-2">
-              Kalibrasyona Başla →
+            <div className="flex items-center text-xs font-mono text-accent font-semibold pt-1">
+              Başla →
             </div>
           </Link>
 
           {/* Card 2: Dizi DNA */}
           <Link
             href="/tv/profile"
-            className="group block p-6 md:p-8 rounded-3xl bg-surface border border-border/80 hover:border-accent/50 transition-all shadow-cinematic hover:shadow-glow space-y-4"
+            className="group block p-6 rounded-3xl bg-surface border border-border/80 hover:border-accent/50 transition-all shadow-cinematic hover:shadow-glow space-y-3"
           >
-            <div className="w-12 h-12 rounded-2xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center text-xl font-bold font-mono group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center text-lg font-bold font-mono group-hover:scale-105 transition-transform">
               🧬
             </div>
             <div>
-              <h2 className="font-display text-xl font-bold text-text-primary group-hover:text-accent transition-colors">
+              <h2 className="font-display text-base font-bold text-text-primary group-hover:text-accent transition-colors">
                 Dizi DNA Profili
               </h2>
-              <p className="text-text-secondary text-xs md:text-sm mt-1 leading-relaxed">
-                Tür tercihleriniz, dizi alışkanlıklarınız ve dizi zevk arketipinizi inceleyin.
+              <p className="text-text-secondary text-xs mt-1 leading-relaxed line-clamp-2">
+                Tür, format, süre ve arketip analizinizi inceleyin.
               </p>
             </div>
-            <div className="flex items-center text-xs font-mono text-accent font-semibold pt-2">
-              Dizi DNA'sını Gör →
+            <div className="flex items-center text-xs font-mono text-accent font-semibold pt-1">
+              İncele →
             </div>
           </Link>
 
           {/* Card 3: Öneriler */}
           <Link
             href="/tv/recommendations"
-            className="group block p-6 md:p-8 rounded-3xl bg-surface border border-border/80 hover:border-accent/50 transition-all shadow-cinematic hover:shadow-glow space-y-4"
+            className="group block p-6 rounded-3xl bg-surface border border-border/80 hover:border-accent/50 transition-all shadow-cinematic hover:shadow-glow space-y-3"
           >
-            <div className="w-12 h-12 rounded-2xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center text-xl font-bold font-mono group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center text-lg font-bold font-mono group-hover:scale-105 transition-transform">
               ✨
             </div>
             <div>
-              <h2 className="font-display text-xl font-bold text-text-primary group-hover:text-accent transition-colors">
-                Kişisel Dizi Önerileri
+              <h2 className="font-display text-base font-bold text-text-primary group-hover:text-accent transition-colors">
+                Dizi Önerileri
               </h2>
-              <p className="text-text-secondary text-xs md:text-sm mt-1 leading-relaxed">
-                Dizi DNA profilinize göre matematiksel uyum puanı hesaplanan özel dizi akışı.
+              <p className="text-text-secondary text-xs mt-1 leading-relaxed line-clamp-2">
+                Kişisel eşleşme puanlarıyla dizileri keşfedin.
               </p>
             </div>
-            <div className="flex items-center text-xs font-mono text-accent font-semibold pt-2">
-              Önerileri Keşfet →
+            <div className="flex items-center text-xs font-mono text-accent font-semibold pt-1">
+              Keşfet →
             </div>
           </Link>
 
           {/* Card 4: Dizilerim */}
           <Link
             href="/tv/library"
-            className="group block p-6 md:p-8 rounded-3xl bg-surface border border-border/80 hover:border-accent/50 transition-all shadow-cinematic hover:shadow-glow space-y-4"
+            className="group block p-6 rounded-3xl bg-surface border border-border/80 hover:border-accent/50 transition-all shadow-cinematic hover:shadow-glow space-y-3"
           >
-            <div className="w-12 h-12 rounded-2xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center text-xl font-bold font-mono group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center text-lg font-bold font-mono group-hover:scale-105 transition-transform">
               📚
             </div>
             <div>
-              <h2 className="font-display text-xl font-bold text-text-primary group-hover:text-accent transition-colors">
-                Dizilerim Kütüphanesi
+              <h2 className="font-display text-base font-bold text-text-primary group-hover:text-accent transition-colors">
+                Dizi Kütüphanesi
               </h2>
-              <p className="text-text-secondary text-xs md:text-sm mt-1 leading-relaxed">
-                İzlediğiniz, kısmen izlediğiniz veya daha sonra izlemek üzere kaydettiğiniz tüm diziler.
+              <p className="text-text-secondary text-xs mt-1 leading-relaxed line-clamp-2">
+                Kayıtlı ve izlenen tüm dizileriniz.
               </p>
             </div>
-            <div className="flex items-center text-xs font-mono text-accent font-semibold pt-2">
-              Kütüphaneyi Aç →
+            <div className="flex items-center text-xs font-mono text-accent font-semibold pt-1">
+              Aç →
             </div>
           </Link>
         </div>
+
+        {/* Editorial Rows Section */}
+        {homeModules.length > 0 && (
+          <div className="space-y-10 pt-4">
+            {homeModules.map((module) => (
+              <section key={module.id} className="space-y-4">
+                <div className="flex items-baseline justify-between border-b border-border/60 pb-2">
+                  <div>
+                    <h2 className="font-display text-xl font-bold text-text-primary">{module.title}</h2>
+                    <p className="text-xs text-text-secondary">{module.subtitle}</p>
+                  </div>
+                  <Link
+                    href="/tv/recommendations"
+                    className="text-xs font-mono text-accent hover:underline flex items-center gap-1"
+                  >
+                    Tümünü Gör →
+                  </Link>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {module.items.slice(0, 6).map((item) => {
+                    const show = item.tvShow;
+                    const posterUrl = show.posterPath
+                      ? show.posterPath.startsWith("http")
+                        ? show.posterPath
+                        : `https://image.tmdb.org/t/p/w500${show.posterPath}`
+                      : "/placeholder-poster.png";
+
+                    const year = show.firstAirDate?.slice(0, 4);
+
+                    return (
+                      <Link
+                        key={show.id}
+                        href="/tv/recommendations"
+                        className="group relative flex flex-col rounded-2xl bg-surface border border-border/70 hover:border-accent/50 overflow-hidden shadow-sm hover:shadow-cinematic transition-all"
+                      >
+                        <div className="relative aspect-[2/3] w-full bg-surface-elevated overflow-hidden">
+                          <Image
+                            src={posterUrl}
+                            alt={show.name}
+                            fill
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw"
+                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-background/85 backdrop-blur-md border border-accent/30 text-accent font-mono text-[11px] font-bold">
+                            %{item.matchScore}
+                          </div>
+                        </div>
+
+                        <div className="p-2.5 space-y-1">
+                          <div className="font-display text-xs font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors">
+                            {show.name}
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] font-mono text-text-muted">
+                            <span>{year || "—"}</span>
+                            {show.voteAverage > 0 && <span>★ {show.voteAverage.toFixed(1)}</span>}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
       </main>
 
       <Footer />

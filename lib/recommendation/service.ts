@@ -24,6 +24,8 @@ import type {
   CandidateSource,
 } from "./types";
 import { CANDIDATE_MIX_RATIOS } from "./constants";
+import { rerankCandidatesWithAi, type HybridScoredCandidate } from "./hybrid-reranker";
+import { getOrRefreshUserAiTasteProfile } from "./ai-taste-service";
 
 export const ENGINE_V3_MATCH_VERSION = 32; // Phase 9 Tuned Match Engine v3.2
 
@@ -39,19 +41,43 @@ export interface ScoredCandidate {
   reasons: string[];
   candidateSource: CandidateSource;
   evidence: CandidateEvidence;
+  hybridBreakdown?: any;
+}
+
+export interface RecommendationServiceOptions {
+  limit?: number;
+  page?: number;
+  debugMode?: boolean;
+  hybridEnabledOverride?: boolean;
+  hybridMatchWeightOverride?: number;
+  hybridAiWeightOverride?: number;
+  frozenAiAffinityMap?: Map<string, { affinity: number; signals: string[] }>;
 }
 
 /**
- * Resolves personalized movie recommendations for a user (Match Engine v3.1).
+ * Resolves personalized movie recommendations for a user (Match Engine v3.2 + Optional Phase 9.5 Hybrid Reranker).
  * Features: NOT_WATCHED recovery, multi-source candidates (KNOWN_UNWATCHED + FRESH_DISCOVERY + ADJACENT),
  * Bayesian quality floor, score calibration (max 97%, strong evidence for 90%+), and non-degraded quality thresholds.
  */
 export async function getPersonalizedRecommendations(
   userId: string,
-  limit: number = 24,
-  page: number = 0,
-  debugMode: boolean = false
+  limitOrOptions: number | RecommendationServiceOptions = 24,
+  pageArg: number = 0,
+  debugModeArg: boolean = false
 ): Promise<RecommendationResponse> {
+  const options: RecommendationServiceOptions =
+    typeof limitOrOptions === "object" && limitOrOptions !== null
+      ? limitOrOptions
+      : {
+          limit: typeof limitOrOptions === "number" ? limitOrOptions : 24,
+          page: pageArg,
+          debugMode: debugModeArg,
+        };
+
+  const limit = options.limit ?? 24;
+  const page = options.page ?? 0;
+  const debugMode = options.debugMode ?? false;
+
   const settings = await getSystemSettings();
   const targetCount = settings.calibrationTarget;
 
@@ -274,10 +300,54 @@ export async function getPersonalizedRecommendations(
     };
   });
 
-  // 5. Apply Quality Floor & Filter
+  // 5. Hybrid AI Semantic Reranking (Phase 9.5)
+  let effectiveCandidates = scoredCandidates;
+  const isHybridEnabled = options?.hybridEnabledOverride !== undefined
+    ? options.hybridEnabledOverride
+    : settings.hybridRerankEnabled;
+
+  if (isHybridEnabled) {
+    try {
+      const tasteRecord = await db.userAiTasteProfile.findUnique({
+        where: { userId_mediaType: { userId, mediaType: "FILM" } },
+      });
+
+      let aiTaste = tasteRecord ? (tasteRecord.tasteJson as any) : null;
+
+      if (!aiTaste && !options?.frozenAiAffinityMap) {
+        const generated = await getOrRefreshUserAiTasteProfile(userId, "FILM", {
+          refreshThreshold: settings.aiTasteRefreshEvidenceCount,
+        });
+        aiTaste = generated.profile;
+      }
+
+      if (aiTaste || options?.frozenAiAffinityMap) {
+        const rerankResult = await rerankCandidatesWithAi(
+          userId,
+          "FILM",
+          scoredCandidates,
+          profile,
+          aiTaste,
+          {
+            matchWeight: options?.hybridMatchWeightOverride ?? settings.hybridMatchWeight,
+            aiWeight: options?.hybridAiWeightOverride ?? settings.hybridAiWeight,
+            shortlistSize: settings.aiRerankShortlistSize,
+            matchVersion: ENGINE_V3_MATCH_VERSION,
+            frozenRankingMap: options?.frozenAiAffinityMap,
+          }
+        );
+        effectiveCandidates = rerankResult.rankedCandidates;
+      }
+    } catch (e) {
+      console.error("[RecommendationService] Hybrid reranking error, fallback to deterministic:", e);
+      effectiveCandidates = scoredCandidates;
+    }
+  }
+
+  // 6. Apply Quality Floor & Filter
   // Strict rule: DO NOT lower quality to artificially reach 24 items.
   // Must satisfy minimum display match score (>= 62) and dislike penalty limit (>-20).
-  const qualityFilteredCandidates = scoredCandidates.filter((item) => {
+  const qualityFilteredCandidates = effectiveCandidates.filter((item) => {
     if (item.displayMatchScore < 62) return false;
     if (item.dislikePenalty <= -20) return false;
     return true;
@@ -297,7 +367,7 @@ export async function getPersonalizedRecommendations(
   const startIndex = safePage * limit;
   const pageMatches = sortedMatches.slice(startIndex, startIndex + limit);
 
-  // 6. Resolve Explanations V3.1
+  // 7. Resolve Explanations V3.1
   const recommendations: PersonalizedRecommendationItem[] = await Promise.all(
     pageMatches.map(async (item) => {
       // Track reference movie usage
@@ -341,6 +411,7 @@ export async function getPersonalizedRecommendations(
           components: item.components,
           evidence: item.evidence,
           candidateSource: item.candidateSource,
+          hybridBreakdown: (item as any).hybridBreakdown,
           ...(debugMode
             ? {
                 debugInfo: {
@@ -383,6 +454,7 @@ export async function getPersonalizedRecommendations(
         components: item.components,
         evidence: item.evidence,
         candidateSource: item.candidateSource,
+        hybridBreakdown: (item as any).hybridBreakdown,
         ...(debugMode
           ? {
               debugInfo: {

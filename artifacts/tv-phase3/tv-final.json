@@ -1,0 +1,741 @@
+{
+  "timestamp": "2026-08-15T14:43:53.677Z",
+  "totalFixtures": 16,
+  "totalCatalogEvaluated": 1707,
+  "metrics": {
+    "meanPrecisionAt5": 0.413,
+    "meanPrecisionAt10": 0.487,
+    "meanPrecisionAt20": 0.544,
+    "meanNdcgAt10": 0.877,
+    "meanHitRateAt20": 0.938,
+    "meanMrr": 0.452,
+    "totalFalseHighs": 108,
+    "totalFalseLows": 213,
+    "precision90Plus": 0.526,
+    "meanDiversityIld": 0.704,
+    "meanSupplyCount": 1329,
+    "compositeScore": 56.5
+  },
+  "profiles": [
+    {
+      "fixtureId": "tv-prof-1-mystery-crime",
+      "fixtureName": "Gizem & Suç Dedektifi",
+      "archetype": "MYSTERY_SOLVER",
+      "maturity": "ESTABLISHED",
+      "evidenceCount": 45,
+      "supplyCount": 1417,
+      "precisionAt5": 0.4,
+      "precisionAt10": 0.5,
+      "precisionAt20": 0.5,
+      "ndcgAt10": 0.838,
+      "hitRateAt20": 1,
+      "mrr": 0.333,
+      "falseHighCount": 5,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 0.455,
+      "diversityIld": 0.774,
+      "top5Matches": [
+        {
+          "name": "Sıkı Dostlar",
+          "score": 92,
+          "relevance": 0.45
+        },
+        {
+          "name": "The Boys",
+          "score": 92,
+          "relevance": 0.53
+        },
+        {
+          "name": "Vampir Günlükleri",
+          "score": 92,
+          "relevance": 0.88
+        },
+        {
+          "name": "S.W.A.T.",
+          "score": 92,
+          "relevance": 1
+        },
+        {
+          "name": "‎Ofis‎",
+          "score": 91,
+          "relevance": 0.45
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-2-comedy-sitcom",
+      "fixtureName": "Komedi Kaçamağı",
+      "archetype": "COMEDY_COMFORT_VIEWER",
+      "maturity": "ESTABLISHED",
+      "evidenceCount": 40,
+      "supplyCount": 912,
+      "precisionAt5": 0.6,
+      "precisionAt10": 0.5,
+      "precisionAt20": 0.55,
+      "ndcgAt10": 0.888,
+      "hitRateAt20": 1,
+      "mrr": 0.5,
+      "falseHighCount": 1,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 0,
+      "diversityIld": 0.752,
+      "top5Matches": [
+        {
+          "name": "Mushoku Tensei: Isekai Ittara Honki Dasu",
+          "score": 90,
+          "relevance": 0.51
+        },
+        {
+          "name": "X-Men '97",
+          "score": 90,
+          "relevance": 0.61
+        },
+        {
+          "name": "It's Always Sunny in Philadelphia",
+          "score": 86,
+          "relevance": 0.96
+        },
+        {
+          "name": "The Middle",
+          "score": 85,
+          "relevance": 0.91
+        },
+        {
+          "name": "PAW Patrol",
+          "score": 89,
+          "relevance": 0.51
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-3-prestige-drama",
+      "fixtureName": "Prestij Drama Tutkunu",
+      "archetype": "PRESTIGE_DRAMA_SEEKER",
+      "maturity": "STRONG",
+      "evidenceCount": 85,
+      "supplyCount": 1404,
+      "precisionAt5": 0,
+      "precisionAt10": 0.3,
+      "precisionAt20": 0.5,
+      "ndcgAt10": 0.838,
+      "hitRateAt20": 1,
+      "mrr": 0.167,
+      "falseHighCount": 1,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 0.364,
+      "diversityIld": 0.793,
+      "top5Matches": [
+        {
+          "name": "The Boys",
+          "score": 92,
+          "relevance": 0.53
+        },
+        {
+          "name": "Stranger Things",
+          "score": 92,
+          "relevance": 0.53
+        },
+        {
+          "name": "‎Ofis‎",
+          "score": 91,
+          "relevance": 0.53
+        },
+        {
+          "name": "Sıkı Dostlar",
+          "score": 90,
+          "relevance": 0.45
+        },
+        {
+          "name": "Stargate SG-1",
+          "score": 91,
+          "relevance": 0.53
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-4-sci-fi-fantasy",
+      "fixtureName": "Bilim Kurgu Evren Kaşifi",
+      "archetype": "SCI_FI_WORLD_BUILDER",
+      "maturity": "ESTABLISHED",
+      "evidenceCount": 35,
+      "supplyCount": 1420,
+      "precisionAt5": 0,
+      "precisionAt10": 0,
+      "precisionAt20": 0,
+      "ndcgAt10": 0.968,
+      "hitRateAt20": 0,
+      "mrr": 0,
+      "falseHighCount": 5,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 0.042,
+      "diversityIld": 0.494,
+      "top5Matches": [
+        {
+          "name": "Ted Lasso",
+          "score": 92,
+          "relevance": 0.45
+        },
+        {
+          "name": "House, M.D.",
+          "score": 92,
+          "relevance": 0.53
+        },
+        {
+          "name": "Breaking Bad",
+          "score": 92,
+          "relevance": 0.53
+        },
+        {
+          "name": "Shameless",
+          "score": 92,
+          "relevance": 0.4
+        },
+        {
+          "name": "Bones",
+          "score": 92,
+          "relevance": 0.48
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-5-miniseries-specialist",
+      "fixtureName": "Mini Dizi Meraklısı",
+      "archetype": "MINISERIES_SPECIALIST",
+      "maturity": "FORMING",
+      "evidenceCount": 23,
+      "supplyCount": 1101,
+      "precisionAt5": 0.6,
+      "precisionAt10": 0.6,
+      "precisionAt20": 0.6,
+      "ndcgAt10": 0.928,
+      "hitRateAt20": 1,
+      "mrr": 1,
+      "falseHighCount": 8,
+      "falseLowCount": 212,
+      "score90PlusPrecision": 1,
+      "diversityIld": 0.781,
+      "top5Matches": [
+        {
+          "name": "Breaking Bad",
+          "score": 88,
+          "relevance": 0.78
+        },
+        {
+          "name": "Dexter",
+          "score": 88,
+          "relevance": 0.98
+        },
+        {
+          "name": "The Boys",
+          "score": 88,
+          "relevance": 0.43
+        },
+        {
+          "name": "Stranger Things",
+          "score": 88,
+          "relevance": 0.78
+        },
+        {
+          "name": "Sıkı Dostlar",
+          "score": 87,
+          "relevance": 0.35
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-6-long-running-fan",
+      "fixtureName": "Uzun Soluklu Hikâye Kaşifi",
+      "archetype": "LONG_FORM_EXPLORER",
+      "maturity": "ESTABLISHED",
+      "evidenceCount": 45,
+      "supplyCount": 1440,
+      "precisionAt5": 0.6,
+      "precisionAt10": 0.6,
+      "precisionAt20": 0.5,
+      "ndcgAt10": 0.836,
+      "hitRateAt20": 1,
+      "mrr": 0.333,
+      "falseHighCount": 10,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 0.563,
+      "diversityIld": 0.79,
+      "top5Matches": [
+        {
+          "name": "Sıkı Dostlar",
+          "score": 92,
+          "relevance": 0.43
+        },
+        {
+          "name": "‎Ofis‎",
+          "score": 92,
+          "relevance": 0.43
+        },
+        {
+          "name": "Prison Break",
+          "score": 92,
+          "relevance": 1
+        },
+        {
+          "name": "American Horror Story",
+          "score": 92,
+          "relevance": 0.81
+        },
+        {
+          "name": "X-Men '97",
+          "score": 91,
+          "relevance": 0.78
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-7-global-explorer",
+      "fixtureName": "Global Dizi Kaşifi",
+      "archetype": "GLOBAL_SERIES_EXPLORER",
+      "maturity": "STRONG",
+      "evidenceCount": 75,
+      "supplyCount": 1414,
+      "precisionAt5": 0.4,
+      "precisionAt10": 0.3,
+      "precisionAt20": 0.5,
+      "ndcgAt10": 0.809,
+      "hitRateAt20": 1,
+      "mrr": 0.25,
+      "falseHighCount": 9,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 0.2,
+      "diversityIld": 0.783,
+      "top5Matches": [
+        {
+          "name": "The Boys",
+          "score": 93,
+          "relevance": 0.43
+        },
+        {
+          "name": "‎Ofis‎",
+          "score": 91,
+          "relevance": 0.35
+        },
+        {
+          "name": "Rick and Morty",
+          "score": 90,
+          "relevance": 0.35
+        },
+        {
+          "name": "Chicago Med",
+          "score": 90,
+          "relevance": 0.78
+        },
+        {
+          "name": "Sons of Anarchy",
+          "score": 90,
+          "relevance": 0.98
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-8-anime-fan",
+      "fixtureName": "Anime Evren Kaşifi",
+      "archetype": "SCI_FI_WORLD_BUILDER",
+      "maturity": "ESTABLISHED",
+      "evidenceCount": 40,
+      "supplyCount": 1435,
+      "precisionAt5": 0,
+      "precisionAt10": 0.2,
+      "precisionAt20": 0.25,
+      "ndcgAt10": 0.846,
+      "hitRateAt20": 1,
+      "mrr": 0.143,
+      "falseHighCount": 15,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 0.087,
+      "diversityIld": 0.667,
+      "top5Matches": [
+        {
+          "name": "Ted Lasso",
+          "score": 92,
+          "relevance": 0.43
+        },
+        {
+          "name": "House, M.D.",
+          "score": 92,
+          "relevance": 0.35
+        },
+        {
+          "name": "Sıkı Dostlar",
+          "score": 92,
+          "relevance": 0.43
+        },
+        {
+          "name": "Breaking Bad",
+          "score": 92,
+          "relevance": 0.35
+        },
+        {
+          "name": "‎Ofis‎",
+          "score": 91,
+          "relevance": 0.43
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-9-classic-tv",
+      "fixtureName": "Klasik Dizi Sever",
+      "archetype": "COMFORT_SERIES_FAN",
+      "maturity": "ESTABLISHED",
+      "evidenceCount": 30,
+      "supplyCount": 1445,
+      "precisionAt5": 0.8,
+      "precisionAt10": 0.8,
+      "precisionAt20": 0.85,
+      "ndcgAt10": 0.916,
+      "hitRateAt20": 1,
+      "mrr": 0.5,
+      "falseHighCount": 3,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 0.769,
+      "diversityIld": 0.774,
+      "top5Matches": [
+        {
+          "name": "The Boys",
+          "score": 92,
+          "relevance": 0.43
+        },
+        {
+          "name": "Smallville",
+          "score": 92,
+          "relevance": 0.73
+        },
+        {
+          "name": "Suits",
+          "score": 91,
+          "relevance": 0.78
+        },
+        {
+          "name": "Chicago P.D.",
+          "score": 91,
+          "relevance": 0.78
+        },
+        {
+          "name": "Family Guy",
+          "score": 90,
+          "relevance": 0.6
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-10-mainstream-pop",
+      "fixtureName": "Trend & Popüler Dizi İzleyicisi",
+      "archetype": "PRESTIGE_DRAMA_SEEKER",
+      "maturity": "ESTABLISHED",
+      "evidenceCount": 50,
+      "supplyCount": 1436,
+      "precisionAt5": 0.4,
+      "precisionAt10": 0.6,
+      "precisionAt20": 0.55,
+      "ndcgAt10": 0.825,
+      "hitRateAt20": 1,
+      "mrr": 0.333,
+      "falseHighCount": 9,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 0.3,
+      "diversityIld": 0.793,
+      "top5Matches": [
+        {
+          "name": "Sıkı Dostlar",
+          "score": 92,
+          "relevance": 0.35
+        },
+        {
+          "name": "‎Ofis‎",
+          "score": 92,
+          "relevance": 0.35
+        },
+        {
+          "name": "Vampir Günlükleri",
+          "score": 92,
+          "relevance": 0.9
+        },
+        {
+          "name": "S.W.A.T.",
+          "score": 92,
+          "relevance": 0.85
+        },
+        {
+          "name": "PAW Patrol",
+          "score": 89,
+          "relevance": 0.25
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-11-discovery-niche",
+      "fixtureName": "Niş Keşifçi",
+      "archetype": "DARK_STORY_SEEKER",
+      "maturity": "FORMING",
+      "evidenceCount": 27,
+      "supplyCount": 1431,
+      "precisionAt5": 0.6,
+      "precisionAt10": 0.7,
+      "precisionAt20": 0.75,
+      "ndcgAt10": 0.912,
+      "hitRateAt20": 1,
+      "mrr": 1,
+      "falseHighCount": 5,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 0.333,
+      "diversityIld": 0.703,
+      "top5Matches": [
+        {
+          "name": "Law & Order",
+          "score": 91,
+          "relevance": 0.6
+        },
+        {
+          "name": "The Boys",
+          "score": 91,
+          "relevance": 0.35
+        },
+        {
+          "name": "Stranger Things",
+          "score": 91,
+          "relevance": 0.35
+        },
+        {
+          "name": "Dexter",
+          "score": 90,
+          "relevance": 0.7
+        },
+        {
+          "name": "Suits",
+          "score": 90,
+          "relevance": 0.7
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-12-power-user",
+      "fixtureName": "Dizi Gurmesi (Power User)",
+      "archetype": "PRESTIGE_DRAMA_SEEKER",
+      "maturity": "VERY_STRONG",
+      "evidenceCount": 255,
+      "supplyCount": 1376,
+      "precisionAt5": 0.6,
+      "precisionAt10": 0.8,
+      "precisionAt20": 0.9,
+      "ndcgAt10": 0.956,
+      "hitRateAt20": 1,
+      "mrr": 1,
+      "falseHighCount": 2,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 1,
+      "diversityIld": 0.687,
+      "top5Matches": [
+        {
+          "name": "The Shield",
+          "score": 90,
+          "relevance": 1
+        },
+        {
+          "name": "Spider-Noir",
+          "score": 90,
+          "relevance": 1
+        },
+        {
+          "name": "Outer Banks",
+          "score": 90,
+          "relevance": 0.8
+        },
+        {
+          "name": "PAW Patrol",
+          "score": 89,
+          "relevance": 0.35
+        },
+        {
+          "name": "LEGO Ninjago: Ejderhaların Yükselişi",
+          "score": 89,
+          "relevance": 0.4
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-13-partial-heavy-user",
+      "fixtureName": "Yarım Bırakan İzleyici (Partial-Heavy)",
+      "archetype": "MYSTERY_SOLVER",
+      "maturity": "FORMING",
+      "evidenceCount": 25,
+      "supplyCount": 958,
+      "precisionAt5": 0,
+      "precisionAt10": 0.4,
+      "precisionAt20": 0.45,
+      "ndcgAt10": 0.786,
+      "hitRateAt20": 1,
+      "mrr": 0.143,
+      "falseHighCount": 11,
+      "falseLowCount": 1,
+      "score90PlusPrecision": 1,
+      "diversityIld": 0.62,
+      "top5Matches": [
+        {
+          "name": "Grey's Anatomy",
+          "score": 88,
+          "relevance": 0.35
+        },
+        {
+          "name": "Game of Thrones",
+          "score": 88,
+          "relevance": 0.35
+        },
+        {
+          "name": "The Boys",
+          "score": 88,
+          "relevance": 0.35
+        },
+        {
+          "name": "House, M.D.",
+          "score": 88,
+          "relevance": 0.35
+        },
+        {
+          "name": "Suits",
+          "score": 88,
+          "relevance": 0.35
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-14-not-watched-heavy",
+      "fixtureName": "Geniş Aday Havuzlu İzleyici (Not-Watched Heavy)",
+      "archetype": "PRESTIGE_DRAMA_SEEKER",
+      "maturity": "STRONG",
+      "evidenceCount": 105,
+      "supplyCount": 1388,
+      "precisionAt5": 0.4,
+      "precisionAt10": 0.4,
+      "precisionAt20": 0.45,
+      "ndcgAt10": 0.802,
+      "hitRateAt20": 1,
+      "mrr": 0.333,
+      "falseHighCount": 11,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 0.3,
+      "diversityIld": 0.773,
+      "top5Matches": [
+        {
+          "name": "‎Ofis‎",
+          "score": 91,
+          "relevance": 0.35
+        },
+        {
+          "name": "Adventure Time",
+          "score": 91,
+          "relevance": 0.35
+        },
+        {
+          "name": "Black Mirror",
+          "score": 90,
+          "relevance": 0.7
+        },
+        {
+          "name": "True Detective",
+          "score": 90,
+          "relevance": 0.7
+        },
+        {
+          "name": "PAW Patrol",
+          "score": 89,
+          "relevance": 0.25
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-15-low-evidence-user",
+      "fixtureName": "Başlangıç Seviyesi (Low Evidence)",
+      "archetype": "EXPLORING_VIEWER",
+      "maturity": "EARLY",
+      "evidenceCount": 5,
+      "supplyCount": 1267,
+      "precisionAt5": 1,
+      "precisionAt10": 1,
+      "precisionAt20": 1,
+      "ndcgAt10": 0.98,
+      "hitRateAt20": 1,
+      "mrr": 1,
+      "falseHighCount": 0,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 1,
+      "diversityIld": 0.532,
+      "top5Matches": [
+        {
+          "name": "Law & Order: Special Victims Unit",
+          "score": 88,
+          "relevance": 0.85
+        },
+        {
+          "name": "Grey's Anatomy",
+          "score": 88,
+          "relevance": 0.7
+        },
+        {
+          "name": "NCIS",
+          "score": 88,
+          "relevance": 0.65
+        },
+        {
+          "name": "Supernatural",
+          "score": 88,
+          "relevance": 0.9
+        },
+        {
+          "name": "Game of Thrones",
+          "score": 88,
+          "relevance": 0.7
+        }
+      ]
+    },
+    {
+      "fixtureId": "tv-prof-16-forming-user",
+      "fixtureName": "Gelişen Profil (Forming Profile)",
+      "archetype": "MYSTERY_SOLVER",
+      "maturity": "FORMING",
+      "evidenceCount": 15,
+      "supplyCount": 1413,
+      "precisionAt5": 0.2,
+      "precisionAt10": 0.1,
+      "precisionAt20": 0.35,
+      "ndcgAt10": 0.906,
+      "hitRateAt20": 1,
+      "mrr": 0.2,
+      "falseHighCount": 13,
+      "falseLowCount": 0,
+      "score90PlusPrecision": 1,
+      "diversityIld": 0.546,
+      "top5Matches": [
+        {
+          "name": "House of the Dragon",
+          "score": 88,
+          "relevance": 0.35
+        },
+        {
+          "name": "Silo",
+          "score": 88,
+          "relevance": 0.3
+        },
+        {
+          "name": "Grey's Anatomy",
+          "score": 88,
+          "relevance": 0.35
+        },
+        {
+          "name": "The Boys",
+          "score": 88,
+          "relevance": 0.35
+        },
+        {
+          "name": "Law & Order",
+          "score": 88,
+          "relevance": 0.6
+        }
+      ]
+    }
+  ]
+}

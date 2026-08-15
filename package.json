@@ -16,8 +16,9 @@
     "verify": "prisma validate && npm run type-check && npm run test:unit && npm run db:verify && npm run build",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "db:push": "prisma db push",
     "quality:recommendations": "tsx tests/recommendation-quality/run.ts",
+    "quality:hybrid": "tsx tests/recommendation-quality/run-hybrid-experiment.ts",
+    "quality:tv": "tsx tests/tv-recommendation-quality/run.ts",
     "phase9:seed": "tsx tests/recommendation-quality/catalog-seed.ts"
   },
   "dependencies": {

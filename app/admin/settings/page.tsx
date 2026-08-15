@@ -8,6 +8,14 @@ export default function AdminSettingsPage() {
   const [queuePreloadCount, setQueuePreloadCount] = useState(5);
   const [aiEnabled, setAiEnabled] = useState(true);
   const [activeLearningEnabled, setActiveLearningEnabled] = useState(true);
+
+  // Phase 9.5 Hybrid Recommendation Settings
+  const [hybridRerankEnabled, setHybridRerankEnabled] = useState(false);
+  const [hybridMatchWeight, setHybridMatchWeight] = useState(60);
+  const [hybridAiWeight, setHybridAiWeight] = useState(40);
+  const [aiTasteRefreshEvidenceCount, setAiTasteRefreshEvidenceCount] = useState(25);
+  const [aiRerankShortlistSize, setAiRerankShortlistSize] = useState(50);
+
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -23,6 +31,11 @@ export default function AdminSettingsPage() {
             setQueuePreloadCount(data.settings.queuePreloadCount || 5);
             setAiEnabled(data.settings.aiEnabled !== false);
             setActiveLearningEnabled(data.settings.activeLearningEnabled !== false);
+            setHybridRerankEnabled(data.settings.hybridRerankEnabled === true);
+            setHybridMatchWeight(data.settings.hybridMatchWeight ?? 60);
+            setHybridAiWeight(data.settings.hybridAiWeight ?? 40);
+            setAiTasteRefreshEvidenceCount(data.settings.aiTasteRefreshEvidenceCount || 25);
+            setAiRerankShortlistSize(data.settings.aiRerankShortlistSize || 50);
           }
         }
       } catch (e) {
@@ -33,6 +46,27 @@ export default function AdminSettingsPage() {
     }
     loadSettings();
   }, []);
+
+  const handleAiWeightChange = (newAiWeight: number) => {
+    // Enforce safety ceiling: max 50% AI weight
+    const clampedAi = Math.max(0, Math.min(50, Math.round(newAiWeight)));
+    const clampedMatch = 100 - clampedAi;
+    setHybridAiWeight(clampedAi);
+    setHybridMatchWeight(clampedMatch);
+  };
+
+  const handleMatchWeightChange = (newMatchWeight: number) => {
+    // Match weight must be between 50% and 100% (since AI is max 50%)
+    const clampedMatch = Math.max(50, Math.min(100, Math.round(newMatchWeight)));
+    const clampedAi = 100 - clampedMatch;
+    setHybridMatchWeight(clampedMatch);
+    setHybridAiWeight(clampedAi);
+  };
+
+  const applyPreset = (match: number, ai: number) => {
+    setHybridMatchWeight(match);
+    setHybridAiWeight(ai);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +82,11 @@ export default function AdminSettingsPage() {
           queuePreloadCount,
           aiEnabled,
           activeLearningEnabled,
+          hybridRerankEnabled,
+          hybridMatchWeight,
+          hybridAiWeight,
+          aiTasteRefreshEvidenceCount,
+          aiRerankShortlistSize,
         }),
       });
 
@@ -62,13 +101,13 @@ export default function AdminSettingsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6 max-w-3xl">
+      <div className="space-y-6 max-w-4xl">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-text-primary">
-            Sistem Ayarları & Strateji
+            Sistem & Öneri Motoru Ayarları
           </h1>
           <p className="text-xs text-text-secondary font-mono mt-0.5">
-            Kalibrasyon hedefi, akıllı seçim stratejisi ve sistem parametreleri
+            Kalibrasyon hedefi, Match Engine v3.2 ve Hibrit AI Semantic Reranker parametreleri
           </p>
         </div>
 
@@ -77,94 +116,292 @@ export default function AdminSettingsPage() {
             Ayarlar yükleniyor...
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-6 rounded-2xl bg-surface border border-border/80 space-y-6 shadow-md">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {statusMsg && (
               <div className="p-3.5 rounded-xl bg-surface-elevated border border-border text-xs font-mono text-text-primary">
                 {statusMsg}
               </div>
             )}
 
-            {/* Calibration Target Setting */}
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-text-primary">
-                Kalibrasyon Eşik Hedefi (Initial Calibration Target)
-              </label>
-              <p className="text-xs text-text-muted">
-                Kullanıcıya Film DNA sinyali toplandığını bildiren tamamlanma eşiğidir. Kullanıcı bu sayıdan sonra da film değerlendirmeye kesintisiz devam edebilir.
-              </p>
-              <input
-                type="number"
-                min="5"
-                max="500"
-                value={calibrationTarget}
-                onChange={(e) => setCalibrationTarget(parseInt(e.target.value, 10) || 30)}
-                className="w-48 px-3.5 py-2 rounded-xl bg-surface-elevated border border-border text-sm text-text-primary font-mono focus:outline-none focus:border-accent"
-              />
-            </div>
-
-            {/* Active Learning Strategy Toggle */}
-            <div className="space-y-2 pt-4 border-t border-border/60">
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="activeLearningToggle"
-                  checked={activeLearningEnabled}
-                  onChange={(e) => setActiveLearningEnabled(e.target.checked)}
-                  className="rounded bg-surface-elevated border-border text-accent focus:ring-0"
-                />
-                <label htmlFor="activeLearningToggle" className="text-sm font-bold text-text-primary">
-                  Intelligent Calibration / Active Learning (v1.0) Aktif
-                </label>
+            {/* Section 1: Recommendation Engine & Hybrid AI Settings */}
+            <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-6 shadow-md">
+              <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                <div>
+                  <h2 className="font-display text-lg font-bold text-text-primary">
+                    Recommendation Engine — Hybrid AI Settings
+                  </h2>
+                  <p className="text-xs text-text-muted font-mono">
+                    Deterministic-First + DeepSeek İkinci Aşama Semantik Sıralayıcı (Phase 9.5)
+                  </p>
+                </div>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-mono font-medium ${
+                    hybridRerankEnabled
+                      ? "bg-success/15 border border-success/30 text-success"
+                      : "bg-surface-elevated border border-border text-text-muted"
+                  }`}
+                >
+                  {hybridRerankEnabled ? "Hibrit AI Aktif" : "Tam Deterministik (v3.2)"}
+                </span>
               </div>
-              <p className="text-xs text-text-muted">
-                Kullanıcıya gösterilecek sıradaki filmleri deterministik bilgi kazancı (Information Gain) skorlamasına göre seçer. Devre dışı bırakılırsa standart dengeli seçim stratejisine geçer.
-              </p>
-            </div>
 
-            {/* Queue Preload Count */}
-            <div className="space-y-2 pt-4 border-t border-border/60">
-              <label className="text-sm font-bold text-text-primary">
-                Film Kuyruğu Ön Bellekleme Sayısı (Queue Preload Count)
-              </label>
-              <p className="text-xs text-text-muted">
-                İstemci tarafında tek seferde sunucudan çekilip önbelleğe alınan film adayı miktarı.
-              </p>
-              <input
-                type="number"
-                min="1"
-                max="20"
-                value={queuePreloadCount}
-                onChange={(e) => setQueuePreloadCount(parseInt(e.target.value, 10) || 5)}
-                className="w-48 px-3.5 py-2 rounded-xl bg-surface-elevated border border-border text-sm text-text-primary font-mono focus:outline-none focus:border-accent"
-              />
-            </div>
-
-            {/* AI Global Toggle */}
-            <div className="space-y-2 pt-4 border-t border-border/60">
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="globalAiToggle"
-                  checked={aiEnabled}
-                  onChange={(e) => setAiEnabled(e.target.checked)}
-                  className="rounded bg-surface-elevated border-border text-accent focus:ring-0"
-                />
-                <label htmlFor="globalAiToggle" className="text-sm font-bold text-text-primary">
-                  Yapay Zeka Servislerini Aktif Et
-                </label>
+              {/* Hybrid Reranker Toggle */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="hybridRerankToggle"
+                    checked={hybridRerankEnabled}
+                    onChange={(e) => setHybridRerankEnabled(e.target.checked)}
+                    className="rounded bg-surface-elevated border-border text-accent focus:ring-0"
+                  />
+                  <label htmlFor="hybridRerankToggle" className="text-sm font-bold text-text-primary">
+                    Hibrit AI Semantik Reranker'ı Aktif Et
+                  </label>
+                </div>
+                <p className="text-xs text-text-muted">
+                  Açık olduğunda: Match Engine v3.2 tarafından filtrelenmiş güvenli adaylar (≥65 eşleşme) DeepSeek AI Taste Profile ile semantik olarak yeniden sıralanır. Kapalıyken exact v3.2 deterministik çıktısı korunur.
+                </p>
               </div>
-              <p className="text-xs text-text-muted">
-                İlerideki fazlarda çalışacak Film DNA öneri algoritmaları için AI provider erişim yetkisini kontrol eder.
-              </p>
+
+              {/* Presets */}
+              <div className="space-y-2 pt-3 border-t border-border/60">
+                <label className="text-xs font-bold text-text-secondary uppercase tracking-wider font-mono">
+                  Hızlı Ağırlık Şablonları (Presets)
+                </label>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => applyPreset(100, 0)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
+                      hybridMatchWeight === 100 && hybridAiWeight === 0
+                        ? "bg-accent/20 border-accent text-accent font-bold"
+                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    Deterministic (100 / 0)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset(75, 25)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
+                      hybridMatchWeight === 75 && hybridAiWeight === 25
+                        ? "bg-accent/20 border-accent text-accent font-bold"
+                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    Conservative (75 / 25)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset(60, 40)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
+                      hybridMatchWeight === 60 && hybridAiWeight === 40
+                        ? "bg-accent/20 border-accent text-accent font-bold"
+                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    Balanced Hybrid (60 / 40) [Önerilen]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset(50, 50)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
+                      hybridMatchWeight === 50 && hybridAiWeight === 50
+                        ? "bg-accent/20 border-accent text-accent font-bold"
+                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    AI-Forward Test (50 / 50)
+                  </button>
+                </div>
+              </div>
+
+              {/* Weight Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3 border-t border-border/60">
+                {/* Match Engine Weight */}
+                <div className="space-y-2 p-4 rounded-xl bg-surface-elevated border border-border">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-text-primary">
+                      Match Engine v3.2 Ağırlığı
+                    </label>
+                    <span className="text-sm font-bold font-mono text-accent">
+                      %{hybridMatchWeight}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-text-muted">
+                    Film DNA, kalite, dönem, tür, geri bildirim ve deterministik eşleşme motorunun final sıralamadaki ağırlığı.
+                  </p>
+                  <input
+                    type="range"
+                    min="50"
+                    max="100"
+                    step="1"
+                    value={hybridMatchWeight}
+                    onChange={(e) => handleMatchWeightChange(parseInt(e.target.value, 10))}
+                    className="w-full accent-accent"
+                  />
+                  <div className="flex justify-between text-[10px] text-text-muted font-mono">
+                    <span>Min %50</span>
+                    <span>Max %100</span>
+                  </div>
+                </div>
+
+                {/* AI Semantic Weight */}
+                <div className="space-y-2 p-4 rounded-xl bg-surface-elevated border border-border">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-text-primary">
+                      AI Semantic Reranker Ağırlığı
+                    </label>
+                    <span className="text-sm font-bold font-mono text-accent">
+                      %{hybridAiWeight}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-text-muted">
+                    AI Taste Profile'ın hikâye, tema, anlatım biçimi ve semantik zevk yakınlığı değerlendirmesinin etkisi (Güvenlik tavanı: Max %50).
+                  </p>
+                  <input
+                    type="range"
+                    min="0"
+                    max="50"
+                    step="1"
+                    value={hybridAiWeight}
+                    onChange={(e) => handleAiWeightChange(parseInt(e.target.value, 10))}
+                    className="w-full accent-accent"
+                  />
+                  <div className="flex justify-between text-[10px] text-text-muted font-mono">
+                    <span>Min %0</span>
+                    <span>Tavan %50</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Refresh Threshold & Shortlist Size */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3 border-t border-border/60">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-text-primary">
+                    AI Taste Profile Yenileme Eşiği (Refresh Threshold)
+                  </label>
+                  <p className="text-[11px] text-text-muted">
+                    Son profil oluşturulduktan sonra gereken yeni puanlanan film sayısı (Taste-bearing interactions: LOVE/LIKE/NEUTRAL/DISLIKE).
+                  </p>
+                  <input
+                    type="number"
+                    min="10"
+                    max="100"
+                    value={aiTasteRefreshEvidenceCount}
+                    onChange={(e) => setAiTasteRefreshEvidenceCount(parseInt(e.target.value, 10) || 25)}
+                    className="w-36 px-3 py-2 rounded-xl bg-surface-elevated border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-text-primary">
+                    AI Aday Kısa Liste Boyutu (Shortlist Size)
+                  </label>
+                  <p className="text-[11px] text-text-muted">
+                    Deterministik motorun DeepSeek tekli batch çağrısına gönderdiği güvenli aday sayısı (40–60 arası).
+                  </p>
+                  <input
+                    type="number"
+                    min="40"
+                    max="60"
+                    value={aiRerankShortlistSize}
+                    onChange={(e) => setAiRerankShortlistSize(parseInt(e.target.value, 10) || 50)}
+                    className="w-36 px-3 py-2 rounded-xl bg-surface-elevated border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="pt-4 border-t border-border/60">
+            {/* Section 2: Calibration & General Settings */}
+            <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-6 shadow-md">
+              <h2 className="font-display text-lg font-bold text-text-primary border-b border-border/60 pb-3">
+                Genel Kalibrasyon & Kuyruk Parametreleri
+              </h2>
+
+              {/* Calibration Target Setting */}
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-text-primary">
+                  Kalibrasyon Eşik Hedefi (Initial Calibration Target)
+                </label>
+                <p className="text-xs text-text-muted">
+                  Kullanıcıya Film DNA sinyali toplandığını bildiren tamamlanma eşiğidir.
+                </p>
+                <input
+                  type="number"
+                  min="5"
+                  max="500"
+                  value={calibrationTarget}
+                  onChange={(e) => setCalibrationTarget(parseInt(e.target.value, 10) || 30)}
+                  className="w-48 px-3.5 py-2 rounded-xl bg-surface-elevated border border-border text-sm text-text-primary font-mono focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              {/* Active Learning Strategy Toggle */}
+              <div className="space-y-2 pt-4 border-t border-border/60">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="activeLearningToggle"
+                    checked={activeLearningEnabled}
+                    onChange={(e) => setActiveLearningEnabled(e.target.checked)}
+                    className="rounded bg-surface-elevated border-border text-accent focus:ring-0"
+                  />
+                  <label htmlFor="activeLearningToggle" className="text-sm font-bold text-text-primary">
+                    Intelligent Calibration / Active Learning (v1.0) Aktif
+                  </label>
+                </div>
+                <p className="text-xs text-text-muted">
+                  Kullanıcıya gösterilecek sıradaki filmleri deterministik bilgi kazancı (Information Gain) skorlamasına göre seçer.
+                </p>
+              </div>
+
+              {/* Queue Preload Count */}
+              <div className="space-y-2 pt-4 border-t border-border/60">
+                <label className="text-sm font-bold text-text-primary">
+                  Film Kuyruğu Ön Bellekleme Sayısı (Queue Preload Count)
+                </label>
+                <p className="text-xs text-text-muted">
+                  İstemci tarafında tek seferde sunucudan çekilip önbelleğe alınan film adayı miktarı.
+                </p>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={queuePreloadCount}
+                  onChange={(e) => setQueuePreloadCount(parseInt(e.target.value, 10) || 5)}
+                  className="w-48 px-3.5 py-2 rounded-xl bg-surface-elevated border border-border text-sm text-text-primary font-mono focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              {/* AI Global Toggle */}
+              <div className="space-y-2 pt-4 border-t border-border/60">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="globalAiToggle"
+                    checked={aiEnabled}
+                    onChange={(e) => setAiEnabled(e.target.checked)}
+                    className="rounded bg-surface-elevated border-border text-accent focus:ring-0"
+                  />
+                  <label htmlFor="globalAiToggle" className="text-sm font-bold text-text-primary">
+                    Yapay Zeka Servislerini Global Olarak Aktif Et
+                  </label>
+                </div>
+                <p className="text-xs text-text-muted">
+                  DeepSeek provider erişim yetkisini global olarak kontrol eder.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2">
               <button
                 type="submit"
                 disabled={isSaving}
                 className="px-6 py-3 rounded-xl bg-accent text-white font-medium text-xs hover:bg-accent-hover transition-all disabled:opacity-50 shadow-md"
               >
-                {isSaving ? "Kaydediliyor..." : "Sistem Ayarlarını Kaydet"}
+                {isSaving ? "Kaydediliyor..." : "Sistem & Hibrit Motor Ayarlarını Kaydet"}
               </button>
             </div>
           </form>

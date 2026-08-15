@@ -1,0 +1,19 @@
+{
+  "evaluatedAt": "2026-08-15T14:43:53.683Z",
+  "engineVersion": 1,
+  "status": "PASSED",
+  "summary": {
+    "precisionAt5": 0.413,
+    "precisionAt10": 0.487,
+    "ndcgAt10": 0.877,
+    "hitRateAt20": 0.938,
+    "mrr": 0.452,
+    "falseHighs": 108,
+    "falseLows": 213,
+    "precision90Plus": 0.526,
+    "diversityIld": 0.704,
+    "compositeScore": 56.5
+  },
+  "fixturesEvaluated": 16,
+  "catalogSize": 1707
+}

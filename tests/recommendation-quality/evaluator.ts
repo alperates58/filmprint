@@ -32,11 +32,20 @@ import { CandidateMovie } from "../../lib/calibration/types";
 import { EditorialCategoryMode } from "../../lib/recommendation/types";
 import { FilmDnaResult } from "../../lib/profile/types";
 
+export interface ProfileEvaluationOptions {
+  hybridEnabled?: boolean;
+  hybridMatchWeight?: number;
+  hybridAiWeight?: number;
+  frozenAiTasteProfile?: any;
+  frozenAiAffinityMap?: Map<string, { affinity: number; signals: string[] }>;
+}
+
 /**
  * Runs full quality evaluation for a single fixture user profile.
  */
 export async function evaluateProfileQuality(
-  spec: FixtureArchetypeSpec
+  spec: FixtureArchetypeSpec,
+  options?: ProfileEvaluationOptions
 ): Promise<ProfileQualityEvaluationResult> {
   console.log(`\n===============================================================`);
   console.log(`EVALUATING PROFILE: [${spec.id}] ${spec.name} (${spec.maturity} interactions)`);
@@ -51,6 +60,31 @@ export async function evaluateProfileQuality(
     const profileRecord = await db.userTasteProfile.findUnique({ where: { userId } });
     const profile = ((profileRecord?.profileJson || {}) as unknown) as FilmDnaResult;
     const profileConfidence = profileRecord?.confidence || 0.0;
+
+    // Seed frozen AI Taste Profile if provided
+    if (options?.frozenAiTasteProfile) {
+      await db.userAiTasteProfile.upsert({
+        where: { userId_mediaType: { userId, mediaType: "FILM" } },
+        update: {
+          profileVersion: profile.version || 1,
+          aiTasteVersion: 1,
+          model: "deepseek-chat",
+          tasteJson: options.frozenAiTasteProfile as any,
+          sourceEvidenceCount: setup.watchedCount,
+          inputFingerprint: `frozen_${spec.id}`,
+        },
+        create: {
+          userId,
+          mediaType: "FILM",
+          profileVersion: profile.version || 1,
+          aiTasteVersion: 1,
+          model: "deepseek-chat",
+          tasteJson: options.frozenAiTasteProfile as any,
+          sourceEvidenceCount: setup.watchedCount,
+          inputFingerprint: `frozen_${spec.id}`,
+        },
+      });
+    }
 
     // Count remaining unseen eligible catalog
     const userInteractions = await db.movieInteraction.findMany({
@@ -102,7 +136,15 @@ export async function evaluateProfileQuality(
     console.log(`- Catalog supply: ${eligibleCatalog.length} eligible, ${unseenEligibleCatalogCount} unseen candidates`);
 
     // 3. Run Recommendation Service (limit 24)
-    const recResponse = await getPersonalizedRecommendations(userId, 24, 0, true);
+    const recResponse = await getPersonalizedRecommendations(userId, {
+      limit: 24,
+      page: 0,
+      debugMode: true,
+      hybridEnabledOverride: options?.hybridEnabled,
+      hybridMatchWeightOverride: options?.hybridMatchWeight,
+      hybridAiWeightOverride: options?.hybridAiWeight,
+      frozenAiAffinityMap: options?.frozenAiAffinityMap,
+    });
     const rawRecommendations = recResponse.recommendations || [];
 
     // Map positively rated movies for reference validity check

@@ -4,6 +4,7 @@ import { getAuthenticatedUser } from "@/lib/auth/service";
 import { tmdbTvClient } from "@/lib/tmdb/tv/client";
 import { updateTvInteraction } from "@/lib/tv/service";
 import { evaluateTvEligibility } from "@/lib/tv/eligibility";
+import type { EligibleTvShowInput } from "@/lib/tv/types";
 import { TvInteractionStatus, RatingStatus } from "@prisma/client";
 import { TV_CALIBRATION_TARGET } from "@/lib/tv/calibration/constants";
 

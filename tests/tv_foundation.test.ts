@@ -1,10 +1,4 @@
 import { db } from "../lib/db/client";
-import {
-  TvInteractionStatus,
-  RatingStatus,
-  RecommendationAction,
-  InteractionStatus,
-} from "@prisma/client";
 import { tmdbTvClient } from "../lib/tmdb/tv/client";
 import {
   evaluateTvEligibility,
@@ -125,12 +119,12 @@ export async function runTvFoundationTests() {
     const watchedInteraction = await updateTvInteraction(
       testUser.id,
       testTvShow1.id,
-      TvInteractionStatus.WATCHED,
-      RatingStatus.LOVE
+      "WATCHED",
+      "LOVE"
     );
     assert(
-      watchedInteraction.status === TvInteractionStatus.WATCHED &&
-        watchedInteraction.rating === RatingStatus.LOVE,
+      watchedInteraction.status === "WATCHED" &&
+        watchedInteraction.rating === "LOVE",
       "TvInteraction supports WATCHED status with RatingStatus.LOVE"
     );
 
@@ -138,12 +132,12 @@ export async function runTvFoundationTests() {
     const partiallyWatchedInteraction = await updateTvInteraction(
       testUser.id,
       testTvShow2.id,
-      TvInteractionStatus.PARTIALLY_WATCHED,
-      RatingStatus.LIKE
+      "PARTIALLY_WATCHED",
+      "LIKE"
     );
     assert(
-      partiallyWatchedInteraction.status === TvInteractionStatus.PARTIALLY_WATCHED &&
-        partiallyWatchedInteraction.rating === RatingStatus.LIKE,
+      partiallyWatchedInteraction.status === "PARTIALLY_WATCHED" &&
+        partiallyWatchedInteraction.rating === "LIKE",
       "TvInteraction supports PARTIALLY_WATCHED status with RatingStatus.LIKE"
     );
 
@@ -151,11 +145,11 @@ export async function runTvFoundationTests() {
     const notWatchedInteraction = await updateTvInteraction(
       testUser.id,
       testTvShow2.id,
-      TvInteractionStatus.NOT_WATCHED,
+      "NOT_WATCHED",
       null
     );
     assert(
-      notWatchedInteraction.status === TvInteractionStatus.NOT_WATCHED &&
+      notWatchedInteraction.status === "NOT_WATCHED" &&
         notWatchedInteraction.rating === null,
       "TvInteraction transitioning to NOT_WATCHED sets rating to null"
     );
@@ -176,11 +170,11 @@ export async function runTvFoundationTests() {
       where: {
         userId_tvShowId: { userId: testUser.id, tvShowId: testTvShow1.id },
       },
-      update: { action: RecommendationAction.WATCH_LATER, matchScore: 92 },
+      update: { action: "WATCH_LATER", matchScore: 92 },
       create: {
         userId: testUser.id,
         tvShowId: testTvShow1.id,
-        action: RecommendationAction.WATCH_LATER,
+        action: "WATCH_LATER",
         matchScore: 92,
       },
     });
@@ -191,7 +185,7 @@ export async function runTvFoundationTests() {
       },
     });
     assert(
-      createdFeedback?.action === RecommendationAction.WATCH_LATER &&
+      createdFeedback?.action === "WATCH_LATER" &&
         createdFeedback.matchScore === 92,
       "TvRecommendationFeedback creates and stores WATCH_LATER feedback record"
     );
@@ -200,8 +194,8 @@ export async function runTvFoundationTests() {
     await updateTvInteraction(
       testUser.id,
       testTvShow1.id,
-      TvInteractionStatus.WATCHED,
-      RatingStatus.LOVE
+      "WATCHED",
+      "LOVE"
     );
     const convertedFeedback = await db.tvRecommendationFeedback.findUnique({
       where: {
@@ -209,7 +203,7 @@ export async function runTvFoundationTests() {
       },
     });
     assert(
-      convertedFeedback?.action === RecommendationAction.WATCHED_FROM_RECOMMENDATION,
+      convertedFeedback?.action === "WATCHED_FROM_RECOMMENDATION",
       "Watched show automatically updates TV recommendation feedback to WATCHED_FROM_RECOMMENDATION"
     );
 
@@ -337,8 +331,8 @@ export async function runTvFoundationTests() {
       data: {
         userId: testUser.id,
         movieId: testMovie.id,
-        status: InteractionStatus.WATCHED,
-        rating: RatingStatus.LOVE,
+        status: "WATCHED",
+        rating: "LOVE",
       },
     });
 

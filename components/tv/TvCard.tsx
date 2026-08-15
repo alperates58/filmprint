@@ -2,28 +2,25 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { TvShowItem } from "./types";
-import { TvInteractionStatus, RatingStatus } from "@prisma/client";
+import { TvShowItem, TvInteractionStatusType, TvRatingStatusType } from "./types";
 
 interface TvCardProps {
   tvShow: TvShowItem;
   onAnswer: (
-    status: TvInteractionStatus,
-    rating: RatingStatus | null
+    status: TvInteractionStatusType,
+    rating: TvRatingStatusType | null
   ) => void;
   isTransitioning?: boolean;
 }
 
 export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProps) {
   const [step, setStep] = useState<"step1" | "step2">("step1");
-  const [chosenStatus, setChosenStatus] = useState<
-    TvInteractionStatus.WATCHED | TvInteractionStatus.PARTIALLY_WATCHED
-  >(TvInteractionStatus.WATCHED);
+  const [chosenStatus, setChosenStatus] = useState<"WATCHED" | "PARTIALLY_WATCHED">("WATCHED");
 
   // Reset card state when show changes
   useEffect(() => {
     setStep("step1");
-    setChosenStatus(TvInteractionStatus.WATCHED);
+    setChosenStatus("WATCHED");
   }, [tvShow.id]);
 
   // Keyboard navigation shortcuts
@@ -34,21 +31,21 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
 
       if (step === "step1") {
         if (e.key === "1") {
-          setChosenStatus(TvInteractionStatus.WATCHED);
+          setChosenStatus("WATCHED");
           setStep("step2");
         } else if (e.key === "2") {
-          setChosenStatus(TvInteractionStatus.PARTIALLY_WATCHED);
+          setChosenStatus("PARTIALLY_WATCHED");
           setStep("step2");
         } else if (e.key === "3") {
-          onAnswer(TvInteractionStatus.NOT_WATCHED, null);
+          onAnswer("NOT_WATCHED", null);
         } else if (e.key === "4") {
-          onAnswer(TvInteractionStatus.UNSURE, null);
+          onAnswer("UNSURE", null);
         }
       } else if (step === "step2") {
-        if (e.key === "1") onAnswer(chosenStatus, RatingStatus.LOVE);
-        else if (e.key === "2") onAnswer(chosenStatus, RatingStatus.LIKE);
-        else if (e.key === "3") onAnswer(chosenStatus, RatingStatus.NEUTRAL);
-        else if (e.key === "4") onAnswer(chosenStatus, RatingStatus.DISLIKE);
+        if (e.key === "1") onAnswer(chosenStatus, "LOVE");
+        else if (e.key === "2") onAnswer(chosenStatus, "LIKE");
+        else if (e.key === "3") onAnswer(chosenStatus, "NEUTRAL");
+        else if (e.key === "4") onAnswer(chosenStatus, "DISLIKE");
         else if (e.key === "Escape" || e.key === "Backspace") setStep("step1");
       }
     };
@@ -205,7 +202,7 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
               {/* Primary Action Button */}
               <button
                 onClick={() => {
-                  setChosenStatus(TvInteractionStatus.WATCHED);
+                  setChosenStatus("WATCHED");
                   setStep("step2");
                 }}
                 className="w-full py-3 px-4 rounded-xl bg-accent text-white font-mono text-xs font-bold shadow-cinematic hover:bg-accent/90 transition-all active:scale-[0.99] flex items-center justify-center gap-2"
@@ -218,7 +215,7 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => {
-                    setChosenStatus(TvInteractionStatus.PARTIALLY_WATCHED);
+                    setChosenStatus("PARTIALLY_WATCHED");
                     setStep("step2");
                   }}
                   className="py-2.5 px-2 rounded-xl bg-surface-elevated border border-accent/40 text-accent font-mono text-[11px] font-semibold hover:bg-accent/10 transition-all active:scale-[0.98] text-center"
@@ -227,14 +224,14 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
                 </button>
 
                 <button
-                  onClick={() => onAnswer(TvInteractionStatus.NOT_WATCHED, null)}
+                  onClick={() => onAnswer("NOT_WATCHED", null)}
                   className="py-2.5 px-2 rounded-xl bg-surface-elevated border border-border text-text-secondary font-mono text-[11px] font-medium hover:text-text-primary hover:border-text-muted transition-all active:scale-[0.98] text-center"
                 >
                   ✕ İzlemedim
                 </button>
 
                 <button
-                  onClick={() => onAnswer(TvInteractionStatus.UNSURE, null)}
+                  onClick={() => onAnswer("UNSURE", null)}
                   className="py-2.5 px-2 rounded-xl bg-surface-elevated border border-border text-text-muted font-mono text-[11px] font-medium hover:text-text-secondary transition-all active:scale-[0.98] text-center"
                 >
                   ? Emin Değilim
@@ -246,7 +243,7 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
             <div className="space-y-2.5 animate-fadeIn">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-mono text-text-primary font-bold">
-                  {chosenStatus === TvInteractionStatus.PARTIALLY_WATCHED
+                  {chosenStatus === "PARTIALLY_WATCHED"
                     ? "Kısmen izlediğin diziyi puanla:"
                     : "Diziyi nasıl buldun?"}
                 </div>
@@ -260,25 +257,25 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
 
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => onAnswer(chosenStatus, RatingStatus.LOVE)}
+                  onClick={() => onAnswer(chosenStatus, "LOVE")}
                   className="py-2.5 px-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-bold hover:bg-emerald-500/25 transition-all text-center"
                 >
                   🔥 Çok Sevdim
                 </button>
                 <button
-                  onClick={() => onAnswer(chosenStatus, RatingStatus.LIKE)}
+                  onClick={() => onAnswer(chosenStatus, "LIKE")}
                   className="py-2.5 px-3 rounded-xl bg-blue-500/15 border border-blue-500/40 text-blue-300 font-mono text-xs font-bold hover:bg-blue-500/25 transition-all text-center"
                 >
                   👍 Beğendim
                 </button>
                 <button
-                  onClick={() => onAnswer(chosenStatus, RatingStatus.NEUTRAL)}
+                  onClick={() => onAnswer(chosenStatus, "NEUTRAL")}
                   className="py-2.5 px-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono text-xs font-bold hover:bg-amber-500/25 transition-all text-center"
                 >
                   😐 Ortalama
                 </button>
                 <button
-                  onClick={() => onAnswer(chosenStatus, RatingStatus.DISLIKE)}
+                  onClick={() => onAnswer(chosenStatus, "DISLIKE")}
                   className="py-2.5 px-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 font-mono text-xs font-bold hover:bg-rose-500/25 transition-all text-center"
                 >
                   👎 Sevmedim
@@ -382,7 +379,7 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
                   {/* Action 1: İzledim */}
                   <button
                     onClick={() => {
-                      setChosenStatus(TvInteractionStatus.WATCHED);
+                      setChosenStatus("WATCHED");
                       setStep("step2");
                     }}
                     className="py-3 px-3 rounded-xl bg-accent text-white font-mono text-xs font-bold shadow-cinematic hover:bg-accent/90 transition-all hover:scale-[1.02] active:scale-[0.98] text-center"
@@ -393,7 +390,7 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
                   {/* Action 2: Kısmen İzledim */}
                   <button
                     onClick={() => {
-                      setChosenStatus(TvInteractionStatus.PARTIALLY_WATCHED);
+                      setChosenStatus("PARTIALLY_WATCHED");
                       setStep("step2");
                     }}
                     className="py-3 px-3 rounded-xl bg-surface-elevated border border-accent/40 text-accent font-mono text-xs font-semibold hover:bg-accent/15 transition-all hover:scale-[1.02] active:scale-[0.98] text-center"
@@ -403,7 +400,7 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
 
                   {/* Action 3: İzlemedim */}
                   <button
-                    onClick={() => onAnswer(TvInteractionStatus.NOT_WATCHED, null)}
+                    onClick={() => onAnswer("NOT_WATCHED", null)}
                     className="py-3 px-3 rounded-xl bg-surface-elevated border border-border text-text-secondary font-mono text-xs font-medium hover:text-text-primary hover:border-text-muted transition-all hover:scale-[1.02] active:scale-[0.98] text-center"
                   >
                     ✕ İzlemedim <span className="text-[10px] opacity-75 block font-normal">[3]</span>
@@ -411,7 +408,7 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
 
                   {/* Action 4: Emin Değilim */}
                   <button
-                    onClick={() => onAnswer(TvInteractionStatus.UNSURE, null)}
+                    onClick={() => onAnswer("UNSURE", null)}
                     className="py-3 px-3 rounded-xl bg-surface-elevated border border-border text-text-muted font-mono text-xs font-medium hover:text-text-secondary transition-all hover:scale-[1.02] active:scale-[0.98] text-center"
                   >
                     ? Emin Değilim <span className="text-[10px] opacity-75 block font-normal">[4]</span>
@@ -423,7 +420,7 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
               <div className="space-y-3 animate-fadeIn">
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className="text-text-primary font-bold">
-                    {chosenStatus === TvInteractionStatus.PARTIALLY_WATCHED
+                    {chosenStatus === "PARTIALLY_WATCHED"
                       ? "Kısmen izlediğin bu diziyi nasıl buldun?"
                       : "Bu diziyi nasıl buldun?"}
                   </span>
@@ -437,25 +434,25 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
 
                 <div className="grid grid-cols-4 gap-3">
                   <button
-                    onClick={() => onAnswer(chosenStatus, RatingStatus.LOVE)}
+                    onClick={() => onAnswer(chosenStatus, "LOVE")}
                     className="py-3 px-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-bold hover:bg-emerald-500/25 transition-all hover:scale-[1.02] text-center"
                   >
                     🔥 Çok Sevdim <span className="text-[10px] opacity-75 block font-normal">[1]</span>
                   </button>
                   <button
-                    onClick={() => onAnswer(chosenStatus, RatingStatus.LIKE)}
+                    onClick={() => onAnswer(chosenStatus, "LIKE")}
                     className="py-3 px-2 rounded-xl bg-blue-500/15 border border-blue-500/40 text-blue-300 font-mono text-xs font-bold hover:bg-blue-500/25 transition-all hover:scale-[1.02] text-center"
                   >
                     👍 Beğendim <span className="text-[10px] opacity-75 block font-normal">[2]</span>
                   </button>
                   <button
-                    onClick={() => onAnswer(chosenStatus, RatingStatus.NEUTRAL)}
+                    onClick={() => onAnswer(chosenStatus, "NEUTRAL")}
                     className="py-3 px-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono text-xs font-bold hover:bg-amber-500/25 transition-all hover:scale-[1.02] text-center"
                   >
                     😐 Ortalama <span className="text-[10px] opacity-75 block font-normal">[3]</span>
                   </button>
                   <button
-                    onClick={() => onAnswer(chosenStatus, RatingStatus.DISLIKE)}
+                    onClick={() => onAnswer(chosenStatus, "DISLIKE")}
                     className="py-3 px-2 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 font-mono text-xs font-bold hover:bg-rose-500/25 transition-all hover:scale-[1.02] text-center"
                   >
                     👎 Sevmedim <span className="text-[10px] opacity-75 block font-normal">[4]</span>

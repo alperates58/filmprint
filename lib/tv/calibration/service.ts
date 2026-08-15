@@ -8,7 +8,6 @@ import {
   TvSelectorUserState,
 } from "./types";
 import { TV_CALIBRATION_TARGET } from "./constants";
-import { RatingStatus } from "@prisma/client";
 
 export interface QueueTvShowResponseItem {
   id: string; // Database UUID
@@ -87,11 +86,11 @@ export async function getTvCalibrationQueue(
       genreFrequency[g] = (genreFrequency[g] || 0) + 1;
 
       // Positive signal: LOVE or LIKE
-      if (i.rating === RatingStatus.LOVE || i.rating === RatingStatus.LIKE) {
+      if (i.rating === "LOVE" || i.rating === "LIKE") {
         positiveGenresSet.add(g);
       }
       // Negative signal: DISLIKE
-      if (i.rating === RatingStatus.DISLIKE) {
+      if (i.rating === "DISLIKE") {
         negativeGenresSet.add(g);
       }
     });

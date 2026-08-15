@@ -5,8 +5,6 @@ import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { getCurrentUser } from "@/lib/auth/service";
 import { db } from "@/lib/db/client";
-import { TvInteractionStatus } from "@prisma/client";
-
 export default async function TvHomePage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
@@ -16,10 +14,10 @@ export default async function TvHomePage() {
   const [tvInteractionCount, watchedCount, partiallyWatchedCount] = await Promise.all([
     db.tvInteraction.count({ where: { userId: currentUser.id } }),
     db.tvInteraction.count({
-      where: { userId: currentUser.id, status: TvInteractionStatus.WATCHED },
+      where: { userId: currentUser.id, status: "WATCHED" },
     }),
     db.tvInteraction.count({
-      where: { userId: currentUser.id, status: TvInteractionStatus.PARTIALLY_WATCHED },
+      where: { userId: currentUser.id, status: "PARTIALLY_WATCHED" },
     }),
   ]);
 

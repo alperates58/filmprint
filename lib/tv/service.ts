@@ -1,5 +1,5 @@
 import { db } from "@/lib/db/client";
-import { TvInteractionStatus, RatingStatus, RecommendationAction } from "@prisma/client";
+import type { TvInteractionStatus, RatingStatus, RecommendationAction } from "@prisma/client";
 
 export interface TvLibraryFilterOptions {
   status: "watched" | "partially_watched" | "not_watched" | "unsure" | "watch_later";
@@ -47,10 +47,7 @@ export async function updateTvInteraction(
   targetStatus: TvInteractionStatus,
   targetRating: RatingStatus | null = null
 ) {
-  const allowedRatingStatuses: TvInteractionStatus[] = [
-    TvInteractionStatus.WATCHED,
-    TvInteractionStatus.PARTIALLY_WATCHED,
-  ];
+  const allowedRatingStatuses: string[] = ["WATCHED", "PARTIALLY_WATCHED"];
 
   const finalRating = allowedRatingStatuses.includes(targetStatus) ? targetRating : null;
   const now = new Date();
@@ -83,7 +80,7 @@ export async function updateTvInteraction(
   });
 
   if (existingFeedback && existingFeedback.action === "WATCH_LATER") {
-    if (targetStatus === TvInteractionStatus.WATCHED || targetStatus === TvInteractionStatus.PARTIALLY_WATCHED) {
+    if (targetStatus === "WATCHED" || targetStatus === "PARTIALLY_WATCHED") {
       await db.tvRecommendationFeedback.update({
         where: { id: existingFeedback.id },
         data: { action: "WATCHED_FROM_RECOMMENDATION", updatedAt: now },
@@ -139,10 +136,10 @@ export async function getTvLibraryData(
   // Calculate counts for all 5 TV library tabs in parallel
   const [watchedCount, partiallyWatchedCount, notWatchedCount, unsureCount, watchLaterCount] =
     await Promise.all([
-      db.tvInteraction.count({ where: { userId, status: TvInteractionStatus.WATCHED } }),
-      db.tvInteraction.count({ where: { userId, status: TvInteractionStatus.PARTIALLY_WATCHED } }),
-      db.tvInteraction.count({ where: { userId, status: TvInteractionStatus.NOT_WATCHED } }),
-      db.tvInteraction.count({ where: { userId, status: TvInteractionStatus.UNSURE } }),
+      db.tvInteraction.count({ where: { userId, status: "WATCHED" } }),
+      db.tvInteraction.count({ where: { userId, status: "PARTIALLY_WATCHED" } }),
+      db.tvInteraction.count({ where: { userId, status: "NOT_WATCHED" } }),
+      db.tvInteraction.count({ where: { userId, status: "UNSURE" } }),
       db.tvRecommendationFeedback.count({ where: { userId, action: "WATCH_LATER" } }),
     ]);
 
@@ -211,10 +208,10 @@ export async function getTvLibraryData(
   }
 
   // Query TvInteraction by status
-  let targetStatus: TvInteractionStatus = TvInteractionStatus.WATCHED;
-  if (status === "partially_watched") targetStatus = TvInteractionStatus.PARTIALLY_WATCHED;
-  else if (status === "not_watched") targetStatus = TvInteractionStatus.NOT_WATCHED;
-  else if (status === "unsure") targetStatus = TvInteractionStatus.UNSURE;
+  let targetStatus: TvInteractionStatus = "WATCHED";
+  if (status === "partially_watched") targetStatus = "PARTIALLY_WATCHED";
+  else if (status === "not_watched") targetStatus = "NOT_WATCHED";
+  else if (status === "unsure") targetStatus = "UNSURE";
 
   const whereClause: any = {
     userId,

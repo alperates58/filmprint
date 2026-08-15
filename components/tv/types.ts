@@ -1,3 +1,15 @@
+export type TvInteractionStatusType =
+  | "WATCHED"
+  | "PARTIALLY_WATCHED"
+  | "NOT_WATCHED"
+  | "UNSURE";
+
+export type TvRatingStatusType =
+  | "LOVE"
+  | "LIKE"
+  | "NEUTRAL"
+  | "DISLIKE";
+
 export interface TvShowItem {
   id: string; // Database UUID
   tmdbId: number;

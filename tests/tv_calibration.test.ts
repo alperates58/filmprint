@@ -1,10 +1,5 @@
 import { db } from "../lib/db/client";
 import {
-  TvInteractionStatus,
-  RatingStatus,
-  InteractionStatus,
-} from "@prisma/client";
-import {
   updateTvInteraction,
 } from "../lib/tv/service";
 import {
@@ -141,11 +136,11 @@ export async function runTvCalibrationTests() {
     const resWatched = await updateTvInteraction(
       testUser.id,
       showBreaking.id,
-      TvInteractionStatus.WATCHED,
-      RatingStatus.LOVE
+      "WATCHED",
+      "LOVE"
     );
     assert(
-      resWatched.status === TvInteractionStatus.WATCHED && resWatched.rating === RatingStatus.LOVE,
+      resWatched.status === "WATCHED" && resWatched.rating === "LOVE",
       "WATCHED + LOVE successfully recorded"
     );
 
@@ -153,11 +148,11 @@ export async function runTvCalibrationTests() {
     const resPartialLike = await updateTvInteraction(
       testUser.id,
       showDark.id,
-      TvInteractionStatus.PARTIALLY_WATCHED,
-      RatingStatus.LIKE
+      "PARTIALLY_WATCHED",
+      "LIKE"
     );
     assert(
-      resPartialLike.status === TvInteractionStatus.PARTIALLY_WATCHED && resPartialLike.rating === RatingStatus.LIKE,
+      resPartialLike.status === "PARTIALLY_WATCHED" && resPartialLike.rating === "LIKE",
       "PARTIALLY_WATCHED + LIKE successfully recorded"
     );
 
@@ -165,11 +160,11 @@ export async function runTvCalibrationTests() {
     const resPartialDislike = await updateTvInteraction(
       testUser.id,
       showOffice.id,
-      TvInteractionStatus.PARTIALLY_WATCHED,
-      RatingStatus.DISLIKE
+      "PARTIALLY_WATCHED",
+      "DISLIKE"
     );
     assert(
-      resPartialDislike.status === TvInteractionStatus.PARTIALLY_WATCHED && resPartialDislike.rating === RatingStatus.DISLIKE,
+      resPartialDislike.status === "PARTIALLY_WATCHED" && resPartialDislike.rating === "DISLIKE",
       "PARTIALLY_WATCHED + DISLIKE successfully recorded"
     );
 
@@ -177,11 +172,11 @@ export async function runTvCalibrationTests() {
     const resNotWatched = await updateTvInteraction(
       testUser.id,
       showChernobyl.id,
-      TvInteractionStatus.NOT_WATCHED,
+      "NOT_WATCHED",
       null
     );
     assert(
-      resNotWatched.status === TvInteractionStatus.NOT_WATCHED && resNotWatched.rating === null,
+      resNotWatched.status === "NOT_WATCHED" && resNotWatched.rating === null,
       "NOT_WATCHED + null successfully recorded"
     );
 
@@ -189,11 +184,11 @@ export async function runTvCalibrationTests() {
     const resUnsure = await updateTvInteraction(
       testUser.id,
       showSquid.id,
-      TvInteractionStatus.UNSURE,
+      "UNSURE",
       null
     );
     assert(
-      resUnsure.status === TvInteractionStatus.UNSURE && resUnsure.rating === null,
+      resUnsure.status === "UNSURE" && resUnsure.rating === null,
       "UNSURE + null successfully recorded"
     );
 
@@ -209,8 +204,8 @@ export async function runTvCalibrationTests() {
     const updatedChernobyl = await updateTvInteraction(
       testUser.id,
       showChernobyl.id,
-      TvInteractionStatus.WATCHED,
-      RatingStatus.LOVE
+      "WATCHED",
+      "LOVE"
     );
 
     const postUpdateCount = await db.tvInteraction.count({
@@ -218,7 +213,7 @@ export async function runTvCalibrationTests() {
     });
     assert(postUpdateCount === 5, "Same-row update does NOT create duplicate interaction records");
     assert(
-      updatedChernobyl.status === TvInteractionStatus.WATCHED && updatedChernobyl.rating === RatingStatus.LOVE,
+      updatedChernobyl.status === "WATCHED" && updatedChernobyl.rating === "LOVE",
       "NOT_WATCHED -> WATCHED transition correctly updated row status and rating"
     );
 
@@ -400,8 +395,8 @@ export async function runTvCalibrationTests() {
       data: {
         userId: testUser.id,
         movieId: testMovie.id,
-        status: InteractionStatus.WATCHED,
-        rating: RatingStatus.LOVE,
+        status: "WATCHED",
+        rating: "LOVE",
       },
     });
     assert(movieInteraction !== null, "Movie interaction created without conflict");

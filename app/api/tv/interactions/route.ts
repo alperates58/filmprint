@@ -5,21 +5,21 @@ import { tmdbTvClient } from "@/lib/tmdb/tv/client";
 import { updateTvInteraction } from "@/lib/tv/service";
 import { evaluateTvEligibility } from "@/lib/tv/eligibility";
 import type { EligibleTvShowInput } from "@/lib/tv/types";
-import { TvInteractionStatus, RatingStatus } from "@prisma/client";
+import type { TvInteractionStatus, RatingStatus } from "@prisma/client";
 import { TV_CALIBRATION_TARGET } from "@/lib/tv/calibration/constants";
 
 const VALID_TV_STATUSES = new Set<string>([
-  TvInteractionStatus.WATCHED,
-  TvInteractionStatus.PARTIALLY_WATCHED,
-  TvInteractionStatus.NOT_WATCHED,
-  TvInteractionStatus.UNSURE,
+  "WATCHED",
+  "PARTIALLY_WATCHED",
+  "NOT_WATCHED",
+  "UNSURE",
 ]);
 
 const VALID_RATINGS = new Set<string>([
-  RatingStatus.LOVE,
-  RatingStatus.LIKE,
-  RatingStatus.NEUTRAL,
-  RatingStatus.DISLIKE,
+  "LOVE",
+  "LIKE",
+  "NEUTRAL",
+  "DISLIKE",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -50,8 +50,8 @@ export async function POST(request: Request) {
 
     // 2. Validate status & rating relationship
     if (
-      status === TvInteractionStatus.WATCHED ||
-      status === TvInteractionStatus.PARTIALLY_WATCHED
+      status === "WATCHED" ||
+      status === "PARTIALLY_WATCHED"
     ) {
       if (rating && !VALID_RATINGS.has(rating)) {
         return NextResponse.json(

@@ -6,8 +6,7 @@ import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { TvCard } from "@/components/tv/TvCard";
 import { TvCardSkeleton } from "@/components/tv/TvCardSkeleton";
-import { TvShowItem } from "@/components/tv/types";
-import { TvInteractionStatus, RatingStatus } from "@prisma/client";
+import { TvShowItem, TvInteractionStatusType, TvRatingStatusType } from "@/components/tv/types";
 
 interface TvCalibrationEngineProps {
   initialTvShows?: TvShowItem[];
@@ -104,8 +103,8 @@ export function TvCalibrationEngine({
 
   // Submit interaction handler (Optimistic UI)
   const handleAnswer = async (
-    status: TvInteractionStatus,
-    rating: RatingStatus | null
+    status: TvInteractionStatusType,
+    rating: TvRatingStatusType | null
   ) => {
     if (queue.length === 0 || isTransitioning) return;
 

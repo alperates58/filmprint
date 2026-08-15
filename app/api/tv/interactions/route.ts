@@ -89,7 +89,11 @@ export async function POST(request: Request) {
     }
 
     // 4. Verify TV Show Eligibility
-    const eligibility = evaluateTvEligibility(show, "CALIBRATION");
+    const eligibilityInput = {
+      ...show,
+      voteCount: show.voteCount ?? undefined,
+    };
+    const eligibility = evaluateTvEligibility(eligibilityInput, "CALIBRATION");
     if (!eligibility.isEligible) {
       return NextResponse.json(
         { error: "Bu dizi kalibrasyon için uygun değildir" },

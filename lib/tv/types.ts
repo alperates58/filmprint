@@ -28,10 +28,11 @@ export interface TvEligibilityResult {
 export interface EligibleTvShowInput {
   id?: string;
   tmdbId?: number;
-  name?: string;
+  name?: string | null;
+  title?: string | null;
   originalName?: string | null;
   original_name?: string | null;
-  overview?: string;
+  overview?: string | null;
   posterPath?: string | null;
   poster_path?: string | null;
   backdropPath?: string | null;
@@ -43,13 +44,13 @@ export interface EligibleTvShowInput {
   status?: string | null;
   originalLanguage?: string | null;
   original_language?: string | null;
-  voteAverage?: number;
-  vote_average?: number;
-  popularity?: number;
-  voteCount?: number;
-  vote_count?: number;
-  genres?: string[] | { id?: number; name?: string }[];
-  genre_ids?: number[];
-  adult?: boolean;
+  voteAverage?: number | null;
+  vote_average?: number | null;
+  popularity?: number | null;
+  voteCount?: number | null;
+  vote_count?: number | null;
+  genres?: string[] | { id?: number; name?: string }[] | null;
+  genre_ids?: number[] | null;
+  adult?: boolean | null;
   metadata?: Record<string, unknown> | null;
 }

@@ -15,6 +15,7 @@ import {
   CategoryDiagnostics,
 } from "@/lib/recommendation/editorial-scorer";
 import { calculateQualityScore } from "@/lib/recommendation/quality";
+import { filterEligibleMovies } from "@/lib/movies/eligibility";
 import { CandidateMovie } from "@/lib/calibration/types";
 import { FilmDnaResult } from "@/lib/profile/types";
 import { EditorialCategoryMode } from "@/lib/recommendation/types";
@@ -74,7 +75,7 @@ export async function GET() {
       take: 1000,
     });
 
-    const candidatesMap = new Map<string, CandidateMovie & { candidateSource: string; knownUnwatched: boolean }>();
+    const candidatesMap = new Map<string, CandidateMovie & { candidateSource: string; knownUnwatched: boolean; metadata?: any; adult?: boolean; voteCount?: number }>();
 
     for (const m of rawCandidates) {
       const meta = (m.metadata as Record<string, unknown>) || {};
@@ -93,10 +94,14 @@ export async function GET() {
         overview: (meta.overview as string) || "",
         candidateSource: isKnownUnwatched ? "KNOWN_UNWATCHED" : "FRESH_DISCOVERY",
         knownUnwatched: isKnownUnwatched,
+        adult: (meta.adult as boolean) || false,
+        voteCount: (meta.voteCount as number) || undefined,
+        metadata: meta,
       });
     }
 
-    const allCandidates = Array.from(candidatesMap.values());
+    const allCandidatesRaw = Array.from(candidatesMap.values());
+    const allCandidates = filterEligibleMovies(allCandidatesRaw, "HOME");
     const diagnosticsList: CategoryDiagnostics[] = [];
 
     // Helper to score and filter candidate movies for a specific editorial category mode

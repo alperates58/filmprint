@@ -5,6 +5,7 @@ import { buildUserFeedbackProfile } from "@/lib/recommendation/feedback-profile"
 import { calculateMovieMatch } from "@/lib/recommendation/matcher";
 import { calculateGroupMatch, MemberMatchInput } from "./matcher";
 import { tmdbClient } from "@/lib/tmdb/client";
+import { filterEligibleMovies } from "@/lib/movies/eligibility";
 import { CandidateMovie } from "@/lib/calibration/types";
 import { FilmDnaResult } from "@/lib/profile/types";
 import { MovieNightStatus } from "@prisma/client";
@@ -328,7 +329,7 @@ export async function getMovieNightRecommendations(
     });
   }
 
-  const candidates: CandidateMovie[] = rawCandidates.map((m: any) => {
+  const rawCandidatePool: (CandidateMovie & { metadata?: any; adult?: boolean; voteCount?: number })[] = rawCandidates.map((m: any) => {
     const meta = (m.metadata as Record<string, unknown>) || {};
     return {
       id: m.id,
@@ -342,8 +343,13 @@ export async function getMovieNightRecommendations(
       backdropPath: m.backdropPath,
       genres: (meta.genres as string[]) || [],
       overview: (meta.overview as string) || "",
+      adult: (meta.adult as boolean) || false,
+      voteCount: (meta.voteCount as number) || undefined,
+      metadata: meta,
     };
   });
+
+  const candidates: CandidateMovie[] = filterEligibleMovies(rawCandidatePool, "MOVIE_NIGHT");
 
   // 4. In-Memory Group Match Calculation for candidates (<50ms)
   const groupResults: GroupMovieMatchResult[] = candidates.map((movie: any) => {

@@ -12,6 +12,8 @@ export interface TMDBMovie {
   release_date?: string;
   popularity: number;
   vote_average: number;
+  vote_count?: number;
+  adult?: boolean;
   overview?: string;
   genre_ids?: number[];
   genres?: { id: number; name: string }[];
@@ -659,7 +661,7 @@ export class TMDBClient {
   }
 
   /**
-   * Fetches popular movies from TMDB API server-side.
+   * Fetches popular movies from TMDB API server-side with explicit include_adult=false.
    */
   public async getPopularMovies(page: number = 1): Promise<TMDBMovie[]> {
     const apiKey = await this.resolveApiKey();
@@ -669,7 +671,7 @@ export class TMDBClient {
 
     try {
       const response = await fetch(
-        `${TMDB_API_BASE}/movie/popular?api_key=${apiKey}&language=tr-TR&page=${page}`,
+        `${TMDB_API_BASE}/movie/popular?api_key=${apiKey}&language=tr-TR&page=${page}&include_adult=false`,
         { next: { revalidate: 3600 } }
       );
 
@@ -686,7 +688,7 @@ export class TMDBClient {
   }
 
   /**
-   * Fetches top rated movies across all eras from TMDB API server-side.
+   * Fetches top rated movies across all eras from TMDB API server-side with explicit include_adult=false.
    */
   public async getTopRatedMovies(page: number = 1): Promise<TMDBMovie[]> {
     const apiKey = await this.resolveApiKey();
@@ -696,7 +698,7 @@ export class TMDBClient {
 
     try {
       const response = await fetch(
-        `${TMDB_API_BASE}/movie/top_rated?api_key=${apiKey}&language=tr-TR&page=${page}`,
+        `${TMDB_API_BASE}/movie/top_rated?api_key=${apiKey}&language=tr-TR&page=${page}&include_adult=false`,
         { next: { revalidate: 3600 } }
       );
 
@@ -743,6 +745,9 @@ export class TMDBClient {
           overview: overviewText,
           genres: genreNames,
           runtime: tmdbMovie.runtime || null,
+          adult: tmdbMovie.adult === true,
+          voteCount: tmdbMovie.vote_count || 0,
+          releaseDate: tmdbMovie.release_date || null,
         },
       },
       create: {
@@ -758,6 +763,9 @@ export class TMDBClient {
           overview: overviewText,
           genres: genreNames,
           runtime: tmdbMovie.runtime || null,
+          adult: tmdbMovie.adult === true,
+          voteCount: tmdbMovie.vote_count || 0,
+          releaseDate: tmdbMovie.release_date || null,
         },
       },
     });

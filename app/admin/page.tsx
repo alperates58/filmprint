@@ -1,5 +1,6 @@
 import React from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { AdminRankDistribution } from "@/components/admin/AdminRankDistribution";
 import { getAdminSession } from "@/lib/admin/auth";
 import { redirect } from "next/navigation";
 import { getAdminOverviewData } from "@/lib/admin/data";
@@ -97,42 +98,7 @@ export default async function AdminOverviewPage() {
 
             {/* Rank Distribution Card */}
             {data.rankDistribution && (
-              <div className="p-6 rounded-2xl bg-surface border border-accent/30 space-y-4 shadow-md">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="font-display text-lg font-bold text-text-primary">
-                      Kullanıcı Rütbe Dağılımı (Rank Progression)
-                    </h2>
-                    <p className="text-xs text-text-muted font-mono">
-                      Filmprint kullanıcılarının mevcut rütbe milestone dağılımı
-                    </p>
-                  </div>
-                  <span className="text-xs font-mono text-accent bg-accent/10 px-3 py-1 rounded-full border border-accent/20">
-                    Phase 5.6
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                  {data.rankDistribution.map((r: any) => (
-                    <div
-                      key={r.key}
-                      className="p-3.5 rounded-xl bg-surface-elevated border border-border text-center space-y-1 min-w-0"
-                    >
-                      <div className="text-xl select-none">{r.icon}</div>
-                      <p
-                        title={r.label}
-                        className="text-xs font-mono font-bold text-text-primary line-clamp-2 leading-tight min-h-[2rem] flex items-center justify-center"
-                      >
-                        {r.label}
-                      </p>
-                      <p className="font-display text-lg font-bold text-accent">
-                        {r.count}
-                      </p>
-                      <p className="text-[9px] font-mono text-text-muted">Kullanıcı</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <AdminRankDistribution rankDistribution={data.rankDistribution} />
             )}
 
             {/* Interaction & Calibration Breakdown */}

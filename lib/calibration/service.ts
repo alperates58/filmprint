@@ -1,6 +1,7 @@
 import { db } from "@/lib/db/client";
 import { getSystemSettings } from "@/lib/config/service";
 import { tmdbClient } from "@/lib/tmdb/client";
+import { filterEligibleMovies } from "@/lib/movies/eligibility";
 import { rankCandidateMovies } from "./selector";
 import { CandidateMovie, RecentInteractionPattern, UserTasteProfileInput } from "./types";
 import { FilmDnaResult } from "@/lib/profile/types";
@@ -118,7 +119,7 @@ export async function getIntelligentCalibrationQueue(
   }
 
   // Format raw candidate movies
-  const candidatePool: CandidateMovie[] = rawCandidates.map((m: any) => {
+  const candidatePoolRaw: (CandidateMovie & { metadata?: any })[] = rawCandidates.map((m: any) => {
     const meta = (m.metadata as Record<string, unknown>) || {};
     return {
       id: m.id,
@@ -132,8 +133,14 @@ export async function getIntelligentCalibrationQueue(
       backdropPath: m.backdropPath,
       genres: (meta.genres as string[]) || [],
       overview: (meta.overview as string) || "",
+      adult: (meta.adult as boolean) || false,
+      voteCount: (meta.voteCount as number) || undefined,
+      metadata: meta,
     };
   });
+
+  // Apply Global Movie Eligibility Filter for CALIBRATION
+  const candidatePool: CandidateMovie[] = filterEligibleMovies(candidatePoolRaw, "CALIBRATION");
 
   // 4. Rank candidates using Active Learning or Fallback
   let selectedMovies: QueueMovieResponseItem[] = [];

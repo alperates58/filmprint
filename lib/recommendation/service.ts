@@ -13,6 +13,7 @@ import {
   calculateDislikePenalty,
 } from "./evidence";
 import { calculateQualityScore } from "./quality";
+import { filterEligibleMovies } from "../movies/eligibility";
 import type { CandidateMovie } from "../calibration/types";
 import type { FilmDnaResult } from "../profile/types";
 import type {
@@ -189,7 +190,7 @@ export async function getPersonalizedRecommendations(
   }
 
   // Format all candidate movies with source tag
-  const formatCandidate = (m: any, source: CandidateSource): CandidateMovie & { candidateSource: CandidateSource } => {
+  const formatCandidate = (m: any, source: CandidateSource): CandidateMovie & { candidateSource: CandidateSource; metadata?: any; adult?: boolean; voteCount?: number } => {
     const meta = (m.metadata as Record<string, unknown>) || {};
     return {
       id: m.id,
@@ -204,6 +205,9 @@ export async function getPersonalizedRecommendations(
       genres: (meta.genres as string[]) || [],
       overview: (meta.overview as string) || "",
       candidateSource: source,
+      adult: (meta.adult as boolean) || false,
+      voteCount: (meta.voteCount as number) || undefined,
+      metadata: meta,
     };
   };
 
@@ -214,13 +218,14 @@ export async function getPersonalizedRecommendations(
   ];
 
   // Deduplicate combined list by movie ID
-  const uniqueCandidatesMap = new Map<string, CandidateMovie & { candidateSource: CandidateSource }>();
+  const uniqueCandidatesMap = new Map<string, CandidateMovie & { candidateSource: CandidateSource; metadata?: any; adult?: boolean; voteCount?: number }>();
   for (const c of combinedCandidates) {
     if (!uniqueCandidatesMap.has(c.id)) {
       uniqueCandidatesMap.set(c.id, c);
     }
   }
-  const candidatePool = Array.from(uniqueCandidatesMap.values());
+  const rawPool = Array.from(uniqueCandidatesMap.values());
+  const candidatePool = filterEligibleMovies(rawPool, "RECOMMENDATION");
 
   // 4. Score and Calibrate Candidates (Match Engine v3.1)
   const referenceUsageMap = new Map<string, number>();

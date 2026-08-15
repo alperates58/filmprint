@@ -52,7 +52,7 @@ export interface LabAggregateReport {
  * Independent ground-truth relevance function for holdout validation.
  * Strictly separated from the Matcher's internal weights.
  */
-function computeHoldoutRelevance(show: CandidateTvShow, fixture: TvQualityProfileFixture): number {
+export function computeHoldoutRelevance(show: CandidateTvShow, fixture: TvQualityProfileFixture): number {
   const genres = show.metadata?.genres || [];
   const pref = fixture.corePreferences;
 

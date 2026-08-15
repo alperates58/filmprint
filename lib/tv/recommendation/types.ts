@@ -78,6 +78,9 @@ export interface PersonalizedTvRecommendationItem {
   reasonCodes: string[];
   evidenceShows: TvReferenceEvidenceShow[];
   deterministicExplanation: string;
+  aiAffinity?: number;
+  aiSignals?: string[];
+  isHybrid?: boolean;
 }
 
 export interface PersonalizedTvRecommendationResponse {
@@ -90,6 +93,9 @@ export interface PersonalizedTvRecommendationResponse {
   page: number;
   hasMore: boolean;
   version: number;
+  isHybrid?: boolean;
+  hybridPending?: boolean;
+  hybridWeights?: { matchWeight: number; aiWeight: number };
 }
 
 export interface TvTasteEvidenceShow {

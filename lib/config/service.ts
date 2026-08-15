@@ -229,6 +229,17 @@ export async function getSystemSettings() {
   const rawShortlist = parseInt(settingsMap.get("ai_rerank_shortlist_size") || "50", 10);
   const aiRerankShortlistSize = Math.max(40, Math.min(60, isNaN(rawShortlist) ? 50 : rawShortlist));
 
+  // TV Hybrid Recommendation Settings
+  const rawTvMatch = parseInt(settingsMap.get("tv_hybrid_match_weight") || "60", 10);
+  const rawTvAi = parseInt(settingsMap.get("tv_hybrid_ai_weight") || "40", 10);
+  const { matchWeight: tvMatchWeight, aiWeight: tvAiWeight } = validateHybridWeights(rawTvMatch, rawTvAi);
+
+  const rawTvRefresh = parseInt(settingsMap.get("tv_ai_taste_refresh_evidence_count") || "25", 10);
+  const tvAiTasteRefreshEvidenceCount = Math.max(10, Math.min(100, isNaN(rawTvRefresh) ? 25 : rawTvRefresh));
+
+  const rawTvShortlist = parseInt(settingsMap.get("tv_ai_rerank_shortlist_size") || "50", 10);
+  const tvAiRerankShortlistSize = Math.max(40, Math.min(60, isNaN(rawTvShortlist) ? 50 : rawTvShortlist));
+
   return {
     calibrationTarget: parseInt(settingsMap.get("calibration_target") || "30", 10),
     queuePreloadCount: parseInt(settingsMap.get("queue_preload_count") || "5", 10),
@@ -237,11 +248,18 @@ export async function getSystemSettings() {
     recentHistoryWindow: parseInt(settingsMap.get("recent_history_window") || "10", 10),
     recommendationsEnabled: settingsMap.get("recommendations_enabled") !== "false",
     aiExplanationsEnabled: settingsMap.get("ai_explanations_enabled") !== "false",
+    // Film Hybrid Settings
     hybridRerankEnabled: settingsMap.get("hybrid_rerank_enabled") === "true",
     hybridMatchWeight: matchWeight,
     hybridAiWeight: aiWeight,
     aiTasteRefreshEvidenceCount,
     aiRerankShortlistSize,
+    // TV Hybrid Settings
+    tvHybridRerankEnabled: settingsMap.get("tv_hybrid_rerank_enabled") === "true",
+    tvHybridMatchWeight: tvMatchWeight,
+    tvHybridAiWeight: tvAiWeight,
+    tvAiTasteRefreshEvidenceCount,
+    tvAiRerankShortlistSize,
   };
 }
 

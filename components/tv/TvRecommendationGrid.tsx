@@ -13,6 +13,68 @@ export function TvRecommendationGrid({ items, onFeedbackAction }: TvRecommendati
   const [activeRatingShowId, setActiveRatingShowId] = useState<string | null>(null);
   const [submittedShowIds, setSubmittedShowIds] = useState<Set<string>>(new Set());
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
+  const [explanations, setExplanations] = useState<
+    Record<string, { headline: string; explanation: string; loading: boolean; open: boolean }>
+  >({});
+
+  const handleToggleExplanation = async (tvShowId: string) => {
+    const cur = explanations[tvShowId];
+    if (cur?.open) {
+      setExplanations((prev) => ({ ...prev, [tvShowId]: { ...cur, open: false } }));
+      return;
+    }
+
+    if (cur?.explanation) {
+      setExplanations((prev) => ({ ...prev, [tvShowId]: { ...cur, open: true } }));
+      return;
+    }
+
+    setExplanations((prev) => ({
+      ...prev,
+      [tvShowId]: { headline: "", explanation: "", loading: true, open: true },
+    }));
+
+    try {
+      const res = await fetch("/api/tv/recommendations/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tvShowId }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setExplanations((prev) => ({
+          ...prev,
+          [tvShowId]: {
+            headline: data.headline || "Dizi DNA Uyumu",
+            explanation: data.explanation || "",
+            loading: false,
+            open: true,
+          },
+        }));
+      } else {
+        setExplanations((prev) => ({
+          ...prev,
+          [tvShowId]: {
+            headline: "Dizi DNA Uyumu",
+            explanation: "Açıklama yüklenirken bir sorun oluştu.",
+            loading: false,
+            open: true,
+          },
+        }));
+      }
+    } catch {
+      setExplanations((prev) => ({
+        ...prev,
+        [tvShowId]: {
+          headline: "Dizi DNA Uyumu",
+          explanation: "Açıklama yüklenirken bir sorun oluştu.",
+          loading: false,
+          open: true,
+        },
+      }));
+    }
+  };
 
   if (!items || items.length === 0) return null;
 
@@ -179,12 +241,56 @@ export function TvRecommendationGrid({ items, onFeedbackAction }: TvRecommendati
                 )}
               </div>
 
+              {/* AI Signals if available */}
+              {item.aiSignals && item.aiSignals.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-0.5">
+                  {item.aiSignals.map((sig, sIdx) => (
+                    <span
+                      key={sIdx}
+                      className="px-2 py-0.5 rounded-md bg-accent/10 border border-accent/20 text-[10px] font-mono text-accent"
+                    >
+                      ✦ {sig}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {/* Deterministic Explanation / Evidence */}
               <div className="p-2.5 rounded-xl bg-surface-elevated/80 border border-border/60 text-xs text-text-secondary leading-relaxed">
-                <div className="flex items-start gap-1.5">
-                  <span className="text-accent text-xs">💡</span>
-                  <p className="line-clamp-2">{item.deterministicExplanation}</p>
+                <div className="flex items-start justify-between gap-1.5">
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-accent text-xs">💡</span>
+                    <p className="line-clamp-2">{item.deterministicExplanation}</p>
+                  </div>
                 </div>
+
+                {/* On-Demand Explanation Trigger */}
+                <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleExplanation(show.id)}
+                    className="text-[11px] font-mono text-accent hover:underline flex items-center gap-1 transition-colors"
+                  >
+                    <span>✨</span>
+                    <span>{explanations[show.id]?.open ? "Açıklamayı Kapat" : "Neden sana uygun?"}</span>
+                  </button>
+                  {explanations[show.id]?.loading && (
+                    <span className="text-[10px] text-text-muted font-mono animate-pulse">Analiz ediliyor...</span>
+                  )}
+                </div>
+
+                {/* On-Demand AI Explanation Expansion */}
+                {explanations[show.id]?.open && !explanations[show.id]?.loading && (
+                  <div className="mt-2.5 p-3 rounded-lg bg-surface/90 border border-accent/25 space-y-1.5 animate-fadeIn">
+                    <div className="font-semibold text-xs text-text-primary flex items-center gap-1.5">
+                      <span className="text-accent">🎯</span>
+                      <span>{explanations[show.id]?.headline}</span>
+                    </div>
+                    <p className="text-[11px] text-text-secondary leading-relaxed">
+                      {explanations[show.id]?.explanation}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Interactive Actions / Quick Feedback */}

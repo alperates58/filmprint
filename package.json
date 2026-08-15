@@ -19,6 +19,7 @@
     "quality:recommendations": "tsx tests/recommendation-quality/run.ts",
     "quality:hybrid": "tsx tests/recommendation-quality/run-hybrid-experiment.ts",
     "quality:tv": "tsx tests/tv-recommendation-quality/run.ts",
+    "quality:hybrid:tv": "tsx tests/tv-recommendation-quality/run-hybrid-experiment.ts",
     "phase9:seed": "tsx tests/recommendation-quality/catalog-seed.ts"
   },
   "dependencies": {

@@ -1,0 +1,132 @@
+{
+  "variants": {
+    "BASELINE_0_AI": {
+      "variant": {
+        "id": "BASELINE_0_AI",
+        "name": "Baseline TV Match Engine v1 (0% AI)",
+        "matchWeight": 100,
+        "aiWeight": 0,
+        "isBaseline": true
+      },
+      "metrics": {
+        "precisionAt5": 0.775,
+        "precisionAt10": 0.8,
+        "precisionAt20": 0.813,
+        "ndcgAt10": 0.943,
+        "hitRateAt20": 1,
+        "mrr": 0.958,
+        "falseHighs": 42,
+        "precision90Plus": 0.838,
+        "compositeScore": 81.2
+      }
+    },
+    "VARIANT_A_25_AI": {
+      "variant": {
+        "id": "VARIANT_A_25_AI",
+        "name": "Conservative Hybrid (25% AI)",
+        "matchWeight": 75,
+        "aiWeight": 25,
+        "isBaseline": false
+      },
+      "metrics": {
+        "precisionAt5": 1,
+        "precisionAt10": 0.994,
+        "precisionAt20": 0.978,
+        "ndcgAt10": 0.996,
+        "hitRateAt20": 1,
+        "mrr": 1,
+        "falseHighs": 2,
+        "precision90Plus": 1,
+        "compositeScore": 99.5
+      }
+    },
+    "VARIANT_B_35_AI": {
+      "variant": {
+        "id": "VARIANT_B_35_AI",
+        "name": "Moderate Hybrid (35% AI)",
+        "matchWeight": 65,
+        "aiWeight": 35,
+        "isBaseline": false
+      },
+      "metrics": {
+        "precisionAt5": 1,
+        "precisionAt10": 0.994,
+        "precisionAt20": 0.994,
+        "ndcgAt10": 0.994,
+        "hitRateAt20": 1,
+        "mrr": 1,
+        "falseHighs": 0,
+        "precision90Plus": 1,
+        "compositeScore": 99.7
+      }
+    },
+    "VARIANT_C_40_AI": {
+      "variant": {
+        "id": "VARIANT_C_40_AI",
+        "name": "Balanced Hybrid (40% AI - Configured)",
+        "matchWeight": 60,
+        "aiWeight": 40,
+        "isBaseline": false
+      },
+      "metrics": {
+        "precisionAt5": 1,
+        "precisionAt10": 1,
+        "precisionAt20": 0.994,
+        "ndcgAt10": 0.994,
+        "hitRateAt20": 1,
+        "mrr": 1,
+        "falseHighs": 0,
+        "precision90Plus": 1,
+        "compositeScore": 99.8
+      }
+    },
+    "VARIANT_D_45_AI": {
+      "variant": {
+        "id": "VARIANT_D_45_AI",
+        "name": "AI-Emphasized Hybrid (45% AI)",
+        "matchWeight": 55,
+        "aiWeight": 45,
+        "isBaseline": false
+      },
+      "metrics": {
+        "precisionAt5": 1,
+        "precisionAt10": 1,
+        "precisionAt20": 0.997,
+        "ndcgAt10": 0.993,
+        "hitRateAt20": 1,
+        "mrr": 1,
+        "falseHighs": 0,
+        "precision90Plus": 1,
+        "compositeScore": 99.8
+      }
+    },
+    "VARIANT_E_50_AI": {
+      "variant": {
+        "id": "VARIANT_E_50_AI",
+        "name": "AI-Forward Test (50% AI - Max Ceiling)",
+        "matchWeight": 50,
+        "aiWeight": 50,
+        "isBaseline": false
+      },
+      "metrics": {
+        "precisionAt5": 1,
+        "precisionAt10": 1,
+        "precisionAt20": 0.997,
+        "ndcgAt10": 0.993,
+        "hitRateAt20": 1,
+        "mrr": 1,
+        "falseHighs": 0,
+        "precision90Plus": 1,
+        "compositeScore": 99.8
+      }
+    }
+  },
+  "winner": {
+    "id": "VARIANT_C_40_AI",
+    "name": "Balanced Hybrid (40% AI - Configured)",
+    "matchWeight": 60,
+    "aiWeight": 40,
+    "isBaseline": false
+  },
+  "executedAt": "2026-08-15T14:56:55.876Z"
+}

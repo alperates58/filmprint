@@ -9,12 +9,19 @@ export default function AdminSettingsPage() {
   const [aiEnabled, setAiEnabled] = useState(true);
   const [activeLearningEnabled, setActiveLearningEnabled] = useState(true);
 
-  // Phase 9.5 Hybrid Recommendation Settings
+  // Phase 9.5 Film Hybrid Recommendation Settings
   const [hybridRerankEnabled, setHybridRerankEnabled] = useState(false);
   const [hybridMatchWeight, setHybridMatchWeight] = useState(60);
   const [hybridAiWeight, setHybridAiWeight] = useState(40);
   const [aiTasteRefreshEvidenceCount, setAiTasteRefreshEvidenceCount] = useState(25);
   const [aiRerankShortlistSize, setAiRerankShortlistSize] = useState(50);
+
+  // TV Phase 3.5 TV Hybrid Recommendation Settings
+  const [tvHybridRerankEnabled, setTvHybridRerankEnabled] = useState(false);
+  const [tvHybridMatchWeight, setTvHybridMatchWeight] = useState(60);
+  const [tvHybridAiWeight, setTvHybridAiWeight] = useState(40);
+  const [tvAiTasteRefreshEvidenceCount, setTvAiTasteRefreshEvidenceCount] = useState(25);
+  const [tvAiRerankShortlistSize, setTvAiRerankShortlistSize] = useState(50);
 
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,11 +38,18 @@ export default function AdminSettingsPage() {
             setQueuePreloadCount(data.settings.queuePreloadCount || 5);
             setAiEnabled(data.settings.aiEnabled !== false);
             setActiveLearningEnabled(data.settings.activeLearningEnabled !== false);
+            // Film
             setHybridRerankEnabled(data.settings.hybridRerankEnabled === true);
             setHybridMatchWeight(data.settings.hybridMatchWeight ?? 60);
             setHybridAiWeight(data.settings.hybridAiWeight ?? 40);
             setAiTasteRefreshEvidenceCount(data.settings.aiTasteRefreshEvidenceCount || 25);
             setAiRerankShortlistSize(data.settings.aiRerankShortlistSize || 50);
+            // TV
+            setTvHybridRerankEnabled(data.settings.tvHybridRerankEnabled === true);
+            setTvHybridMatchWeight(data.settings.tvHybridMatchWeight ?? 60);
+            setTvHybridAiWeight(data.settings.tvHybridAiWeight ?? 40);
+            setTvAiTasteRefreshEvidenceCount(data.settings.tvAiTasteRefreshEvidenceCount || 25);
+            setTvAiRerankShortlistSize(data.settings.tvAiRerankShortlistSize || 50);
           }
         }
       } catch (e) {
@@ -48,7 +62,6 @@ export default function AdminSettingsPage() {
   }, []);
 
   const handleAiWeightChange = (newAiWeight: number) => {
-    // Enforce safety ceiling: max 50% AI weight
     const clampedAi = Math.max(0, Math.min(50, Math.round(newAiWeight)));
     const clampedMatch = 100 - clampedAi;
     setHybridAiWeight(clampedAi);
@@ -56,7 +69,6 @@ export default function AdminSettingsPage() {
   };
 
   const handleMatchWeightChange = (newMatchWeight: number) => {
-    // Match weight must be between 50% and 100% (since AI is max 50%)
     const clampedMatch = Math.max(50, Math.min(100, Math.round(newMatchWeight)));
     const clampedAi = 100 - clampedMatch;
     setHybridMatchWeight(clampedMatch);
@@ -66,6 +78,28 @@ export default function AdminSettingsPage() {
   const applyPreset = (match: number, ai: number) => {
     setHybridMatchWeight(match);
     setHybridAiWeight(ai);
+  };
+
+  const handleTvAiWeightChange = (newAiWeight: number) => {
+    const clampedAi = Math.max(0, Math.min(50, Math.round(newAiWeight)));
+    const clampedMatch = 100 - clampedAi;
+    setTvAiWeight(clampedAi);
+    setTvMatchWeight(clampedMatch);
+  };
+
+  const handleTvMatchWeightChange = (newMatchWeight: number) => {
+    const clampedMatch = Math.max(50, Math.min(100, Math.round(newMatchWeight)));
+    const clampedAi = 100 - clampedMatch;
+    setTvMatchWeight(clampedMatch);
+    setTvAiWeight(clampedAi);
+  };
+
+  const setTvMatchWeight = (val: number) => setTvHybridMatchWeight(val);
+  const setTvAiWeight = (val: number) => setTvHybridAiWeight(val);
+
+  const applyTvPreset = (match: number, ai: number) => {
+    setTvHybridMatchWeight(match);
+    setTvHybridAiWeight(ai);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,11 +116,18 @@ export default function AdminSettingsPage() {
           queuePreloadCount,
           aiEnabled,
           activeLearningEnabled,
+          // Film
           hybridRerankEnabled,
           hybridMatchWeight,
           hybridAiWeight,
           aiTasteRefreshEvidenceCount,
           aiRerankShortlistSize,
+          // TV
+          tvHybridRerankEnabled,
+          tvHybridMatchWeight,
+          tvHybridAiWeight,
+          tvAiTasteRefreshEvidenceCount,
+          tvAiRerankShortlistSize,
         }),
       });
 
@@ -308,6 +349,202 @@ export default function AdminSettingsPage() {
                     max="60"
                     value={aiRerankShortlistSize}
                     onChange={(e) => setAiRerankShortlistSize(parseInt(e.target.value, 10) || 50)}
+                    className="w-36 px-3 py-2 rounded-xl bg-surface-elevated border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 1.5: TV Series Hybrid AI Recommendation Engine */}
+            <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-6 shadow-md">
+              <div>
+                <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                  <h2 className="font-display text-lg font-bold text-text-primary flex items-center gap-2">
+                    <span>📺</span> Dizi Hibrit AI Öneri Motoru (TV Hybrid AI)
+                  </h2>
+                  <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-accent/10 text-accent font-bold border border-accent/20">
+                    Phase 3.5 Media-Aware
+                  </span>
+                </div>
+                <p className="text-xs text-text-secondary mt-2">
+                  TV Match Engine v1 ve DeepSeek TV AI Taste Profile arasındaki bağımsız ağırlık dağılımı.
+                </p>
+              </div>
+
+              {/* TV Hybrid Enable Toggle */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="tvHybridRerankToggle"
+                    checked={tvHybridRerankEnabled}
+                    onChange={(e) => setTvHybridRerankEnabled(e.target.checked)}
+                    className="rounded bg-surface-elevated border-border text-accent focus:ring-0"
+                  />
+                  <label htmlFor="tvHybridRerankToggle" className="text-sm font-bold text-text-primary">
+                    TV Hibrit AI Semantik Reranker'ı Aktif Et
+                  </label>
+                </div>
+                <p className="text-xs text-text-muted">
+                  Açık olduğunda: TV Match Engine v1 adayları (≥65 eşleşme) DeepSeek TV AI Taste Profile ile semantik olarak yeniden sıralanır. Kapalıyken exact v1 deterministik çıktısı korunur.
+                </p>
+              </div>
+
+              {/* TV Presets */}
+              <div className="space-y-2 pt-3 border-t border-border/60">
+                <label className="text-xs font-bold text-text-secondary uppercase tracking-wider font-mono">
+                  TV Hızlı Ağırlık Şablonları (Presets)
+                </label>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => applyTvPreset(100, 0)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
+                      tvHybridMatchWeight === 100 && tvHybridAiWeight === 0
+                        ? "bg-accent/20 border-accent text-accent font-bold"
+                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    Deterministic (100 / 0)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyTvPreset(75, 25)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
+                      tvHybridMatchWeight === 75 && tvHybridAiWeight === 25
+                        ? "bg-accent/20 border-accent text-accent font-bold"
+                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    Conservative (75 / 25)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyTvPreset(60, 40)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
+                      tvHybridMatchWeight === 60 && tvHybridAiWeight === 40
+                        ? "bg-accent/20 border-accent text-accent font-bold"
+                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    Balanced (60 / 40)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyTvPreset(55, 45)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
+                      tvHybridMatchWeight === 55 && tvHybridAiWeight === 45
+                        ? "bg-accent/20 border-accent text-accent font-bold"
+                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    AI-Emphasized (55 / 45)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyTvPreset(50, 50)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
+                      tvHybridMatchWeight === 50 && tvHybridAiWeight === 50
+                        ? "bg-accent/20 border-accent text-accent font-bold"
+                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    AI-Forward Test (50 / 50)
+                  </button>
+                </div>
+              </div>
+
+              {/* TV Weight Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3 border-t border-border/60">
+                {/* TV Match Engine Weight */}
+                <div className="space-y-2 p-4 rounded-xl bg-surface-elevated border border-border">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-text-primary">
+                      TV Match Engine v1 Ağırlığı
+                    </label>
+                    <span className="text-sm font-bold font-mono text-accent">
+                      %{tvHybridMatchWeight}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-text-muted">
+                    Dizi DNA, Bayesian kalite, format, sezon uzunluğu, bölüm süresi, dönem ve dil uyumunun ağırlığı.
+                  </p>
+                  <input
+                    type="range"
+                    min="50"
+                    max="100"
+                    step="1"
+                    value={tvHybridMatchWeight}
+                    onChange={(e) => handleTvMatchWeightChange(parseInt(e.target.value, 10))}
+                    className="w-full accent-accent"
+                  />
+                  <div className="flex justify-between text-[10px] text-text-muted font-mono">
+                    <span>Min %50</span>
+                    <span>Max %100</span>
+                  </div>
+                </div>
+
+                {/* TV AI Semantic Weight */}
+                <div className="space-y-2 p-4 rounded-xl bg-surface-elevated border border-border">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-text-primary">
+                      TV AI Semantic Reranker Ağırlığı
+                    </label>
+                    <span className="text-sm font-bold font-mono text-accent">
+                      %{tvHybridAiWeight}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-text-muted">
+                    Dizi AI Taste Profile'ın hikâyeleme, anlatı karmaşıklığı ve karakter derinliği değerlendirmesi (Güvenlik tavanı: Max %50).
+                  </p>
+                  <input
+                    type="range"
+                    min="0"
+                    max="50"
+                    step="1"
+                    value={tvHybridAiWeight}
+                    onChange={(e) => handleTvAiWeightChange(parseInt(e.target.value, 10))}
+                    className="w-full accent-accent"
+                  />
+                  <div className="flex justify-between text-[10px] text-text-muted font-mono">
+                    <span>Min %0</span>
+                    <span>Tavan %50</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* TV Refresh Threshold & Shortlist Size */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3 border-t border-border/60">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-text-primary">
+                    TV AI Taste Profile Yenileme Eşiği (Refresh Threshold)
+                  </label>
+                  <p className="text-[11px] text-text-muted">
+                    Son profilden sonra gereken yeni taste-bearing TV etkileşimi (WATCHED/PARTIAL ile puanlama).
+                  </p>
+                  <input
+                    type="number"
+                    min="10"
+                    max="100"
+                    value={tvAiTasteRefreshEvidenceCount}
+                    onChange={(e) => setTvAiTasteRefreshEvidenceCount(parseInt(e.target.value, 10) || 25)}
+                    className="w-36 px-3 py-2 rounded-xl bg-surface-elevated border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-text-primary">
+                    TV AI Aday Kısa Liste Boyutu (Shortlist Size)
+                  </label>
+                  <p className="text-[11px] text-text-muted">
+                    DeepSeek tekli batch çağrısına gönderilen güvenli TV aday sayısı (40–60 arası).
+                  </p>
+                  <input
+                    type="number"
+                    min="40"
+                    max="60"
+                    value={tvAiRerankShortlistSize}
+                    onChange={(e) => setTvAiRerankShortlistSize(parseInt(e.target.value, 10) || 50)}
                     className="w-36 px-3 py-2 rounded-xl bg-surface-elevated border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
                   />
                 </div>

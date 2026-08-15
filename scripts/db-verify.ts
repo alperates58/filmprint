@@ -83,6 +83,7 @@ async function verifyDatabaseSchemaAndMigrations() {
       { table: "tvinteraction", column: "rating" },
       { table: "usertvtasteprofile", column: "profilejson" },
       { table: "tvrecommendationfeedback", column: "action" },
+      { table: "tvrecommendationexplanation", column: "explanation" },
     ];
 
     for (const item of ESSENTIAL_COLUMNS) {

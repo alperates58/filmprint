@@ -29,6 +29,12 @@ export async function PUT(request: Request) {
       hybridAiWeight,
       aiTasteRefreshEvidenceCount,
       aiRerankShortlistSize,
+      // TV Hybrid Settings
+      tvHybridRerankEnabled,
+      tvHybridMatchWeight,
+      tvHybridAiWeight,
+      tvAiTasteRefreshEvidenceCount,
+      tvAiRerankShortlistSize,
     } = body;
 
     if (typeof calibrationTarget === "number" && calibrationTarget > 0) {
@@ -47,6 +53,7 @@ export async function PUT(request: Request) {
       await updateSystemSetting("active_learning_enabled", activeLearningEnabled.toString());
     }
 
+    // Film Hybrid Settings
     if (typeof hybridRerankEnabled === "boolean") {
       await updateSystemSetting("hybrid_rerank_enabled", hybridRerankEnabled.toString());
     }
@@ -67,6 +74,29 @@ export async function PUT(request: Request) {
     if (typeof aiRerankShortlistSize === "number") {
       const clamped = Math.max(40, Math.min(60, Math.round(aiRerankShortlistSize)));
       await updateSystemSetting("ai_rerank_shortlist_size", clamped.toString());
+    }
+
+    // TV Hybrid Settings
+    if (typeof tvHybridRerankEnabled === "boolean") {
+      await updateSystemSetting("tv_hybrid_rerank_enabled", tvHybridRerankEnabled.toString());
+    }
+
+    if (typeof tvHybridMatchWeight === "number" || typeof tvHybridAiWeight === "number") {
+      const curMatch = typeof tvHybridMatchWeight === "number" ? tvHybridMatchWeight : 60;
+      const curAi = typeof tvHybridAiWeight === "number" ? tvHybridAiWeight : 40;
+      const { matchWeight, aiWeight } = validateHybridWeights(curMatch, curAi);
+      await updateSystemSetting("tv_hybrid_match_weight", matchWeight.toString());
+      await updateSystemSetting("tv_hybrid_ai_weight", aiWeight.toString());
+    }
+
+    if (typeof tvAiTasteRefreshEvidenceCount === "number") {
+      const clamped = Math.max(10, Math.min(100, Math.round(tvAiTasteRefreshEvidenceCount)));
+      await updateSystemSetting("tv_ai_taste_refresh_evidence_count", clamped.toString());
+    }
+
+    if (typeof tvAiRerankShortlistSize === "number") {
+      const clamped = Math.max(40, Math.min(60, Math.round(tvAiRerankShortlistSize)));
+      await updateSystemSetting("tv_ai_rerank_shortlist_size", clamped.toString());
     }
 
     await logAdminAudit(admin.id, "SYSTEM_SETTINGS_UPDATED", "SystemSetting", undefined, body);

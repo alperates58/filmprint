@@ -22,6 +22,7 @@ import { runTvCalibrationTests } from "./tv_calibration.test";
 import { runHybridRecommendationTests } from "./recommendation_hybrid.test";
 import { runTvDnaCalculatorTests } from "./tv_dna_calculator.test";
 import { runTvRecommendationMatcherTests } from "./tv_recommendation_matcher.test";
+import { runTvHybridRecommendationTests } from "./recommendation_hybrid_tv.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -54,6 +55,7 @@ async function runAllUnitAndRegressionTests() {
     { name: "Phase 9.5 Hybrid Recommendation & AI Controls Tests", fn: runHybridRecommendationTests },
     { name: "TV Phase 2 Dizi DNA Calculator & Profile Tests", fn: runTvDnaCalculatorTests },
     { name: "TV Phase 3 Deterministic Match Engine & Candidate Selector Tests", fn: runTvRecommendationMatcherTests },
+    { name: "TV Phase 3.5 Shared Hybrid AI Recommendation & Controls Tests", fn: runTvHybridRecommendationTests },
   ];
 
   let passedSuites = 0;

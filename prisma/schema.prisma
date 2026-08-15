@@ -81,6 +81,7 @@ model User {
   tvInteractions          TvInteraction[]
   tvTasteProfile          UserTvTasteProfile?
   tvRecommendationFeedbacks TvRecommendationFeedback[]
+  tvRecommendationExplanations TvRecommendationExplanation[]
   aiTasteProfiles         UserAiTasteProfile[]
   aiRecommendationSnapshots AiRecommendationSnapshot[]
   hostedMovieNights       MovieNightSession[]      @relation("HostedMovieNights")
@@ -297,6 +298,7 @@ model TvShow {
   updatedAt               DateTime                 @updatedAt
   interactions            TvInteraction[]
   recommendationFeedbacks TvRecommendationFeedback[]
+  recommendationExplanations TvRecommendationExplanation[]
 
   @@index([tmdbId])
   @@index([popularity])
@@ -385,5 +387,24 @@ model AiRecommendationSnapshot {
 
   @@unique([userId, mediaType, profileVersion, matchVersion, aiTasteVersion, candidateFingerprint])
   @@index([userId, mediaType, candidateFingerprint])
+}
+
+model TvRecommendationExplanation {
+  id             String   @id @default(uuid())
+  userId         String
+  tvShowId       String
+  profileVersion Int      @default(1)
+  matchVersion   Int      @default(1)
+  headline       String
+  explanation    String
+  isAiGenerated  Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tvShow TvShow @relation(fields: [tvShowId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tvShowId, profileVersion, matchVersion])
+  @@index([userId])
+  @@index([tvShowId])
 }
 

@@ -1,10 +1,17 @@
 import { db } from "@/lib/db/client";
+import { getDeepSeekConfig, getSystemSettings } from "@/lib/config/service";
 import { getOrRecalculateTvTasteProfile } from "../profile/service";
 import { evaluateTvEligibility } from "../eligibility";
 import { buildTvTasteEvidenceProfile } from "./evidence";
 import { buildTvFeedbackProfile } from "./feedback-profile";
 import { calculateTvMatch } from "./matcher";
 import { buildTvHomeEditorialModules } from "./editorial-scorer";
+import { getOrGenerateTvAiTasteProfile } from "./ai-taste-service";
+import {
+  getOrGenerateTvRecommendationSnapshot,
+  calculateEffectiveTvAiWeight,
+  calculateTvHybridScore,
+} from "./hybrid-reranker";
 import {
   TV_MATCH_ENGINE_VERSION,
   TV_DEFAULT_QUALITY_FLOOR,
@@ -15,13 +22,24 @@ import type {
   PersonalizedTvRecommendationResponse,
   TvCandidateSource,
   TvHomeModuleItem,
+  TvMatchResult,
 } from "./types";
+
+export interface ScoredTvCandidate {
+  tvShow: CandidateTvShow;
+  source: TvCandidateSource;
+  qualityScore: number;
+  matchScore: number;
+  matchResult: TvMatchResult;
+}
 
 export interface TvRecommendationOptions {
   limit?: number;
   page?: number;
   qualityFloor?: number;
   includeKnownUnwatched?: boolean;
+  allowHybrid?: boolean;
+  forceAiRefresh?: boolean;
 }
 
 /**
@@ -222,7 +240,7 @@ export async function getPersonalizedTvRecommendations(
   }
 
   // 5. Evaluate Eligibility & Score Candidates
-  const scoredItems: PersonalizedTvRecommendationItem[] = [];
+  const scoredCandidates: ScoredTvCandidate[] = [];
 
   for (const { candidate, source } of candidateList) {
     const eligibility = evaluateTvEligibility(candidate, "RECOMMENDATION");
@@ -238,24 +256,135 @@ export async function getPersonalizedTvRecommendations(
     );
 
     if (matchResult.matchScore >= qualityFloor) {
-      scoredItems.push({
+      scoredCandidates.push({
         tvShow: candidate,
-        matchScore: matchResult.matchScore,
-        matchLabel: matchResult.matchLabel,
         source,
-        scoreBreakdown: matchResult.scoreBreakdown,
-        reasonCodes: matchResult.reasonCodes,
-        evidenceShows: matchResult.evidenceShows,
-        deterministicExplanation: matchResult.deterministicExplanation,
+        qualityScore: matchResult.scoreBreakdown.qualityScore,
+        matchScore: matchResult.matchScore,
+        matchResult,
       });
     }
   }
 
-  // 6. Sort & Diversity Re-rank
-  scoredItems.sort((a, b) => b.matchScore - a.matchScore);
-  const diversifiedItems = applyTvDiversityRerank(scoredItems);
+  // Sort deterministic candidates descending
+  scoredCandidates.sort((a, b) => b.matchScore - a.matchScore);
 
-  // 7. Paginate
+  // 6. Check Hybrid Recommendation Settings
+  const settings = await getSystemSettings();
+  const deepseek = await getDeepSeekConfig();
+
+  let finalItems: PersonalizedTvRecommendationItem[] = [];
+  let isHybrid = false;
+  let hybridPending = false;
+  let hybridWeights: { matchWeight: number; aiWeight: number } | undefined;
+
+  const shouldAttemptHybrid =
+    options.allowHybrid !== false &&
+    settings.tvHybridRerankEnabled &&
+    deepseek.enabled &&
+    Boolean(deepseek.apiKey);
+
+  if (shouldAttemptHybrid && scoredCandidates.length > 0) {
+    const { profile: aiTasteProfile } = await getOrGenerateTvAiTasteProfile(userId, {
+      refreshThreshold: settings.tvAiTasteRefreshEvidenceCount,
+    });
+
+    const { snapshot, fromCache, lockSkipped } = await getOrGenerateTvRecommendationSnapshot(
+      userId,
+      scoredCandidates,
+      profile,
+      aiTasteProfile,
+      {
+        shortlistSize: settings.tvAiRerankShortlistSize,
+        forceRefresh: options.forceAiRefresh,
+        tvProfileVersion: profile.schemaVersion || 1,
+        tvMatchVersion: TV_MATCH_ENGINE_VERSION,
+      }
+    );
+
+    if (snapshot && Array.isArray(snapshot.rankings) && snapshot.rankings.length > 0) {
+      const affinityMap = new Map<string, { affinity: number; signals: string[] }>();
+      for (const r of snapshot.rankings) {
+        affinityMap.set(r.candidateId, { affinity: r.affinity, signals: r.signals });
+      }
+
+      const { effectiveMatchWeight, effectiveAiWeight } = calculateEffectiveTvAiWeight(
+        settings.tvHybridAiWeight,
+        profileData.confidence
+      );
+
+      hybridWeights = { matchWeight: effectiveMatchWeight, aiWeight: effectiveAiWeight };
+      isHybrid = true;
+
+      for (const c of scoredCandidates) {
+        const aiData = affinityMap.get(c.tvShow.id);
+        if (aiData) {
+          const { displayHybrid } = calculateTvHybridScore(
+            c.matchScore,
+            aiData.affinity,
+            effectiveMatchWeight,
+            effectiveAiWeight,
+            profileData.confidence,
+            c.matchResult.evidenceShows.length > 0
+          );
+
+          finalItems.push({
+            tvShow: c.tvShow,
+            matchScore: displayHybrid,
+            matchLabel: c.matchResult.matchLabel,
+            source: c.source,
+            scoreBreakdown: c.matchResult.scoreBreakdown,
+            reasonCodes: c.matchResult.reasonCodes,
+            evidenceShows: c.matchResult.evidenceShows,
+            deterministicExplanation: c.matchResult.deterministicExplanation,
+            aiAffinity: aiData.affinity,
+            aiSignals: aiData.signals,
+            isHybrid: true,
+          });
+        } else {
+          // Candidate outside shortlist or below gate
+          finalItems.push({
+            tvShow: c.tvShow,
+            matchScore: c.matchScore,
+            matchLabel: c.matchResult.matchLabel,
+            source: c.source,
+            scoreBreakdown: c.matchResult.scoreBreakdown,
+            reasonCodes: c.matchResult.reasonCodes,
+            evidenceShows: c.matchResult.evidenceShows,
+            deterministicExplanation: c.matchResult.deterministicExplanation,
+            isHybrid: false,
+          });
+        }
+      }
+
+      // Sort by calibrated hybrid score
+      finalItems.sort((a, b) => b.matchScore - a.matchScore);
+    } else {
+      if (lockSkipped || !fromCache) {
+        hybridPending = true;
+      }
+    }
+  }
+
+  // If hybrid not used or snapshot was not ready, use deterministic candidates
+  if (finalItems.length === 0) {
+    finalItems = scoredCandidates.map((c) => ({
+      tvShow: c.tvShow,
+      matchScore: c.matchScore,
+      matchLabel: c.matchResult.matchLabel,
+      source: c.source,
+      scoreBreakdown: c.matchResult.scoreBreakdown,
+      reasonCodes: c.matchResult.reasonCodes,
+      evidenceShows: c.matchResult.evidenceShows,
+      deterministicExplanation: c.matchResult.deterministicExplanation,
+      isHybrid: false,
+    }));
+  }
+
+  // 7. Sort & Diversity Re-rank
+  const diversifiedItems = applyTvDiversityRerank(finalItems);
+
+  // 8. Paginate
   const pageSize = Math.min(Math.max(1, limit), 50);
   const startIndex = (page - 1) * pageSize;
   const paginated = diversifiedItems.slice(startIndex, startIndex + pageSize);
@@ -270,6 +399,9 @@ export async function getPersonalizedTvRecommendations(
     page,
     hasMore: startIndex + pageSize < diversifiedItems.length,
     version: TV_MATCH_ENGINE_VERSION,
+    isHybrid,
+    hybridPending,
+    hybridWeights,
   };
 }
 

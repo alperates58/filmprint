@@ -95,9 +95,15 @@ export default async function TvRecommendationsPage() {
           <div className="space-y-8">
             {/* Hero Insight Pill */}
             <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-surface border border-border/80 text-xs font-mono">
-              <div className="flex items-center gap-2 text-text-secondary">
+              <div className="flex items-center gap-3 text-text-secondary">
                 <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
                 <span>Toplam {data.totalEligible} uygun dizi analiz edildi</span>
+                {data.isHybrid && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-accent font-semibold text-[11px] flex items-center gap-1">
+                    <span>✨</span>
+                    <span>Hibrit AI ({data.hybridWeights?.matchWeight}/{data.hybridWeights?.aiWeight})</span>
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-3 text-text-muted">
                 <span>Profil Güveni: <strong className="text-accent">%{Math.round(data.profileConfidence * 100)}</strong> ({data.confidenceLabel})</span>

@@ -11,9 +11,19 @@ interface HeroRecommendationProps {
 }
 
 export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: HeroRecommendationProps) {
-  const { movie, match, matchLabel, headline, reasons, isAiGenerated } = item;
+  const { movie, match, matchLabel } = item;
+  const [dynamicExplanation, setDynamicExplanation] = useState<{
+    headline: string;
+    reasons: string[];
+    isAiGenerated: boolean;
+  } | null>(null);
+  const [isLoadingExplain, setIsLoadingExplain] = useState(false);
   const [showRatingStep, setShowRatingStep] = useState<"WATCHED" | "ALREADY_WATCHED" | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  const headline = dynamicExplanation?.headline || item.headline;
+  const reasons = dynamicExplanation?.reasons || item.reasons;
+  const isAi = dynamicExplanation?.isAiGenerated ?? item.isAiGenerated;
 
   const posterUrl = movie.posterPath
     ? movie.posterPath.startsWith("http")
@@ -24,6 +34,34 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
   const handleOpenDetails = () => {
     if (onOpenDetails) {
       onOpenDetails(movie, match, headline, reasons);
+    }
+  };
+
+  const handleFetchAiExplanation = async () => {
+    if (isAi || isLoadingExplain) return;
+
+    try {
+      setIsLoadingExplain(true);
+      const res = await fetch("/api/recommendations/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ movieId: movie.id }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.reasons) && data.reasons.length > 0) {
+          setDynamicExplanation({
+            headline: data.headline || headline,
+            reasons: data.reasons,
+            isAiGenerated: data.isAiGenerated ?? true,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Hero on-demand explanation error:", e);
+    } finally {
+      setIsLoadingExplain(false);
     }
   };
 
@@ -120,23 +158,47 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
               <h3 className="font-display text-sm md:text-base font-bold text-text-primary">
                 {headline}
               </h3>
-              <span className="text-[10px] font-mono text-text-muted bg-surface border border-border/60 px-2 py-0.5 rounded-full flex-shrink-0">
-                Filmprint yorumu
-              </span>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {!isAi && !isLoadingExplain && (
+                  <button
+                    onClick={handleFetchAiExplanation}
+                    className="text-[10px] font-mono text-accent hover:underline bg-accent/10 border border-accent/30 px-2 py-0.5 rounded-full flex items-center gap-1 transition-all"
+                    title="DeepSeek ile detaylı kişiselleştir"
+                  >
+                    ✨ AI Derinleştir
+                  </button>
+                )}
+                <span className="text-[10px] font-mono text-text-muted bg-surface border border-border/60 px-2 py-0.5 rounded-full">
+                  {isAi ? "Filmprint AI" : "Filmprint yorumu"}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-1.5 pt-1 border-t border-border/40">
               <p className="text-[10px] font-mono font-semibold uppercase text-accent tracking-wider">
                 NEDEN SANA UYGUN?
               </p>
-              <ul className="space-y-1.5 text-xs md:text-sm text-text-secondary">
-                {reasons.map((reason, idx) => (
-                  <li key={idx} className="flex items-start gap-2">
-                    <span className="text-accent font-bold">•</span>
-                    <span>{reason.replace(/\*\*(.*?)\*\*/g, "$1")}</span>
-                  </li>
-                ))}
-              </ul>
+              {isLoadingExplain ? (
+                <div className="p-3 rounded-xl bg-surface/80 border border-accent/30 text-[11px] space-y-2 animate-pulse">
+                  <div className="flex items-center gap-1.5 text-accent font-mono text-[10px] font-semibold">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
+                    <span>Film DNA'nla derin analiz yapılıyor...</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="h-2 bg-surface-elevated rounded-full w-5/6 animate-pulse" />
+                    <div className="h-2 bg-surface-elevated rounded-full w-4/6 animate-pulse" />
+                  </div>
+                </div>
+              ) : (
+                <ul className="space-y-1.5 text-xs md:text-sm text-text-secondary">
+                  {reasons.map((reason, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-accent font-bold">•</span>
+                      <span>{reason.replace(/\*\*(.*?)\*\*/g, "$1")}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
 

@@ -5,6 +5,7 @@ import { tmdbClient } from "../tmdb/client";
 import { calculateMovieMatch, calibrateMatchScore } from "./matcher";
 import {
   generateRecommendationExplanation,
+  generateDeterministicExplanation,
 } from "./explanation";
 import { buildUserFeedbackProfile } from "./feedback-profile";
 import {
@@ -362,43 +363,13 @@ export async function getPersonalizedRecommendations(
         };
       }
 
-      // Generate fresh grounded explanation V3
-      const explanationResult = await generateRecommendationExplanation(
+      // Fast baseline deterministic explanation V3 (On-demand AI generation occurs on card expansion)
+      const baselineExplanation = generateDeterministicExplanation(
         item.movie,
         { ...item, matchScore: item.displayMatchScore },
         profile,
         item.evidence
       );
-
-      // Cache V3.1 explanation
-      try {
-        await db.recommendationExplanation.upsert({
-          where: {
-            userId_movieId_profileVersion_matchVersion: {
-              userId,
-              movieId: item.movie.id,
-              profileVersion: profile.version,
-              matchVersion: ENGINE_V3_MATCH_VERSION,
-            },
-          },
-          update: {
-            headline: explanationResult.headline,
-            explanation: JSON.stringify(explanationResult.reasons),
-            isAiGenerated: explanationResult.isAiGenerated,
-          },
-          create: {
-            userId,
-            movieId: item.movie.id,
-            profileVersion: profile.version,
-            matchVersion: ENGINE_V3_MATCH_VERSION,
-            headline: explanationResult.headline,
-            explanation: JSON.stringify(explanationResult.reasons),
-            isAiGenerated: explanationResult.isAiGenerated,
-          },
-        });
-      } catch (e) {
-        console.error("[RecommendationService V3.1] Failed to cache explanation:", e);
-      }
 
       return {
         movie: item.movie,
@@ -406,9 +377,9 @@ export async function getPersonalizedRecommendations(
         displayMatch: item.displayMatchScore,
         rawMatch: item.rawMatchScore,
         matchLabel: item.matchLabel,
-        headline: explanationResult.headline,
-        reasons: explanationResult.reasons,
-        isAiGenerated: explanationResult.isAiGenerated,
+        headline: baselineExplanation.headline,
+        reasons: baselineExplanation.reasons,
+        isAiGenerated: false,
         components: item.components,
         evidence: item.evidence,
         candidateSource: item.candidateSource,
@@ -427,7 +398,7 @@ export async function getPersonalizedRecommendations(
                 referenceEvidence: item.evidence.positiveReferences.map((r) => r.title),
                 referenceSimilarity: item.evidence.positiveReferences[0]?.similarityScore || 0,
                 finalScore: item.displayMatchScore,
-                explanationSource: explanationResult.isAiGenerated ? "ai" : "deterministic_fallback",
+                explanationSource: "deterministic_fallback",
               },
             }
           : {}),

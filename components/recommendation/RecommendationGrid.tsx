@@ -13,6 +13,10 @@ interface RecommendationGridProps {
 export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: RecommendationGridProps) {
   const [activeRatingMovieId, setActiveRatingMovieId] = useState<string | null>(null);
   const [expandedMovieId, setExpandedMovieId] = useState<string | null>(null);
+  const [loadingExplanationMovieId, setLoadingExplanationMovieId] = useState<string | null>(null);
+  const [dynamicExplanations, setDynamicExplanations] = useState<
+    Record<string, { headline: string; reasons: string[]; isAiGenerated: boolean }>
+  >({});
   const [submittedMovieIds, setSubmittedMovieIds] = useState<Set<string>>(new Set());
 
   if (!items || items.length === 0) return null;
@@ -36,6 +40,50 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
     }
   };
 
+  const handleToggleExpand = async (item: PersonalizedRecommendationItem) => {
+    const movieId = item.movie.id;
+    if (expandedMovieId === movieId) {
+      setExpandedMovieId(null);
+      return;
+    }
+
+    setExpandedMovieId(movieId);
+
+    // If already AI generated from server or previously fetched on-demand, no API call needed
+    const isAlreadyAi = item.isAiGenerated || dynamicExplanations[movieId]?.isAiGenerated;
+    if (isAlreadyAi || dynamicExplanations[movieId]) {
+      return;
+    }
+
+    // Trigger on-demand DeepSeek explanation
+    try {
+      setLoadingExplanationMovieId(movieId);
+      const res = await fetch("/api/recommendations/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ movieId }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.reasons) && data.reasons.length > 0) {
+          setDynamicExplanations((prev) => ({
+            ...prev,
+            [movieId]: {
+              headline: data.headline || item.headline,
+              reasons: data.reasons,
+              isAiGenerated: data.isAiGenerated ?? true,
+            },
+          }));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch on-demand explanation:", e);
+    } finally {
+      setLoadingExplanationMovieId(null);
+    }
+  };
+
   const visibleItems = items.filter((item) => !submittedMovieIds.has(item.movie.id));
 
   return (
@@ -51,9 +99,16 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
         {visibleItems.map((item) => {
-          const { movie, match, headline, reasons } = item;
+          const { movie, match } = item;
+          const dynamicExp = dynamicExplanations[movie.id];
+          const headline = dynamicExp?.headline || item.headline;
+          const reasons = dynamicExp?.reasons || item.reasons;
+          const isAi = dynamicExp?.isAiGenerated ?? item.isAiGenerated;
+
           const isRatingOpen = activeRatingMovieId === movie.id;
           const isExpanded = expandedMovieId === movie.id;
+          const isLoadingExplain = loadingExplanationMovieId === movie.id;
+
           const posterUrl = movie.posterPath
             ? movie.posterPath.startsWith("http")
               ? movie.posterPath
@@ -115,28 +170,53 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
                 </p>
 
                 {/* Expandable Neden sana uygun? accordion */}
-                {reasons && reasons.length > 0 && (
-                  <div className="pt-1">
-                    <button
-                      onClick={() => setExpandedMovieId(isExpanded ? null : movie.id)}
-                      className="text-[10px] font-mono text-accent hover:underline flex items-center gap-1 font-semibold"
-                    >
-                      <span>Neden sana uygun?</span>
-                      <span>{isExpanded ? "▴" : "▾"}</span>
-                    </button>
-
-                    {isExpanded && (
-                      <div className="mt-1.5 p-2.5 rounded-xl bg-surface-elevated/80 border border-border/60 text-[11px] text-text-secondary space-y-1 animate-fadeIn">
-                        {reasons.map((r, idx) => (
-                          <div key={idx} className="flex items-start gap-1.5">
-                            <span className="text-accent font-bold text-[10px]">•</span>
-                            <span>{r.replace(/\*\*(.*?)\*\*/g, "$1")}</span>
-                          </div>
-                        ))}
-                      </div>
+                <div className="pt-1">
+                  <button
+                    onClick={() => handleToggleExpand(item)}
+                    className="text-[10px] font-mono text-accent hover:underline flex items-center gap-1 font-semibold"
+                  >
+                    <span>Neden sana uygun?</span>
+                    {isAi && (
+                      <span className="text-[9px] px-1 py-0.2 rounded bg-accent/15 text-accent font-normal">
+                        AI
+                      </span>
                     )}
-                  </div>
-                )}
+                    <span>{isExpanded ? "▴" : "▾"}</span>
+                  </button>
+
+                  {isExpanded && (
+                    <>
+                      {isLoadingExplain ? (
+                        <div className="mt-1.5 p-3 rounded-xl bg-surface-elevated/90 border border-accent/30 text-[11px] space-y-2 animate-pulse">
+                          <div className="flex items-center gap-1.5 text-accent font-mono text-[10px] font-semibold">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
+                            <span>Film DNA'nla eşleştiriliyor...</span>
+                          </div>
+                          <div className="space-y-1.5">
+                            <div className="h-2 bg-surface rounded-full w-5/6 animate-pulse" />
+                            <div className="h-2 bg-surface rounded-full w-4/6 animate-pulse" />
+                            <div className="h-2 bg-surface rounded-full w-3/4 animate-pulse" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-1.5 p-2.5 rounded-xl bg-surface-elevated/80 border border-border/60 text-[11px] text-text-secondary space-y-1 animate-fadeIn">
+                          {reasons && reasons.length > 0 ? (
+                            reasons.map((r, idx) => (
+                              <div key={idx} className="flex items-start gap-1.5">
+                                <span className="text-accent font-bold text-[10px]">•</span>
+                                <span>{r.replace(/\*\*(.*?)\*\*/g, "$1")}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-[10px] text-text-muted italic">
+                              Zevk profiline göre özel eşleştirildi.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Feedback Actions */}

@@ -1,5 +1,8 @@
 import { calculateMovieMatch } from "../lib/recommendation/matcher.ts";
-import { generateRecommendationExplanation } from "../lib/recommendation/explanation.ts";
+import {
+  generateRecommendationExplanation,
+  generateDeterministicExplanation,
+} from "../lib/recommendation/explanation.ts";
 import type { CandidateMovie } from "../lib/calibration/types.ts";
 import type { FilmDnaResult } from "../lib/profile/types.ts";
 
@@ -116,6 +119,13 @@ export async function runRecommendationMatcherTests() {
   assert(
     !!explanation.headline && Array.isArray(explanation.reasons) && explanation.reasons.length > 0,
     "DeepSeek Fallback: Explanation engine safely returns structured Turkish explanation"
+  );
+
+  // 7. Fast Deterministic Baseline Test (On-demand Lazy architecture)
+  const baseline = generateDeterministicExplanation(sciFiMovie, sciFiMatch, profile);
+  assert(
+    !!baseline.headline && Array.isArray(baseline.reasons) && baseline.reasons.length > 0 && baseline.isAiGenerated === false,
+    "Fast Baseline: Deterministic explanation generates instant reasons with zero AI cost"
   );
 
   console.log(`\nRESULTS: Passed ${passed} of ${total} tests.`);

@@ -50,9 +50,49 @@ export async function runTmdbImageGuardTests() {
     "Slashed /friends.jpg placeholder must be rejected"
   );
   assert.strictEqual(
+    isValidTmdbImagePath("/friendsbg.jpg"),
+    false,
+    "Slashed /friendsbg.jpg placeholder must be rejected"
+  );
+  assert.strictEqual(
     isValidTmdbImagePath("/dexter.jpg"),
     false,
     "Slashed /dexter.jpg placeholder must be rejected"
+  );
+  assert.strictEqual(
+    isValidTmdbImagePath("/dexterbg.jpg"),
+    false,
+    "Slashed /dexterbg.jpg placeholder must be rejected"
+  );
+  assert.strictEqual(
+    isValidTmdbImagePath("/dw.jpg"),
+    false,
+    "Slashed /dw.jpg placeholder must be rejected"
+  );
+  assert.strictEqual(
+    isValidTmdbImagePath("/aot.jpg"),
+    false,
+    "Slashed /aot.jpg placeholder must be rejected"
+  );
+  assert.strictEqual(
+    isValidTmdbImagePath("/bob.jpg"),
+    false,
+    "Slashed /bob.jpg placeholder must be rejected"
+  );
+  assert.strictEqual(
+    isValidTmdbImagePath("/b99.jpg"),
+    false,
+    "Slashed /b99.jpg placeholder must be rejected"
+  );
+  assert.strictEqual(
+    isValidTmdbImagePath("/sahsiyetbg.jpg"),
+    false,
+    "Slashed /sahsiyetbg.jpg placeholder must be rejected"
+  );
+  assert.strictEqual(
+    isValidTmdbImagePath("/kulupbg.jpg"),
+    false,
+    "Slashed /kulupbg.jpg placeholder must be rejected"
   );
   assert.strictEqual(
     isValidTmdbImagePath("/placeholder-poster.png"),

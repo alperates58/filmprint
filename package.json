@@ -20,7 +20,8 @@
     "quality:hybrid": "tsx tests/recommendation-quality/run-hybrid-experiment.ts",
     "quality:tv": "tsx tests/tv-recommendation-quality/run.ts",
     "quality:hybrid:tv": "tsx tests/tv-recommendation-quality/run-hybrid-experiment.ts",
-    "phase9:seed": "tsx tests/recommendation-quality/catalog-seed.ts"
+    "phase9:seed": "tsx tests/recommendation-quality/catalog-seed.ts",
+    "tv:refresh-images": "tsx scripts/refresh-tv-images.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.3.0",

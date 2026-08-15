@@ -17,6 +17,7 @@ import { runRecommendationV2Tests } from "./recommendation_v2.test";
 import { runRecommendationV3Tests } from "./recommendation_v3.test";
 import { runPwaTests } from "./pwa.test";
 import { runMovieEligibilityTests } from "./movie_eligibility.test";
+import { runTvFoundationTests } from "./tv_foundation.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -44,6 +45,7 @@ async function runAllUnitAndRegressionTests() {
     { name: "Recommendation Engine V3 Tests", fn: runRecommendationV3Tests },
     { name: "PWA & Safe Offline Foundation Tests", fn: runPwaTests },
     { name: "Global Movie Eligibility & Adult Content Tests", fn: runMovieEligibilityTests },
+    { name: "TV Phase 0 Foundation & Regression Tests", fn: runTvFoundationTests },
   ];
 
   let passedSuites = 0;

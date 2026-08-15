@@ -77,6 +77,12 @@ async function verifyDatabaseSchemaAndMigrations() {
       { table: "recommendationfeedback", column: "action" },
       { table: "movienightsession", column: "code" },
       { table: "adminuser", column: "passwordhash" },
+      { table: "tvshow", column: "tmdbid" },
+      { table: "tvshow", column: "name" },
+      { table: "tvinteraction", column: "status" },
+      { table: "tvinteraction", column: "rating" },
+      { table: "usertvtasteprofile", column: "profilejson" },
+      { table: "tvrecommendationfeedback", column: "action" },
     ];
 
     for (const item of ESSENTIAL_COLUMNS) {

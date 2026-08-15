@@ -21,6 +21,7 @@ export function Header({
   userEmail = "",
 }: HeaderProps) {
   const pathname = usePathname();
+  const isTvMode = pathname.startsWith("/tv");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [displayName, setDisplayName] = useState(userName);
@@ -62,73 +63,162 @@ export function Header({
   return (
     <header className="w-full border-b border-border/60 bg-background/90 backdrop-blur-md sticky top-0 z-50 transition-all duration-300">
       <div className="max-w-5xl mx-auto px-3 md:px-4 h-14 md:h-16 flex items-center justify-between">
-        {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-8 h-8 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center shadow-sm group-hover:bg-accent/25 transition-colors">
-            <div className="w-3 h-3 rounded-full bg-accent animate-pulse" />
+        {/* Brand Logo & Mode Switcher */}
+        <div className="flex items-center gap-4">
+          <Link href={isTvMode ? "/tv" : "/"} className="flex items-center gap-3 group">
+            <div className="w-8 h-8 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center shadow-sm group-hover:bg-accent/25 transition-colors">
+              <div className="w-3 h-3 rounded-full bg-accent animate-pulse" />
+            </div>
+            <span className="font-display text-xl font-bold tracking-wider text-text-primary">
+              FILMPRINT
+            </span>
+          </Link>
+
+          {/* Desktop Mode Switcher */}
+          <div className="hidden sm:flex items-center p-1 rounded-xl bg-surface-elevated border border-border/80 text-xs font-mono">
+            <Link
+              href="/"
+              className={`px-3 py-1 rounded-lg transition-all ${
+                !isTvMode
+                  ? "bg-accent text-white font-bold shadow-xs"
+                  : "text-text-muted hover:text-text-primary"
+              }`}
+            >
+              Filmler
+            </Link>
+            <Link
+              href="/tv"
+              className={`px-3 py-1 rounded-lg transition-all ${
+                isTvMode
+                  ? "bg-accent text-white font-bold shadow-xs"
+                  : "text-text-muted hover:text-text-primary"
+              }`}
+            >
+              Diziler
+            </Link>
           </div>
-          <span className="font-display text-xl font-bold tracking-wider text-text-primary">
-            FILMPRINT
-          </span>
-        </Link>
+        </div>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-4">
           <nav className="flex items-center gap-1">
-            <Link
-              href="/"
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
-                pathname === "/"
-                  ? "bg-surface-elevated text-text-primary font-semibold border border-border"
-                  : "text-text-muted hover:text-text-primary"
-              }`}
-            >
-              Kalibrasyon
-            </Link>
+            {!isTvMode ? (
+              // Movie Mode Navigation Links
+              <>
+                <Link
+                  href="/"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                    pathname === "/"
+                      ? "bg-surface-elevated text-text-primary font-semibold border border-border"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  Kalibrasyon
+                </Link>
 
-            <Link
-              href="/profile"
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
-                pathname === "/profile"
-                  ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
-                  : "text-text-muted hover:text-text-primary"
-              }`}
-            >
-              Film DNA
-            </Link>
+                <Link
+                  href="/profile"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                    pathname === "/profile"
+                      ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  Film DNA
+                </Link>
 
-            <Link
-              href="/recommendations"
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
-                pathname === "/recommendations"
-                  ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
-                  : "text-text-muted hover:text-text-primary"
-              }`}
-            >
-              Öneriler
-            </Link>
+                <Link
+                  href="/recommendations"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                    pathname === "/recommendations"
+                      ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  Öneriler
+                </Link>
 
-            <Link
-              href="/library"
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
-                pathname.startsWith("/library")
-                  ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
-                  : "text-text-muted hover:text-text-primary"
-              }`}
-            >
-              Filmlerim
-            </Link>
+                <Link
+                  href="/library"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                    pathname.startsWith("/library")
+                      ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  Filmlerim
+                </Link>
 
-            <Link
-              href="/night"
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
-                pathname.startsWith("/night")
-                  ? "bg-accent text-white font-semibold shadow-sm"
-                  : "text-accent hover:bg-accent/10 border border-accent/30"
-              }`}
-            >
-              🎬 Movie Night
-            </Link>
+                <Link
+                  href="/night"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                    pathname.startsWith("/night")
+                      ? "bg-accent text-white font-semibold shadow-sm"
+                      : "text-accent hover:bg-accent/10 border border-accent/30"
+                  }`}
+                >
+                  🎬 Movie Night
+                </Link>
+              </>
+            ) : (
+              // TV Mode Navigation Links
+              <>
+                <Link
+                  href="/tv"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                    pathname === "/tv"
+                      ? "bg-surface-elevated text-text-primary font-semibold border border-border"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  Ana Sayfa
+                </Link>
+
+                <Link
+                  href="/tv/calibration"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                    pathname === "/tv/calibration"
+                      ? "bg-surface-elevated text-text-primary font-semibold border border-border"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  Kalibrasyon
+                </Link>
+
+                <Link
+                  href="/tv/profile"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                    pathname === "/tv/profile"
+                      ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  Dizi DNA
+                </Link>
+
+                <Link
+                  href="/tv/recommendations"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                    pathname === "/tv/recommendations"
+                      ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  Öneriler
+                </Link>
+
+                <Link
+                  href="/tv/library"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                    pathname.startsWith("/tv/library")
+                      ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  Dizilerim
+                </Link>
+              </>
+            )}
           </nav>
 
           {/* Progress Pill & User Identity Dropdown */}
@@ -173,7 +263,14 @@ export function Header({
                     onClick={() => setUserDropdownOpen(false)}
                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-elevated text-text-primary transition-colors"
                   >
-                    👤 Profilim
+                    👤 Film DNA Profilim
+                  </Link>
+                  <Link
+                    href="/tv/profile"
+                    onClick={() => setUserDropdownOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-elevated text-text-primary transition-colors"
+                  >
+                    📺 Dizi DNA Profilim
                   </Link>
                   <Link
                     href="/account"
@@ -213,7 +310,33 @@ export function Header({
 
       {/* Mobile Menu Dropdown Panel */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-border/60 bg-surface p-4 space-y-2 animate-fadeIn">
+        <div className="md:hidden border-b border-border/60 bg-surface p-4 space-y-3 animate-fadeIn">
+          {/* Mobile Mode Switcher */}
+          <div className="flex items-center justify-between p-1 rounded-xl bg-surface-elevated border border-border/80 text-xs font-mono">
+            <Link
+              href="/"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex-1 text-center py-2 rounded-lg transition-all ${
+                !isTvMode
+                  ? "bg-accent text-white font-bold shadow-xs"
+                  : "text-text-muted hover:text-text-primary"
+              }`}
+            >
+              🎬 Filmler
+            </Link>
+            <Link
+              href="/tv"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex-1 text-center py-2 rounded-lg transition-all ${
+                isTvMode
+                  ? "bg-accent text-white font-bold shadow-xs"
+                  : "text-text-muted hover:text-text-primary"
+              }`}
+            >
+              📺 Diziler
+            </Link>
+          </div>
+
           <nav className="flex flex-col gap-2">
             {displayName && (
               <div className="px-4 py-2 rounded-xl bg-surface-elevated border border-border text-xs font-mono flex items-center gap-2">
@@ -221,55 +344,113 @@ export function Header({
               </div>
             )}
 
-            <Link
-              href="/"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
-                pathname === "/" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
-              }`}
-            >
-              Kalibrasyon
-            </Link>
+            {!isTvMode ? (
+              // Active Mode: Movie Links
+              <>
+                <Link
+                  href="/"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                    pathname === "/" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+                  }`}
+                >
+                  Kalibrasyon
+                </Link>
 
-            <Link
-              href="/profile"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
-                pathname === "/profile" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
-              }`}
-            >
-              Film DNA Profilim
-            </Link>
+                <Link
+                  href="/profile"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                    pathname === "/profile" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+                  }`}
+                >
+                  Film DNA Profilim
+                </Link>
 
-            <Link
-              href="/recommendations"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
-                pathname === "/recommendations" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
-              }`}
-            >
-              Kişisel Öneriler
-            </Link>
+                <Link
+                  href="/recommendations"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                    pathname === "/recommendations" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+                  }`}
+                >
+                  Kişisel Öneriler
+                </Link>
 
-            <Link
-              href="/library"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
-                pathname.startsWith("/library") ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
-              }`}
-            >
-              Filmlerim
-            </Link>
+                <Link
+                  href="/library"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                    pathname.startsWith("/library") ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+                  }`}
+                >
+                  Filmlerim
+                </Link>
 
-            <Link
-              href="/night"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
-                pathname.startsWith("/night") ? "bg-accent text-white font-bold" : "text-accent border border-accent/40"
-              }`}
-            >
-              🎬 Movie Night (Ortak Film)
-            </Link>
+                <Link
+                  href="/night"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                    pathname.startsWith("/night") ? "bg-accent text-white font-bold" : "text-accent border border-accent/40"
+                  }`}
+                >
+                  🎬 Movie Night (Ortak Film)
+                </Link>
+              </>
+            ) : (
+              // Active Mode: TV Links
+              <>
+                <Link
+                  href="/tv"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                    pathname === "/tv" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+                  }`}
+                >
+                  Ana Sayfa
+                </Link>
+
+                <Link
+                  href="/tv/calibration"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                    pathname === "/tv/calibration" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+                  }`}
+                >
+                  Kalibrasyon
+                </Link>
+
+                <Link
+                  href="/tv/profile"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                    pathname === "/tv/profile" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+                  }`}
+                >
+                  Dizi DNA Profilim
+                </Link>
+
+                <Link
+                  href="/tv/recommendations"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                    pathname === "/tv/recommendations" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+                  }`}
+                >
+                  Kişisel Dizi Önerileri
+                </Link>
+
+                <Link
+                  href="/tv/library"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                    pathname.startsWith("/tv/library") ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+                  }`}
+                >
+                  Dizilerim
+                </Link>
+              </>
+            )}
 
             <Link
               href="/account"

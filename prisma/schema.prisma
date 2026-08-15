@@ -13,6 +13,13 @@ enum InteractionStatus {
   UNSURE
 }
 
+enum TvInteractionStatus {
+  WATCHED
+  PARTIALLY_WATCHED
+  NOT_WATCHED
+  UNSURE
+}
+
 enum RatingStatus {
   LOVE
   LIKE
@@ -65,6 +72,9 @@ model User {
   interactions            MovieInteraction[]
   tasteProfile            UserTasteProfile?
   recommendationFeedbacks  RecommendationFeedback[]
+  tvInteractions          TvInteraction[]
+  tvTasteProfile          UserTvTasteProfile?
+  tvRecommendationFeedbacks TvRecommendationFeedback[]
   hostedMovieNights       MovieNightSession[]      @relation("HostedMovieNights")
   movieNightMemberships   MovieNightMember[]
   sessions                UserSession[]
@@ -258,3 +268,75 @@ model AdminAuditLog {
   @@index([adminUserId])
   @@index([action])
 }
+
+model TvShow {
+  id                      String                   @id @default(uuid())
+  tmdbId                  Int                      @unique
+  name                    String
+  originalName            String?
+  overview                String                   @default("")
+  posterPath              String?
+  backdropPath            String?
+  firstAirDate            String?
+  lastAirDate             String?
+  status                  String?
+  originalLanguage        String?
+  popularity              Float                    @default(0.0)
+  voteAverage             Float                    @default(0.0)
+  voteCount               Int?
+  metadata                Json                     @default("{}")
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  interactions            TvInteraction[]
+  recommendationFeedbacks TvRecommendationFeedback[]
+
+  @@index([tmdbId])
+  @@index([popularity])
+}
+
+model TvInteraction {
+  id         String              @id @default(uuid())
+  userId     String
+  tvShowId   String
+  status     TvInteractionStatus
+  rating     RatingStatus?
+  answeredAt DateTime            @default(now())
+  updatedAt  DateTime            @default(now()) @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tvShow TvShow @relation(fields: [tvShowId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tvShowId])
+  @@index([userId])
+  @@index([tvShowId])
+}
+
+model UserTvTasteProfile {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique
+  version                Int      @default(1)
+  profileJson            Json     @default("{}")
+  confidence             Float    @default(0.0)
+  sourceInteractionCount Int      @default(0)
+  updatedAt              DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TvRecommendationFeedback {
+  id         String               @id @default(uuid())
+  userId     String
+  tvShowId   String
+  matchScore Int                  @default(0)
+  action     RecommendationAction
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tvShow TvShow @relation(fields: [tvShowId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tvShowId])
+  @@index([userId])
+  @@index([tvShowId])
+}
+

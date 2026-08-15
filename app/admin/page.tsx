@@ -112,14 +112,17 @@ export default async function AdminOverviewPage() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                   {data.rankDistribution.map((r: any) => (
                     <div
                       key={r.key}
-                      className="p-3.5 rounded-xl bg-surface-elevated border border-border text-center space-y-1"
+                      className="p-3.5 rounded-xl bg-surface-elevated border border-border text-center space-y-1 min-w-0"
                     >
-                      <div className="text-xl">{r.icon}</div>
-                      <p className="text-xs font-mono font-bold text-text-primary truncate">
+                      <div className="text-xl select-none">{r.icon}</div>
+                      <p
+                        title={r.label}
+                        className="text-xs font-mono font-bold text-text-primary line-clamp-2 leading-tight min-h-[2rem] flex items-center justify-center"
+                      >
                         {r.label}
                       </p>
                       <p className="font-display text-lg font-bold text-accent">

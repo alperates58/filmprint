@@ -21,18 +21,23 @@ export function getRankForCount(evaluatedCount: number): RankDefinition {
 
 /**
  * Deterministically calculates full user progression for a given evaluated movie count.
+ * Never crashes on arbitrarily large interaction counts (e.g. 30,000, 100,000+).
  */
 export function getProgressionForCount(evaluatedCount: number): UserProgression {
   const count = Math.max(0, evaluatedCount);
   const currentRank = getRankForCount(count);
   const currentIndex = RANK_DEFINITIONS.findIndex((r) => r.key === currentRank.key);
 
+  const previousRank = currentIndex > 0 ? RANK_DEFINITIONS[currentIndex - 1] : null;
   const nextRank = currentIndex < RANK_DEFINITIONS.length - 1 ? RANK_DEFINITIONS[currentIndex + 1] : null;
+  const upcomingRanks = nextRank ? RANK_DEFINITIONS.slice(currentIndex + 1, currentIndex + 4) : [];
 
   if (!nextRank) {
     return {
       currentRank,
       nextRank: null,
+      previousRank,
+      upcomingRanks: [],
       evaluatedCount: count,
       remaining: 0,
       progress: 1.0,
@@ -49,6 +54,8 @@ export function getProgressionForCount(evaluatedCount: number): UserProgression 
   return {
     currentRank,
     nextRank,
+    previousRank,
+    upcomingRanks,
     evaluatedCount: count,
     remaining,
     progress,

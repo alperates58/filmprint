@@ -4,8 +4,20 @@ export type RankKey =
   | "CINEPHILE"
   | "CURATOR"
   | "ARCHIVIST"
+  | "DISTINGUISHED_VIEWER"
   | "MASTER_CINEPHILE"
-  | "FILMPRINT_LEGEND";
+  | "CINEMA_SAGE"
+  | "CHIEF_CURATOR"
+  | "FILM_ARCHAEOLOGIST"
+  | "CINEMA_MASTER"
+  | "FILMPRINT_LEGEND"
+  | "CINEMA_MEMORY"
+  | "GRAND_ARCHIVIST"
+  | "CINEMA_ENCYCLOPEDIA"
+  | "CINEMA_VIRTUOSO"
+  | "FILMPRINT_ICON"
+  | "GRAND_CINEPHILE"
+  | "LIVING_FILM_ARCHIVE";
 
 export interface RankDefinition {
   key: RankKey;
@@ -18,6 +30,8 @@ export interface RankDefinition {
 export interface UserProgression {
   currentRank: RankDefinition;
   nextRank: RankDefinition | null;
+  previousRank: RankDefinition | null;
+  upcomingRanks: RankDefinition[];
   evaluatedCount: number;
   remaining: number;
   progress: number;

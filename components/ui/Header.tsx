@@ -196,8 +196,9 @@ export function Header({
 
         {/* Mobile Navigation Toggle Button */}
         <div className="flex items-center gap-2 md:hidden">
-          <div className="px-2.5 py-1 rounded-full bg-surface-elevated border border-border text-[10px] font-mono text-text-secondary">
+          <div className="px-2.5 py-1 rounded-full bg-surface-elevated border border-border text-[10px] font-mono text-text-secondary whitespace-nowrap max-w-[200px] truncate">
             {progression.currentRank.label} • {activeCount}
+            {progression.nextRank ? `/${progression.nextRank.minimum}` : ""}
           </div>
 
           <button

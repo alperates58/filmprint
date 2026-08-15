@@ -37,6 +37,8 @@ export function runRecommendationV3Tests() {
     releaseYear: 1986,
     popularity: 75,
     voteAverage: 8.1,
+    posterPath: null,
+    backdropPath: null,
     genres: ["Dram", "Macera"],
     overview: "Gordie, Chris, Teddy ve Vern adlı dört çocuk kasaba yakınında kayıp bir çocuğun cesedini bulmak için yola çıkar.",
   };
@@ -49,6 +51,8 @@ export function runRecommendationV3Tests() {
     releaseYear: 1995,
     popularity: 88,
     voteAverage: 8.6,
+    posterPath: null,
+    backdropPath: null,
     genres: ["Suç", "Gizem", "Gerilim"],
     overview: "Yedi ölümcül günahı işleyen insanları hedef alan bir seri katil ve iki dedektif.",
   };
@@ -61,6 +65,8 @@ export function runRecommendationV3Tests() {
     releaseYear: 2014,
     popularity: 65,
     voteAverage: 7.2,
+    posterPath: null,
+    backdropPath: null,
     genres: ["Komedi", "Aile", "Animasyon"],
     overview: "Londra'ya gelen genç bir Perulu ayının maceraları.",
   };
@@ -73,6 +79,8 @@ export function runRecommendationV3Tests() {
     releaseYear: 2023,
     popularity: 95,
     voteAverage: 7.8,
+    posterPath: null,
+    backdropPath: null,
     genres: ["Aksiyon", "Suç", "Gerilim"],
     overview: "Yüksek Şura'ya karşı savaşan John Wick.",
   };
@@ -138,7 +146,7 @@ export function runRecommendationV3Tests() {
     { id: "thriller", movies: [standByMe, johnWick4] },
     { id: "comedy", movies: [standByMe, paddington] },
   ];
-  const deduplicated = deduplicateHomeModules(mockHomeModules);
+  const deduplicated = deduplicateHomeModules(mockHomeModules, false);
   const standByMeOccurrences = deduplicated.flatMap((m) => m.movies).filter((m) => m.id === standByMe.id);
   assert(
     standByMeOccurrences.length === 1,
@@ -173,6 +181,8 @@ export function runRecommendationV3Tests() {
     releaseYear: 2005,
     popularity: 20,
     voteAverage: 6.5,
+    posterPath: null,
+    backdropPath: null,
     genres: ["Belgesel"],
     overview: "Arıların dünyası.",
   };
@@ -203,6 +213,8 @@ export function runRecommendationV3Tests() {
     releaseYear: 2022,
     popularity: 50,
     voteAverage: 6.0,
+    posterPath: null,
+    backdropPath: null,
     genres: ["Korku"],
     overview: "Korkunç ev.",
   };

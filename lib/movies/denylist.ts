@@ -60,6 +60,8 @@ const EXPLICIT_ADULT_REGEX = new RegExp(
 export const GENERIC_OVERVIEW_PATTERNS: string[] = [
   "film hakkında özet bilgi bulunmuyor",
   "film hakkında özet bilgisi bulunmuyor",
+  "dizi hakkında özet bilgi bulunmuyor",
+  "dizi hakkında özet bilgisi bulunmuyor",
   "özet bilgisi bulunmuyor",
   "özet bilgi bulunmuyor",
   "özet bulunmuyor",

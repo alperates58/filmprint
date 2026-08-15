@@ -37,22 +37,28 @@ export function runRecommendationUpgradeTests() {
 
   // Sample Mock Film DNA Profile
   const mockProfile: FilmDnaResult = {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    confidenceLabel: "Yüksek Güvenilirlik",
     genres: [
-      { name: "Bilim Kurgu", score: 0.95 },
-      { name: "Dram", score: 0.8 },
+      { name: "Bilim Kurgu", score: 0.95, ratedCount: 20, exposureCount: 20 },
+      { name: "Dram", score: 0.8, ratedCount: 15, exposureCount: 15 },
     ],
-    eras: [{ key: "2010s", label: "2010'lar Modern Sineması", score: 0.9 }],
+    eras: [{ key: "2010s", label: "2010'lar Modern Sineması", score: 0.9, ratedCount: 20 }],
     traits: ["Bilim Kurgu Tutkunu", "Modern Klasik Arayıcısı"],
     summary: "Bilim kurgu ve modern dram filmlerini tercih eden izleyici.",
-    sample: { ratedMovies: 40, love: 15, like: 20, dislike: 5 },
+    sample: { totalInteractions: 40, ratedMovies: 40, watched: 40, notWatched: 0, unsure: 0 },
     confidence: 0.85,
-    popularity: { score: 75, label: "Ana Akım & Nitelikli Kalite", orientation: "balanced" },
-    familiarity: { score: 60, label: "Keşif Odaklı", description: "Yüksek puanlı keşif yapımları" },
+    popularity: { label: "Ana Akım & Nitelikli Kalite", orientation: "balanced", avgPopularityScore: 75 },
+    familiarity: { score: 0.6, label: "discovery_heavy", description: "Yüksek puanlı keşif yapımları" },
   };
 
   // Sample High Match Result
   const highMatchResult: MovieMatchResult = {
     movie: mockMovie,
+    rawMatchScore: 94,
+    displayMatchScore: 94,
+    qualityScore: 0.86,
     matchScore: 94,
     matchLabel: "Tam Uyumlu",
     components: {
@@ -62,6 +68,9 @@ export function runRecommendationUpgradeTests() {
       quality: 0.86,
       discovery: 0.7,
       feedback: 0,
+      tasteFit: 0.95,
+      evidenceFit: 0.9,
+      qualityFit: 0.86,
     },
     reasons: [],
   };
@@ -96,6 +105,9 @@ export function runRecommendationUpgradeTests() {
       ...mockMovie,
       releaseYear: 1965,
     },
+    rawMatchScore: 68,
+    displayMatchScore: 68,
+    qualityScore: 0.7,
     matchScore: 68,
     matchLabel: "Dengeli",
     components: {
@@ -103,8 +115,11 @@ export function runRecommendationUpgradeTests() {
       era: 0.3,
       popularity: 0.5,
       quality: 0.7,
-      discovery: 0.5,
+      discovery: 0.6,
       feedback: 0,
+      tasteFit: 0.8,
+      evidenceFit: 0.4,
+      qualityFit: 0.7,
     },
     reasons: [],
   };

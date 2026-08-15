@@ -380,6 +380,7 @@ export async function runTvCalibrationTests() {
     // -------------------------------------------------------------
     // 8. Zero Movie Regression Test
     // -------------------------------------------------------------
+    await db.movie.deleteMany({ where: { tmdbId: 77001 } });
     const testMovie = await db.movie.create({
       data: {
         tmdbId: 77001,

@@ -16,15 +16,19 @@
     "verify": "prisma validate && npm run type-check && npm run test:unit && npm run db:verify && npm run build",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "quality:recommendations": "tsx tests/recommendation-quality/run.ts",
+    "phase9:seed": "tsx tests/recommendation-quality/catalog-seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.3.0",
+    "@types/katex": "^0.16.8",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "autoprefixer": "^10.4.20",
     "effect": "^3.13.0",
+    "katex": "^0.18.4",
     "next": "^15.1.7",
     "postcss": "^8.4.49",
     "prisma": "^6.3.0",
@@ -38,4 +42,3 @@
     "tsx": "^4.19.2"
   }
 }
-

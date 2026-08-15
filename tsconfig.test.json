@@ -9,10 +9,11 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     "tests/**/*.ts",
-    "scripts/**/*.ts",
-    "e2e/**/*.ts"
+    "scripts/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "e2e",
+    "playwright.config.ts"
   ]
 }

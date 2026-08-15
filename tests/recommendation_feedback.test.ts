@@ -18,6 +18,7 @@ export async function runRecommendationFeedbackTests() {
   }
 
   // Setup test users & movies
+  await db.movie.deleteMany({ where: { tmdbId: { in: [88001, 88002] } } });
   const testUserA = await db.user.create({ data: {} });
   const testUserB = await db.user.create({ data: {} });
 
@@ -123,12 +124,10 @@ export async function runRecommendationFeedbackTests() {
     await db.recommendationFeedback.deleteMany({ where: { userId: { in: [testUserA.id, testUserB.id] } } });
     await db.movieInteraction.deleteMany({ where: { userId: { in: [testUserA.id, testUserB.id] } } });
     await db.user.deleteMany({ where: { id: { in: [testUserA.id, testUserB.id] } } });
-    await db.movie.deleteMany({ where: { id: { in: [testMovie1.id, testMovie2.id] } } });
+    await db.movie.deleteMany({ where: { tmdbId: { in: [88001, 88002] } } });
   }
 
   if (passed !== total) {
     process.exit(1);
   }
 }
-
-runRecommendationFeedbackTests().catch(console.error);

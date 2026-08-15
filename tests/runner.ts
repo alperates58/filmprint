@@ -13,7 +13,7 @@ import { runRankIntegrityTests } from "./rank_integrity.test";
 import { runRecommendationFeedbackTests } from "./recommendation_feedback.test";
 import { runRecommendationMatcherTests } from "./recommendation_matcher.test";
 import { runRecommendationUpgradeTests } from "./recommendation_upgrade.test";
-import { runRecommendationV2Tests } from "./recommendation_v2.test";
+import { runMatchEngineV2Tests } from "./recommendation_v2.test";
 import { runRecommendationV3Tests } from "./recommendation_v3.test";
 import { runPwaTests } from "./pwa.test";
 import { runMovieEligibilityTests } from "./movie_eligibility.test";
@@ -42,7 +42,7 @@ async function runAllUnitAndRegressionTests() {
     { name: "Recommendation Feedback Tests", fn: runRecommendationFeedbackTests },
     { name: "Recommendation Matcher Tests", fn: runRecommendationMatcherTests },
     { name: "Recommendation Upgrade Tests", fn: runRecommendationUpgradeTests },
-    { name: "Recommendation Engine V2 Tests", fn: runRecommendationV2Tests },
+    { name: "Recommendation Engine V2 Tests", fn: runMatchEngineV2Tests },
     { name: "Recommendation Engine V3 Tests", fn: runRecommendationV3Tests },
     { name: "PWA & Safe Offline Foundation Tests", fn: runPwaTests },
     { name: "Global Movie Eligibility & Adult Content Tests", fn: runMovieEligibilityTests },

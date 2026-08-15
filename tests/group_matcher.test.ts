@@ -34,9 +34,12 @@ export function runGroupMatcherTests() {
   function createMemberInput(id: string, label: string, score: number, confidence: number = 0.8): MemberMatchInput {
     const matchResult: MovieMatchResult = {
       movie: dummyMovie,
+      rawMatchScore: score,
+      displayMatchScore: score,
+      qualityScore: 0.85,
       matchScore: score,
       matchLabel: "Individual Match",
-      components: { genre: 0.8, era: 0.8, popularity: 0.8, quality: 0.8, discovery: 0.8 },
+      components: { genre: 0.8, era: 0.8, popularity: 0.8, quality: 0.8, discovery: 0.8, feedback: 0, tasteFit: 0.8, evidenceFit: 0.8, qualityFit: 0.85 },
       reasons: [],
     };
     return {

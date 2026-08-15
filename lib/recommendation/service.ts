@@ -24,7 +24,7 @@ import type {
 } from "./types";
 import { CANDIDATE_MIX_RATIOS } from "./constants";
 
-export const ENGINE_V3_MATCH_VERSION = 31; // Phase 7B.1 Match Engine v3.1
+export const ENGINE_V3_MATCH_VERSION = 32; // Phase 9 Tuned Match Engine v3.2
 
 export interface ScoredCandidate {
   movie: CandidateMovie;
@@ -282,11 +282,11 @@ export async function getPersonalizedRecommendations(
     return true;
   });
 
-  // Sort descending by display match score, then raw match score, then popularity
+  // Sort descending by display match score, then tasteFit + raw match score, then popularity
   const sortedMatches = qualityFilteredCandidates.sort(
     (a, b) =>
       b.displayMatchScore - a.displayMatchScore ||
-      b.rawMatchScore - a.rawMatchScore ||
+      (b.components.tasteFit * 100 + b.rawMatchScore) - (a.components.tasteFit * 100 + a.rawMatchScore) ||
       b.movie.popularity - a.movie.popularity
   );
 

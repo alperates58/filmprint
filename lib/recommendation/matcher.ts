@@ -53,13 +53,13 @@ export function calculateMovieMatch(
   );
 
   // 1. Genre Match Score (0.0 - 1.0)
-  let genreScore = 0.5;
+  let genreScore = 0.35;
   let hasDislikedGenre = false;
 
   if (movie.genres && movie.genres.length > 0) {
     let genreSum = 0;
     for (const g of movie.genres) {
-      const dnaScore = genreScoreMap.get(g) ?? 0.5;
+      const dnaScore = genreScoreMap.get(g) ?? 0.30;
       genreSum += dnaScore;
       if (dnaScore < 0.25) {
         hasDislikedGenre = true;

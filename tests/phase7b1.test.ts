@@ -31,6 +31,8 @@ export function runPhase7b1Tests() {
     releaseYear: 2019,
     popularity: 75,
     voteAverage: 8.2,
+    posterPath: null,
+    backdropPath: null,
     genres: ["Dram", "Gizem"],
     overview: "Kullanıcının daha önce izlemediğini belirttiği ama profil uyumu yüksek harika yapım.",
   };
@@ -43,6 +45,8 @@ export function runPhase7b1Tests() {
     releaseYear: 2010,
     popularity: 90,
     voteAverage: 8.8,
+    posterPath: null,
+    backdropPath: null,
     genres: ["Bilim Kurgu"],
     overview: "İzlenmiş film.",
   };
@@ -55,6 +59,8 @@ export function runPhase7b1Tests() {
     releaseYear: 2020,
     popularity: 82,
     voteAverage: 7.7,
+    posterPath: null,
+    backdropPath: null,
     genres: ["Dram", "Komedi"],
     overview: "Dört lise öğretmeni kandaki alkol oranını sabit tutarak hayatı geliştirme deneyine girişir.",
   };
@@ -67,6 +73,8 @@ export function runPhase7b1Tests() {
     releaseYear: 2022,
     popularity: 5,
     voteAverage: 8.9, // High average but low vote count (pop 5)
+    posterPath: null,
+    backdropPath: null,
     genres: ["Dram"],
     overview: "Çok az oy almış bağımsız yapım.",
   };

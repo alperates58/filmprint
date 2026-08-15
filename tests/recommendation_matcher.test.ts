@@ -114,7 +114,7 @@ export async function runRecommendationMatcherTests() {
   // 6. DeepSeek Fallback Test (Safe Fallback)
   const explanation = await generateRecommendationExplanation(sciFiMovie, sciFiMatch, profile);
   assert(
-    !!explanation.headline && !!explanation.explanation,
+    !!explanation.headline && Array.isArray(explanation.reasons) && explanation.reasons.length > 0,
     "DeepSeek Fallback: Explanation engine safely returns structured Turkish explanation"
   );
 
@@ -123,5 +123,3 @@ export async function runRecommendationMatcherTests() {
     process.exit(1);
   }
 }
-
-runRecommendationMatcherTests().catch(console.error);

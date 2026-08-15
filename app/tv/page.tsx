@@ -40,7 +40,7 @@ export default async function TvHomePage() {
         <div className="relative overflow-hidden rounded-3xl bg-surface border border-border/80 p-8 md:p-12 shadow-cinematic text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-mono font-medium">
             <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-            Filmprint TV Discovery
+            SineAI TV Discovery
           </div>
 
           <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight text-text-primary">

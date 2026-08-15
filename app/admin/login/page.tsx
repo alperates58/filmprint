@@ -47,7 +47,7 @@ export default function AdminLoginPage() {
             ADM
           </div>
           <h1 className="font-display text-2xl font-bold text-text-primary tracking-tight">
-            FILMPRINT ADMIN
+            SINEAI ADMIN
           </h1>
           <p className="text-xs text-text-muted font-mono">
             Yönetici Portalı Girişi

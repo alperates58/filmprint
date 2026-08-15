@@ -9,7 +9,7 @@ export async function PUT(request: Request) {
     const { apiKey } = body;
 
     if (!apiKey || typeof apiKey !== "string" || apiKey.trim().length === 0) {
-      return NextResponse.json({ error: "Geçerli bir TMDB API Anahtarı giriniz." }, { status: 400 });
+      return NextResponse.json({ error: "Geçerli bir Katalog API Anahtarı giriniz." }, { status: 400 });
     }
 
     await saveIntegrationSecret("tmdb", apiKey.trim());
@@ -17,7 +17,7 @@ export async function PUT(request: Request) {
       lastFour: apiKey.slice(-4),
     });
 
-    return NextResponse.json({ success: true, message: "TMDB API anahtarı güvenli şekilde kaydedildi." });
+    return NextResponse.json({ success: true, message: "Katalog API anahtarı güvenli şekilde kaydedildi." });
   } catch (error) {
     if ((error as Error).message === "UNAUTHORIZED_ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

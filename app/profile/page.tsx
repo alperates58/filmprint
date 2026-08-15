@@ -152,7 +152,7 @@ export default async function ProfilePage() {
                       KİŞİSEL KİMLİK & FILM DNA
                     </span>
                     <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary mt-0.5">
-                      {currentUser.name || "Filmprint Kullanıcısı"}
+                      {currentUser.name || "SineAI Kullanıcısı"}
                     </h1>
                     {currentUser.email && (
                       <p className="text-xs font-mono text-text-secondary">{currentUser.email}</p>

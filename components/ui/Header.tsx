@@ -41,7 +41,7 @@ export function Header({
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.user) {
-          setDisplayName(data.user.name || data.user.email?.split("@")[0] || "Filmprint Kullanıcısı");
+          setDisplayName(data.user.name || data.user.email?.split("@")[0] || "SineAI Kullanıcısı");
           setAvatar(data.user.image || "");
           setEmail(data.user.email || "");
         }
@@ -70,7 +70,7 @@ export function Header({
               <div className="w-3 h-3 rounded-full bg-accent animate-pulse" />
             </div>
             <span className="font-display text-xl font-bold tracking-wider text-text-primary">
-              FILMPRINT
+              SINEAI
             </span>
           </Link>
 

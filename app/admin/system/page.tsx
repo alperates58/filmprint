@@ -79,7 +79,7 @@ export default async function AdminSystemPage() {
                 Güvenlik ve Gizlilik İncelemesi
               </h2>
               <ul className="space-y-2 text-xs text-text-secondary font-mono list-disc list-inside">
-                <li>Secret API anahtarları (TMDB, DeepSeek) veritabanında AES-256-GCM ile şifrelenmektedir.</li>
+                <li>Tüm harici servis API anahtarları veritabanında AES-256-GCM ile şifrelenmektedir.</li>
                 <li>Sunucu tarafı encryption master key (`MASTER_ENCRYPTION_KEY`) asla istemciye iletilmez.</li>
                 <li>Admin oturumu özel `filmprint_admin_session` HttpOnly çerezi üzerinden yürütülmektedir.</li>
                 <li>Parolalar Node.js scrypt kriptografik algoritması ile tuzlanarak saklanmaktadır.</li>

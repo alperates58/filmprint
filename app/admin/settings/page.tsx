@@ -207,7 +207,7 @@ export default function AdminSettingsPage() {
                   </label>
                 </div>
                 <p className="text-xs text-text-muted">
-                  Açık olduğunda: Match Engine v3.2 tarafından filtrelenmiş güvenli adaylar (≥65 eşleşme) DeepSeek AI Taste Profile ile semantik olarak yeniden sıralanır. Kapalıyken exact v3.2 deterministik çıktısı korunur.
+                  Açık olduğunda: Match Engine v3.2 tarafından filtrelenmiş güvenli adaylar (≥65 eşleşme) Yapay Zeka (AI) Taste Profile ile semantik olarak yeniden sıralanır. Kapalıyken exact v3.2 deterministik çıktısı korunur.
                 </p>
               </div>
 
@@ -358,7 +358,7 @@ export default function AdminSettingsPage() {
                     AI Aday Kısa Liste Boyutu (Shortlist Size)
                   </label>
                   <p className="text-[11px] text-text-muted">
-                    Deterministik motorun DeepSeek tekli batch çağrısına gönderdiği güvenli aday sayısı (40–60 arası).
+                    Deterministik motorun AI tekli batch çağrısına gönderdiği güvenli aday sayısı (40–60 arası).
                   </p>
                   <input
                     type="number"
@@ -396,7 +396,7 @@ export default function AdminSettingsPage() {
                   </span>
                 </div>
                 <p className="text-xs text-text-secondary mt-2">
-                  TV Match Engine v1 ve DeepSeek TV AI Taste Profile arasındaki bağımsız ağırlık dağılımı.
+                  TV Match Engine v1 ve TV AI Taste Profile arasındaki bağımsız ağırlık dağılımı.
                 </p>
               </div>
 
@@ -415,7 +415,7 @@ export default function AdminSettingsPage() {
                   </label>
                 </div>
                 <p className="text-xs text-text-muted">
-                  Açık olduğunda: TV Match Engine v1 adayları (≥65 eşleşme) DeepSeek TV AI Taste Profile ile semantik olarak yeniden sıralanır. Kapalıyken exact v1 deterministik çıktısı korunur.
+                  Açık olduğunda: TV Match Engine v1 adayları (≥65 eşleşme) Yapay Zeka (AI) Taste Profile ile semantik olarak yeniden sıralanır. Kapalıyken exact v1 deterministik çıktısı korunur.
                 </p>
               </div>
 

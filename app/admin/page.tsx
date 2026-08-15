@@ -19,7 +19,7 @@ export default async function AdminOverviewPage() {
             Sistem Genel Bakış
           </h1>
           <p className="text-xs text-text-secondary font-mono mt-0.5">
-            Filmprint operasyonel metrikleri ve servis durumları
+            SineAI operasyonel metrikleri ve servis durumları
           </p>
         </div>
 
@@ -75,7 +75,7 @@ export default async function AdminOverviewPage() {
                   <span className="text-xs text-accent font-mono">Veritabanı</span>
                 </div>
                 <p className="text-[11px] text-text-muted">
-                  TMDB metadata önbelleğindeki film
+                  Katalog önbelleğindeki film
                 </p>
               </div>
 
@@ -157,7 +157,7 @@ export default async function AdminOverviewPage() {
                 <div className="space-y-3">
                   <div className="p-4 rounded-xl bg-surface-elevated border border-border flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-bold text-text-primary">TMDB API Client</h3>
+                      <h3 className="text-sm font-bold text-text-primary">Katalog API İstemcisi</h3>
                       <p className="text-xs text-text-muted font-mono">
                         Kaynak: {data.system.tmdb.source.toUpperCase()}
                       </p>
@@ -175,7 +175,7 @@ export default async function AdminOverviewPage() {
 
                   <div className="p-4 rounded-xl bg-surface-elevated border border-border flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-bold text-text-primary">DeepSeek AI Provider</h3>
+                      <h3 className="text-sm font-bold text-text-primary">Yapay Zeka (AI) Sağlayıcı</h3>
                       <p className="text-xs text-text-muted font-mono">
                         Kaynak: {data.system.deepseek.source.toUpperCase()}
                       </p>

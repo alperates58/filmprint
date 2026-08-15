@@ -74,7 +74,7 @@ function AuthContent() {
             <div className="w-3.5 h-3.5 rounded-full bg-accent animate-pulse" />
           </div>
           <span className="font-display text-2xl font-bold tracking-wider text-text-primary">
-            FILMPRINT
+            SINEAI
           </span>
         </Link>
 
@@ -232,7 +232,7 @@ function AuthContent() {
 
         {/* Footer Guarantee Note */}
         <p className="text-xs text-text-muted leading-relaxed font-mono">
-          💡 Zaten Filmprint kullandıysan giriş yaptığında mevcut Film DNA'n korunur.
+          💡 Zaten SineAI kullandıysan giriş yaptığında mevcut Film DNA'n korunur.
         </p>
       </div>
     </div>

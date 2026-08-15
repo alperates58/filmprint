@@ -50,7 +50,7 @@ export function generateDeterministicExplanation(
     const decade = Math.floor(movie.releaseYear / 10) * 10;
     reasons.push(`${decade}'lar yapımlarına olan eğiliminle doğrudan örtüşüyor.`);
   } else if (movie.voteAverage && movie.voteAverage >= 7.5) {
-    reasons.push(`${movie.voteAverage.toFixed(1)}/10 IMDb puanıyla yüksek kalite beklentinle uyumlu.`);
+    reasons.push(`${movie.voteAverage.toFixed(1)}/10 izleyici puanıyla yüksek kalite beklentinle uyumlu.`);
   } else {
     reasons.push(`Popülerlik ve izleyici beğeni dengenle uyum gösteriyor.`);
   }
@@ -120,7 +120,7 @@ export async function generateRecommendationExplanation(
         messages: [
           {
             role: "system",
-            content: `Sen Filmprint sinema asistanısın. Kullanıcıya filmi neden önerdiğini grounded Türkçe cümlelerle açıkla.
+            content: `Sen SineAI sinema asistanısın. Kullanıcıya filmi neden önerdiğini grounded Türkçe cümlelerle açıkla.
 STRICT RULES:
 1. Yalnızca verilen evidenceMovies içerisindeki filmleri referans göster. evidenceMovies boşsa ASLA film adı uydurma.
 2. Pazarlama dili kullanma.

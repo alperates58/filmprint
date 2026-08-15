@@ -184,7 +184,7 @@ export default function RecommendationsPage() {
                 Film DNA Profiliniz Henüz Hazır Değil
               </h2>
               <p className="text-xs md:text-sm text-text-secondary leading-relaxed">
-                Filmprint&apos;in tam uyumlu ve güvenilir film önerileri sunabilmesi için kalibrasyonu tamamlamanız gerekmektedir.
+                SineAI&apos;ın tam uyumlu ve güvenilir film önerileri sunabilmesi için kalibrasyonu tamamlamanız gerekmektedir.
               </p>
             </div>
 

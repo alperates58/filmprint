@@ -79,7 +79,7 @@ export async function getOrGenerateTvRecommendationExplanation(
   const meta = (tvShow.metadata as any) || {};
   const genres = (meta.genres || []).map((g: any) => g.name || g);
 
-  const systemPrompt = `You are the Filmprint TV Series Recommendation Explainer.
+  const systemPrompt = `You are the SineAI TV Series Recommendation Explainer.
 Explain why this TV series was recommended to the user in a concise, warm, and cinematic Turkish paragraph (2-3 sentences max).
 
 CRITICAL RULES:

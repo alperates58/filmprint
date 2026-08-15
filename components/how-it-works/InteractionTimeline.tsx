@@ -50,7 +50,7 @@ export function InteractionTimeline() {
           Daha Çok Film = Daha İyi Öneri
         </h2>
         <p className="text-xs sm:text-sm text-text-secondary">
-          Her oyladığın film, Filmprint'in seni tanıma çözünürlüğünü katlar.
+          Her oyladığın film, SineAI'ın seni tanıma çözünürlüğünü katlar.
         </p>
       </div>
 

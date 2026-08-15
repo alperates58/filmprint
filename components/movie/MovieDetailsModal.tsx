@@ -432,7 +432,7 @@ export function MovieDetailsModal({
                       {headline}
                     </h3>
                     <span className="text-[10px] font-mono text-text-muted bg-surface border border-border/60 px-2 py-0.5 rounded-full">
-                      Filmprint yorumu
+                      SineAI yorumu
                     </span>
                   </div>
                   <ul className="space-y-1.5 text-xs text-text-secondary pt-1 border-t border-border/40">

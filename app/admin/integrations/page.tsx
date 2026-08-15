@@ -138,7 +138,7 @@ export default function AdminIntegrationsPage() {
             Dış Servis Entegrasyonları
           </h1>
           <p className="text-xs text-text-secondary font-mono mt-0.5">
-            TMDB API ve DeepSeek AI credential yönetimi (AES-256-GCM şifrelenmiş depolama)
+            Katalog API ve Yapay Zeka (AI) kimlik bilgisi yönetimi (AES-256-GCM şifrelenmiş depolama)
           </p>
         </div>
 
@@ -148,15 +148,15 @@ export default function AdminIntegrationsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* TMDB Integration Card */}
+            {/* Catalog Data Provider Card */}
             <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-5 shadow-md">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="font-display text-lg font-bold text-text-primary">
-                    TMDB API Configuration
+                    Katalog Veri Sağlayıcı API
                   </h2>
                   <p className="text-xs text-text-muted font-mono">
-                    Film metadata ve afiş sunucusu entegrasyonu
+                    Film & dizi metadata ve afiş sunucusu entegrasyonu
                   </p>
                 </div>
                 <span
@@ -181,7 +181,7 @@ export default function AdminIntegrationsPage() {
               <form onSubmit={handleSaveTmdb} className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-xs text-text-secondary font-medium">
-                    TMDB API Key (v3 auth)
+                    Katalog API Anahtarı (API Key)
                   </label>
                   <input
                     type="password"
@@ -190,7 +190,7 @@ export default function AdminIntegrationsPage() {
                     placeholder={
                       integrations?.tmdb?.isConfigured
                         ? `••••••••••••${integrations.tmdb.lastFour} (Değiştirmek için yazın)`
-                        : "TMDB API Anahtarını yapıştırın"
+                        : "API Anahtarını yapıştırın"
                     }
                     className="w-full px-3.5 py-2.5 rounded-xl bg-surface-elevated border border-border text-sm text-text-primary focus:outline-none focus:border-accent font-mono transition-colors"
                   />
@@ -217,12 +217,12 @@ export default function AdminIntegrationsPage() {
               </form>
             </div>
 
-            {/* DeepSeek AI Provider Integration Card */}
+            {/* AI Provider Integration Card */}
             <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-5 shadow-md">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="font-display text-lg font-bold text-text-primary">
-                    DeepSeek AI Provider
+                    Yapay Zeka (AI) Sağlayıcı
                   </h2>
                   <p className="text-xs text-text-muted font-mono">
                     Film DNA ve recommendation yapay zeka servisi
@@ -249,7 +249,7 @@ export default function AdminIntegrationsPage() {
 
               <form onSubmit={handleSaveDeepseek} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-text-secondary font-medium">API Key</label>
+                  <label className="text-xs text-text-secondary font-medium">AI API Anahtarı (API Key)</label>
                   <input
                     type="password"
                     value={deepseekKey}
@@ -257,7 +257,7 @@ export default function AdminIntegrationsPage() {
                     placeholder={
                       integrations?.deepseek?.isConfigured
                         ? `••••••••••••${integrations.deepseek.lastFour} (Değiştirmek için yazın)`
-                        : "sk-..."
+                        : "AI API Anahtarını yapıştırın"
                     }
                     className="w-full px-3.5 py-2.5 rounded-xl bg-surface-elevated border border-border text-sm text-text-primary focus:outline-none focus:border-accent font-mono transition-colors"
                   />

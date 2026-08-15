@@ -199,7 +199,7 @@ export async function generateAiTasteWithDeepSeek(
 
     const targetUrl = `${config.baseUrl.replace(/\/$/, "")}/chat/completions`;
 
-    const systemPrompt = `Sen Filmprint sinema zevk analistisin. Kullanıcının Film DNA verisini ve izleme tercihlerini analiz ederek derinlikli bir Semantik Sinema Zevk Profili (AI Taste Profile) oluştur.
+    const systemPrompt = `Sen SineAI sinema zevk analistisin. Kullanıcının Film DNA verisini ve izleme tercihlerini analiz ederek derinlikli bir Semantik Sinema Zevk Profili (AI Taste Profile) oluştur.
 
 STRICT JSON OUTPUT SCHEMA:
 {

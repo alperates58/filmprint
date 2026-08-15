@@ -57,7 +57,7 @@ export default async function AccountSettingsPage() {
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <h2 className="font-display text-xl font-bold text-text-primary">
-                  {user.name || "Filmprint Kullanıcısı"}
+                  {user.name || "SineAI Kullanıcısı"}
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-md bg-accent/15 text-accent border border-accent/30 text-[10px] font-mono font-bold">
                   {user.provider === "GOOGLE" ? "Google" : user.provider === "EMAIL" ? "E-posta" : "Anonim"}
@@ -75,7 +75,7 @@ export default async function AccountSettingsPage() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-elevated border border-border">
               <div>
                 <p className="text-xs font-mono text-text-primary font-bold">Oturumu Kapat</p>
-                <p className="text-xs text-text-muted">Bu cihazdaki Filmprint hesabından çıkış yaparsınız.</p>
+                <p className="text-xs text-text-muted">Bu cihazdaki SineAI hesabından çıkış yaparsınız.</p>
               </div>
               <a
                 href="/api/auth/logout"

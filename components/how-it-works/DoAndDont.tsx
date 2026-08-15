@@ -12,7 +12,7 @@ export function DoAndDont() {
   const donts = [
     "Sponsorlu veya reklam içerikli film öne çıkarmaz",
     "Gerçek dışı yapay %100 skorlar dağıtmaz",
-    "Sadece genel TMDB ortalamasına göre öneri yapmaz",
+    "Sadece genel katalog ortalamasına göre öneri yapmaz",
     "İzlemediğin filmi 'sevmedin' diye negatif puanlamaz",
     "Tek bir oya bakarak tüm zevk profilini altüst etmez",
   ];
@@ -24,7 +24,7 @@ export function DoAndDont() {
           İlkeler ve Sınırlar
         </span>
         <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-text-primary">
-          Filmprint Ne Yapar / Ne Yapmaz?
+          SineAI Ne Yapar / Ne Yapmaz?
         </h2>
         <p className="text-xs sm:text-sm text-text-secondary">
           Algoritmik dürüstlük ve kullanıcı hakları manifestomuz.

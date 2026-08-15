@@ -251,7 +251,7 @@ export async function getOrGenerateTvAiTasteProfile(
       genres: (i.tvShow.metadata as any)?.genres || [],
     }));
 
-  const systemPrompt = `You are the DeepSeek TV Taste Profiler for Filmprint.
+  const systemPrompt = `You are the AI TV Taste Profiler for SineAI.
 Your job is to analyze a user's deterministic TV Series DNA and structured watching history, then extract deep semantic storytelling and commitment preferences for TV series recommendations.
 
 Respond with STRICT JSON ONLY conforming to the exact schema:

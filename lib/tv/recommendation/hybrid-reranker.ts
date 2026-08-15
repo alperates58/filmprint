@@ -208,7 +208,7 @@ export async function getOrGenerateTvRecommendationSnapshot(
       reasonCodes: c.matchResult.reasonCodes,
     }));
 
-    const systemPrompt = `You are the DeepSeek TV Series Semantic Recommendation Reranker for Filmprint.
+    const systemPrompt = `You are the AI TV Series Semantic Recommendation Reranker for SineAI.
 Your job is to evaluate a candidate shortlist of TV series against a user's Dizi DNA and AI Taste Profile.
 
 STRICT RULES:

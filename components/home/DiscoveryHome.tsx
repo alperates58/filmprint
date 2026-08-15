@@ -400,7 +400,7 @@ export function DiscoveryHome({
                         )}
                       </div>
 
-                      {/* Info & TMDB rating */}
+                      {/* Info & rating */}
                       <div>
                         <h4 className="font-display text-xs font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors">
                           {movie.title}

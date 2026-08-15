@@ -19,11 +19,11 @@ export function Footer() {
                 <div className="w-2.5 h-2.5 rounded-full bg-accent animate-pulse" />
               </div>
               <span className="font-display text-lg font-bold tracking-wider text-text-primary group-hover:text-accent transition-colors">
-                FILMPRINT
+                SINEAI
               </span>
             </Link>
             <p className="text-xs text-text-muted leading-relaxed font-sans">
-              Şişirilmiş puanlar ve reklam sponsorlu listeler olmadan, kişisel sinema zevkinizi matematiksel formüllerle modelleyen yapay zeka destekli tat kalibrasyon motoru.
+              Zevkini öğrenen yapay zekâ destekli film ve dizi rehberi. Şişirilmiş puanlar ve reklam sponsorlu listeler olmadan tarafsız öneri ve analiz motoru.
             </p>
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-elevated border border-border/80 text-[10px] font-mono text-accent">
               <span className="w-1.5 h-1.5 rounded-full bg-accent" />
@@ -107,7 +107,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/legal/copyright" className="hover:text-accent transition-colors">
-                  ⚖️ Telif Hakları & TMDB
+                  ⚖️ Telif Hakları & Bildirimler
                 </Link>
               </li>
             </ul>
@@ -117,7 +117,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-border/40 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] font-mono text-text-muted">
           <div>
-            FILMPRINT &copy; {new Date().getFullYear()} — Tüm Hakları Saklıdır.
+            SINEAI &copy; {new Date().getFullYear()} — Tüm Hakları Saklıdır.
           </div>
           <div className="text-[10px] text-text-muted text-center md:text-right">
             Matematiksel Modeller • Şeffaf Algoritma • Kişiselleştirilmiş Öneri

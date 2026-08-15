@@ -163,13 +163,13 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
                   <button
                     onClick={handleFetchAiExplanation}
                     className="text-[10px] font-mono text-accent hover:underline bg-accent/10 border border-accent/30 px-2 py-0.5 rounded-full flex items-center gap-1 transition-all"
-                    title="DeepSeek ile detaylı kişiselleştir"
+                    title="AI ile detaylı kişiselleştir"
                   >
                     ✨ AI Derinleştir
                   </button>
                 )}
                 <span className="text-[10px] font-mono text-text-muted bg-surface border border-border/60 px-2 py-0.5 rounded-full">
-                  {isAi ? "Filmprint AI" : "Filmprint yorumu"}
+                  {isAi ? "SineAI" : "SineAI yorumu"}
                 </span>
               </div>
             </div>

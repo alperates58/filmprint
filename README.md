@@ -1,6 +1,6 @@
-# Filmprint
+# SineAI
 
-Premium single-movie taste profiling web app powered by TMDB.
+Zevkini öğrenen yapay zekâ destekli film ve dizi rehberi.
 
 ## Product Idea
 The user is shown one movie at a time and answers whether they have watched it. If watched, they rate it quickly. Over time, the system builds a personal **Film DNA** profile.
@@ -92,7 +92,7 @@ Filmprint is engineered for zero-downtime deployment via **Coolify** using the *
    AUTH_SECRET=a_random_32_character_auth_secret_key
    GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
    GOOGLE_CLIENT_SECRET=your_google_client_secret
-   NEXT_PUBLIC_APP_URL=https://filmprint.alperates.com.tr
+   NEXT_PUBLIC_APP_URL=https://sineai.com.tr
    ```
 
 ### Google Cloud OAuth 2.0 Configuration
@@ -102,9 +102,9 @@ To enable Google Sign-In in production:
 1. Go to [Google Cloud Console](https://console.cloud.google.com/) -> **APIs & Services** -> **Credentials**.
 2. Create or select an **OAuth 2.0 Client ID** (Web application).
 3. Set **Authorized JavaScript origins**:
-   - `https://filmprint.alperates.com.tr`
+   - `https://sineai.com.tr`
 4. Set **Authorized redirect URIs**:
-   - `https://filmprint.alperates.com.tr/api/auth/google/callback`
+   - `https://sineai.com.tr/api/auth/google/callback`
 5. Save and copy `Client ID` and `Client Secret` into Coolify environment variables (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`).
 
 4. **Port & Domain Mapping**

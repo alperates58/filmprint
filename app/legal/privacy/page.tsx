@@ -4,8 +4,8 @@ import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 
 export const metadata = {
-  title: "Gizlilik Politikası & KVKK — Filmprint",
-  description: "Filmprint kişisel veri güvenliği, KVKK aydınlatma metni ve gizlilik ilkeleri.",
+  title: "Gizlilik Politikası & KVKK — SineAI",
+  description: "SineAI kişisel veri güvenliği, KVKK aydınlatma metni ve gizlilik ilkeleri.",
 };
 
 export default function PrivacyPage() {
@@ -21,14 +21,14 @@ export default function PrivacyPage() {
           <h1 className="font-display text-3xl md:text-4xl font-extrabold text-text-primary">
             Gizlilik Politikası & KVKK Aydınlatma Metni
           </h1>
-          <p className="text-xs font-mono text-text-muted">Son Güncelleme: 13 Ağustos 2026</p>
+          <p className="text-xs font-mono text-text-muted">Son Güncelleme: 15 Ağustos 2026</p>
         </div>
 
         <div className="p-8 rounded-3xl bg-surface border border-border/80 space-y-6 text-xs md:text-sm text-text-secondary leading-relaxed shadow-cinematic">
           <section className="space-y-2">
             <h2 className="font-display text-base font-bold text-text-primary">1. Toplanan Kişisel Veriler</h2>
             <p>
-              Filmprint, hizmet kalitesini sağlamak amacıyla sadece gerekli olan verileri toplar:
+              SineAI, hizmet kalitesini sağlamak amacıyla sadece gerekli olan verileri toplar:
             </p>
             <ul className="list-disc list-inside space-y-1 text-text-muted font-mono text-xs">
               <li>Hesap Bilgileri: Ad, soyad, e-posta adresi, profil resmi (varsa OAuth).</li>

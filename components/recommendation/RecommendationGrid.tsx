@@ -55,7 +55,7 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
       return;
     }
 
-    // Trigger on-demand DeepSeek explanation
+    // Trigger on-demand AI explanation
     try {
       setLoadingExplanationMovieId(movieId);
       const res = await fetch("/api/recommendations/explain", {

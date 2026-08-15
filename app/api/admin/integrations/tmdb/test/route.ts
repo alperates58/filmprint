@@ -10,11 +10,11 @@ export async function POST() {
     if (!apiKey) {
       return NextResponse.json({
         success: false,
-        message: "TMDB API Anahtarı yapılandırılmamış.",
+        message: "Katalog API Anahtarı yapılandırılmamış.",
       });
     }
 
-    // Call TMDB authentication endpoint or popular list server-side
+    // Call catalog authentication endpoint server-side
     const response = await fetch(
       `https://api.themoviedb.org/3/authentication?api_key=${apiKey}`
     );
@@ -22,7 +22,7 @@ export async function POST() {
     if (!response.ok) {
       return NextResponse.json({
         success: false,
-        message: `TMDB Bağlantı hatası (HTTP status ${response.status}). Anahtarınızı kontrol ediniz.`,
+        message: `Katalog API Bağlantı hatası (HTTP status ${response.status}). Anahtarınızı kontrol ediniz.`,
       });
     }
 
@@ -30,13 +30,13 @@ export async function POST() {
     if (data.success) {
       return NextResponse.json({
         success: true,
-        message: "TMDB API bağlantısı başarılı ve aktif!",
+        message: "Katalog API bağlantısı başarılı ve aktif!",
       });
     }
 
     return NextResponse.json({
       success: false,
-      message: "TMDB API cevabı başarısız.",
+      message: "Katalog API cevabı başarısız.",
     });
   } catch (error) {
     if ((error as Error).message === "UNAUTHORIZED_ADMIN") {

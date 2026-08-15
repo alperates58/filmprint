@@ -34,7 +34,7 @@ export default function ContactPage() {
             Bizimle İletişime Geçin
           </h1>
           <p className="text-sm md:text-base text-text-secondary max-w-xl mx-auto leading-relaxed">
-            Filmprint platformuyla ilgili sorularınız, önerileriniz, geri bildirimleriniz veya telif hakları bildirimleriniz için bize ulaşabilirsiniz.
+            SineAI platformuyla ilgili sorularınız, önerileriniz, geri bildirimleriniz veya telif hakları bildirimleriniz için bize ulaşabilirsiniz.
           </p>
         </div>
 
@@ -44,13 +44,13 @@ export default function ContactPage() {
             <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-2">
               <div className="text-xl">📧 E-Posta Destek</div>
               <p className="text-xs text-text-muted">7/24 Teknik destek ve genel sorularınız için:</p>
-              <div className="font-mono text-xs font-bold text-accent">destek@filmprint.app</div>
+              <div className="font-mono text-xs font-bold text-accent">destek@sineai.com.tr</div>
             </div>
 
             <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-2">
               <div className="text-xl">⚖️ Yasal Haklar & Telif</div>
               <p className="text-xs text-text-muted">DMCA ve Telif Bildirimleri için:</p>
-              <div className="font-mono text-xs font-bold text-text-primary">legal@filmprint.app</div>
+              <div className="font-mono text-xs font-bold text-text-primary">legal@sineai.com.tr</div>
             </div>
 
             <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-2">
@@ -153,9 +153,9 @@ export default function ContactPage() {
 
           <div className="space-y-4 text-xs font-sans">
             <div className="p-4 rounded-2xl bg-background border border-border/60 space-y-1">
-              <h3 className="font-bold text-text-primary text-sm">Filmprint önerileri ücretli mi?</h3>
+              <h3 className="font-bold text-text-primary text-sm">SineAI önerileri ücretli mi?</h3>
               <p className="text-text-muted leading-relaxed">
-                Hayır. Filmprint kişisel tat kalibrasyonu ve film öneri motoru tamamen ücretsizdir.
+                Hayır. SineAI kişisel tat kalibrasyonu ve film öneri motoru tamamen ücretsizdir.
               </p>
             </div>
 

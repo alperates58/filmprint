@@ -13,13 +13,13 @@ import { FaqAccordion } from "@/components/how-it-works/FaqAccordion";
 import { FinalCta } from "@/components/how-it-works/FinalCta";
 
 export const metadata: Metadata = {
-  title: "Nasıl Çalışıyor? — Şeffaf Algoritma ve Matematiksel Modeller | Filmprint",
+  title: "Nasıl Çalışıyor? — Şeffaf Algoritma ve Matematiksel Modeller | SineAI",
   description:
-    "Filmprint'in tarafsız ve bilimsel film öneri motorunun arkasındaki Bayesian kalite puanlaması, Film DNA vektörleşmesi ve açıklanabilir yapay zeka formüllerini inceleyin.",
+    "SineAI'ın tarafsız ve bilimsel film ve dizi öneri motorunun arkasındaki Bayesian kalite puanlaması, Film DNA vektörleşmesi ve açıklanabilir yapay zeka formüllerini inceleyin.",
   openGraph: {
-    title: "Filmprint Nasıl Çalışıyor? — Şeffaf ve Kanıta Dayalı Öneri Motoru",
+    title: "SineAI Nasıl Çalışıyor? — Şeffaf ve Kanıta Dayalı Öneri Motoru",
     description:
-      "Şişirilmiş puanlar ve sponsorlu listeler yok. Filmprint, film zevkinizi matematiksel formüllerle modeller ve her öneriyi gerekçelendirir.",
+      "Şişirilmiş puanlar ve sponsorlu listeler yok. SineAI, film ve dizi zevkinizi matematiksel formüllerle modeller ve her öneriyi gerekçelendirir.",
   },
 };
 

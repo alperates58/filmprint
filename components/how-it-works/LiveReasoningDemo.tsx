@@ -19,7 +19,7 @@ export function LiveReasoningDemo() {
           Neden Bu Film?
         </h2>
         <p className="text-xs sm:text-sm text-text-secondary">
-          Filmprint sana sadece bir afiş fırlatmaz; neden beğeneceğini somut kanıtlarla açıklar.
+          SineAI sana sadece bir afiş fırlatmaz; neden beğeneceğini somut kanıtlarla açıklar.
         </p>
       </div>
 

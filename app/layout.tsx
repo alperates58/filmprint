@@ -12,14 +12,14 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Filmprint — Movie Taste Calibration Engine",
+  title: "SineAI — Zevkini Öğrenen Yapay Zekâ Destekli Film ve Dizi Rehberi",
   description:
-    "Calibrate your unique Film DNA profile in minutes with single-movie decisions.",
-  applicationName: "Filmprint",
+    "Zevkini öğrenen yapay zekâ destekli film ve dizi rehberi. Şeffaf algoritma, Film DNA ve kişiselleştirilmiş öneriler.",
+  applicationName: "SineAI",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Filmprint",
+    title: "SineAI",
     statusBarStyle: "black-translucent",
   },
   icons: {

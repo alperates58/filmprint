@@ -34,7 +34,7 @@ export function FaqAccordion() {
     {
       question: "90+ skor neden nadirdir?",
       answer:
-        "Filmprint yapay şişirme puanlar üretmez. 90 ve üzeri eşleşmeler için kullanıcının 'Çok Sevdim' dediği gerçek filmlerle yüksek benzerlik ve olgunlaşmış profil güvenilirliği (%65+) şart koşulur.",
+        "SineAI yapay şişirme puanlar üretmez. 90 ve üzeri eşleşmeler için kullanıcının 'Çok Sevdim' dediği gerçek filmlerle yüksek benzerlik ve olgunlaşmış profil güvenilirliği (%65+) şart koşulur.",
     },
     {
       question: "Aynı filmler neden sürekli tekrar etmez?",
@@ -49,7 +49,7 @@ export function FaqAccordion() {
     {
       question: "AI Confidence Gating (Güven Kısıtı) nedir?",
       answer:
-        "Filmprint profiliniz henüz yeniyse veya yeterince veri oluşmamışsa, yapay zekanın etkisi otomatik olarak sınırlandırılır ve matematiksel Match Engine daha baskın tutulur. Profil olgunlaştıkça semantik AI ağırlığı yapılandırılan seviyeye yükselir.",
+        "SineAI profiliniz henüz yeniyse veya yeterince veri oluşmamışsa, yapay zekanın etkisi otomatik olarak sınırlandırılır ve matematiksel Match Engine daha baskın tutulur. Profil olgunlaştıkça semantik AI ağırlığı yapılandırılan seviyeye yükselir.",
     },
     {
       question: "AI Taste Profile ne sıklıkla yenilenir?",

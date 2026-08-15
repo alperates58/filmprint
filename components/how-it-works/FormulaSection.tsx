@@ -64,7 +64,7 @@ export function FormulaSection() {
                 <span>Vote Average</span>
               </div>
               <p className="text-text-secondary font-sans text-xs">
-                Filmin ham TMDB puanı (0–10)
+                Filmin küresel katalog puanı (0–10)
               </p>
             </div>
 
@@ -198,7 +198,7 @@ export function FormulaSection() {
             <div className="space-y-1">
               <span className="text-xs font-mono font-bold text-accent">FORMÜL 3</span>
               <h3 className="font-display text-lg sm:text-xl font-bold text-text-primary">
-                Nihai Filmprint Uyum Skoru
+                Nihai SineAI Uyum Skoru
               </h3>
             </div>
             <span className="self-start sm:self-auto px-3 py-1 rounded-full bg-accent/15 border border-accent/30 text-xs font-mono font-semibold text-accent">
@@ -273,7 +273,7 @@ export function FormulaSection() {
 
           {/* Disclaimer Note */}
           <div className="p-3.5 rounded-xl bg-surface-elevated border border-border/60 text-xs text-text-muted font-sans italic">
-            💡 <strong>Not:</strong> Bu gösterim, Filmprint Match Engine’in farklı sinyalleri nasıl bir araya getirdiğini kullanıcıya açıklayan özet bir matematiksel temsilidir. Backend hesaplama mantığı bu sayfa için değiştirilmemelidir.
+            💡 <strong>Not:</strong> Bu gösterim, SineAI Match Engine’in farklı sinyalleri nasıl bir araya getirdiğini kullanıcıya açıklayan özet bir matematiksel temsilidir. Backend hesaplama mantığı bu sayfa için değiştirilmemelidir.
           </div>
         </div>
 
@@ -295,7 +295,7 @@ export function FormulaSection() {
           </div>
 
           <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
-            Filmprint yapay %100 eşleşmeler üretmez. Çok yüksek skorlar yalnızca güçlü profil uyumu ve yeterli kanıt olduğunda oluşur.
+            SineAI yapay %100 eşleşmeler üretmez. Çok yüksek skorlar yalnızca güçlü profil uyumu ve yeterli kanıt olduğunda oluşur.
           </p>
 
           {/* Math Render Card */}
@@ -357,7 +357,7 @@ export function FormulaSection() {
           </div>
 
           <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
-            Deterministik Match Engine'in filtrelediği güvenli adaylar, DeepSeek AI Taste Profile'ın semantik yakınlık değerlendirmesiyle kontrollü olarak birleştirilir.
+            Deterministik Match Engine'in filtrelediği güvenli adaylar, Yapay Zeka (AI) Taste Profile'ın semantik yakınlık değerlendirmesiyle kontrollü olarak birleştirilir.
           </p>
 
           {/* Math Render Card */}

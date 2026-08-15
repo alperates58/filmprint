@@ -9,7 +9,7 @@ export interface GoogleUserInfo {
 export function getGoogleConfig() {
   const clientId = process.env.GOOGLE_CLIENT_ID || "";
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://filmprint.alperates.com.tr";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sineai.com.tr";
   const redirectUri = `${appUrl}/api/auth/google/callback`;
 
   return {

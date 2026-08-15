@@ -27,10 +27,12 @@ interface MovieCardProps {
 
 export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCardProps) {
   const [step, setStep] = useState<"step1" | "step2">("step1");
+  const [imgError, setImgError] = useState(false);
 
   // Reset card state when movie changes
   useEffect(() => {
     setStep("step1");
+    setImgError(false);
   }, [movie.id]);
 
   // Keyboard navigation shortcuts
@@ -97,7 +99,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
         <div className="flex gap-3.5 items-start">
           {/* Compact Mobile Poster */}
           <div className="w-24 sm:w-28 aspect-[2/3] rounded-xl bg-surface-elevated border border-border/80 flex-shrink-0 relative overflow-hidden shadow-md group">
-            {posterUrl ? (
+            {posterUrl && !imgError ? (
               <Image
                 src={posterUrl}
                 alt={movie.title}
@@ -106,11 +108,12 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
                 sizes="112px"
                 priority
                 unoptimized
+                onError={() => setImgError(true)}
               />
             ) : (
-              <div className="w-full h-full flex flex-col justify-center items-center p-2 bg-surface-elevated text-center">
-                <span className="text-xl">🎬</span>
-                <span className="text-[9px] font-mono text-text-muted mt-1 line-clamp-2">{movie.title}</span>
+              <div className="w-full h-full flex flex-col justify-between p-2 bg-gradient-to-b from-surface-elevated via-background to-surface text-center">
+                <span className="text-xl mt-2">🎬</span>
+                <span className="text-[9px] font-mono text-text-muted mb-1 line-clamp-2">{movie.title}</span>
               </div>
             )}
 
@@ -245,7 +248,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
       <div className="relative z-10 hidden md:flex flex-row gap-10 items-start">
         {/* Poster Frame (Fixed 2:3 Aspect Ratio) */}
         <div className="w-64 aspect-[2/3] rounded-2xl bg-surface-elevated border border-border/80 flex-shrink-0 relative overflow-hidden shadow-2xl group">
-          {posterUrl ? (
+          {posterUrl && !imgError ? (
             <Image
               src={posterUrl}
               alt={movie.title}
@@ -254,6 +257,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
               sizes="256px"
               priority
               unoptimized
+              onError={() => setImgError(true)}
             />
           ) : (
             <div className="w-full h-full flex flex-col justify-between p-5 bg-gradient-to-b from-surface-elevated via-background to-surface border border-accent/20 text-center relative overflow-hidden">
@@ -262,7 +266,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
               </div>
               <div className="space-y-1">
                 <span className="text-[10px] font-mono text-accent uppercase tracking-widest font-semibold">
-                  FILMPRINT
+                  SINEAI
                 </span>
                 <h3 className="font-display text-sm font-bold text-text-primary line-clamp-2 px-1">
                   {movie.title}

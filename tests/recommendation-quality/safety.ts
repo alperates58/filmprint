@@ -23,6 +23,7 @@ export const ALLOWED_APP_HOSTNAMES = new Set([
 ]);
 
 export const BLOCKED_PRODUCTION_PATTERNS = [
+  "sineai.com.tr",
   "filmprint.alperates.com.tr",
   "alperates.com.tr",
   "production",
@@ -152,9 +153,9 @@ export function runSafetyNegativeTests(): void {
   const res1 = evaluateSafety({
     ENABLE_QUALITY_LAB: "true",
     DATABASE_URL: "postgresql://filmprint:secret@postgres:5432/filmprint",
-    NEXT_PUBLIC_APP_URL: "https://filmprint.alperates.com.tr",
+    NEXT_PUBLIC_APP_URL: "https://sineai.com.tr",
   });
-  assert(res1.allowed === false && res1.reasons.some((r) => r.includes("blocked production pattern")), "Production domain in NEXT_PUBLIC_APP_URL is strictly blocked");
+  assert(res1.allowed === false && res1.reasons.some((r) => r.includes("blocked production pattern")), "Production domain (sineai.com.tr) in NEXT_PUBLIC_APP_URL is strictly blocked");
 
   // 2. Negative: Production DB host
   const res2 = evaluateSafety({

@@ -169,7 +169,7 @@ export async function callDeepSeekBatchReranker(
 
     const targetUrl = `${config.baseUrl.replace(/\/$/, "")}/chat/completions`;
 
-    const systemPrompt = `Sen Filmprint ikinci aşama semantik öneri sıralayıcısısın (Recommendation Semantic Reranker).
+    const systemPrompt = `Sen SineAI ikinci aşama semantik öneri sıralayıcısısın (Recommendation Semantic Reranker).
 Verilen kullanıcının semantik zevk profilini ve aday film listesini incele.
 Her adayın kullanıcı zevkine semantik yakınlık (affinity) puanını (0 - 100) ve 2-3 anahtar sinyalini belirle.
 

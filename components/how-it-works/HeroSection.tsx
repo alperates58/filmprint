@@ -14,17 +14,17 @@ export function HeroSection() {
       {/* Version Tag */}
       <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-accent/10 border border-accent/30 text-xs font-mono font-semibold text-accent backdrop-blur-md">
         <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-        FILMPRINT HYBRID ENGINE — Deterministik Motor + AI Semantik Sıralama
+        SINEAI HYBRID ENGINE — Deterministik Motor + AI Semantik Sıralama
       </div>
 
       {/* Main Title */}
       <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-text-primary leading-[1.15]">
-        Filmprint <span className="text-accent">Nasıl Çalışıyor?</span>
+        SineAI <span className="text-accent">Nasıl Çalışıyor?</span>
       </h1>
 
       {/* Subtitle */}
       <p className="text-sm sm:text-base md:text-lg text-text-secondary leading-relaxed max-w-2xl mx-auto font-normal">
-        Şişirilmiş puanlar, sponsorlu listeler ve rastgele öneriler yok. Filmprint, film zevkini verdiğin gerçek sinyallerden matematiksel olarak modeller ve sana neden bir filmi önerdiğini açıklayabilir.
+        Şişirilmiş puanlar, sponsorlu listeler ve rastgele öneriler yok. SineAI, film ve dizi zevkini verdiğin gerçek sinyallerden matematiksel olarak modeller ve sana neden bir içeriği önerdiğini açıklayabilir.
       </p>
 
       {/* Trust Badges */}

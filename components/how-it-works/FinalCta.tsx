@@ -11,7 +11,7 @@ export function FinalCta() {
           Deneyimi Yaşa
         </span>
         <h2 className="font-display text-2xl sm:text-3xl md:text-4xl font-extrabold text-text-primary">
-          Şimdi Filmprint’in seni ne kadar iyi tanıdığını gör.
+          Şimdi SineAI’ın seni ne kadar iyi tanıdığını gör.
         </h2>
         <p className="text-xs sm:text-sm text-text-secondary leading-relaxed max-w-md mx-auto">
           Birkaç dakikalık kalibrasyonla kişiselleştirilmiş film evrenine adım at.

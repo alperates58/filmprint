@@ -295,7 +295,7 @@ export function TvCalibrationEngine({
       </main>
 
       <footer className="border-t border-border/60 py-6 text-center text-xs text-text-muted font-mono">
-        FILMPRINT &copy; {new Date().getFullYear()} — Filmprint TV Engine
+        SINEAI &copy; {new Date().getFullYear()} — SineAI TV Engine
       </footer>
     </div>
   );

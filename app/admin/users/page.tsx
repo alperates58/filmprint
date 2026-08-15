@@ -28,7 +28,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
               Kullanıcı Yönetimi
             </h1>
             <p className="text-xs text-text-secondary font-mono mt-0.5">
-              Sistemdeki tüm kayıtlı ve anonim Filmprint kullanıcıları ({data.totalCount} Kullanıcı)
+              Sistemdeki tüm kayıtlı ve anonim SineAI kullanıcıları ({data.totalCount} Kullanıcı)
             </p>
           </div>
 

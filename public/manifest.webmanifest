@@ -1,7 +1,7 @@
 {
-  "name": "Filmprint",
-  "short_name": "Filmprint",
-  "description": "Film zevkini keşfet, Film DNA'nı oluştur ve sana özel filmleri bul.",
+  "name": "SineAI",
+  "short_name": "SineAI",
+  "description": "Zevkini öğrenen yapay zekâ destekli film ve dizi rehberi.",
   "start_url": "/",
   "scope": "/",
   "id": "filmprint-pwa-v1",

@@ -4,9 +4,9 @@ import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 
 export const metadata = {
-  title: "Biz Kimiz? — Filmprint",
+  title: "Biz Kimiz? — SineAI",
   description:
-    "Filmprint kişisel sinema deneyimini şeffaf, reklam sponsorluğu olmadan ve matematiksel formüllerle yeniden tanımlayan yeni nesil tat kalibrasyon platformudur.",
+    "SineAI kişisel sinema deneyimini şeffaf, reklam sponsorluğu olmadan ve matematiksel formüllerle yeniden tanımlayan yeni nesil tat kalibrasyon platformudur.",
 };
 
 export default function AboutPage() {
@@ -18,13 +18,13 @@ export default function AboutPage() {
         {/* Hero Section */}
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/15 border border-accent/30 text-xs font-mono font-bold text-accent">
-            🏢 Biz Kimiz? — Filmprint Sinema Laboratuvarı
+            🏢 Biz Kimiz? — SineAI Sinema Laboratuvarı
           </div>
           <h1 className="font-display text-3xl md:text-5xl font-extrabold tracking-tight text-text-primary">
             Sinema Zevkinizi Matematiksel Kesinlikle Şifreleyen Platform
           </h1>
           <p className="text-sm md:text-base text-text-secondary max-w-2xl mx-auto leading-relaxed">
-            Filmprint, popüler kültür dayatmalarına ve sponsorlu reklam listelerine karşı, sinefillerin gerçek kişisel zevklerini vektörel algoritma ve Bayesyen istatistik ile modelleyen tarafsız bir film öneri motorudur.
+            SineAI, popüler kültür dayatmalarına ve sponsorlu reklam listelerine karşı, sinefillerin gerçek kişisel zevklerini vektörel algoritma ve Bayesyen istatistik ile modelleyen tarafsız bir film öneri motorudur.
           </p>
         </div>
 
@@ -90,7 +90,7 @@ export default function AboutPage() {
             Match Engine v3.2 Mimarisi
           </h2>
           <p className="text-xs text-text-muted max-w-xl mx-auto leading-relaxed">
-            Filmprint, TMDB (The Movie Database) veri havuzu üzerinde çalışan gelişmiş bir dinamik kalibrasyon ve gerekçelendirme katmanına sahiptir.
+            SineAI, küresel film ve dizi veri havuzu üzerinde çalışan gelişmiş bir dinamik kalibrasyon ve gerekçelendirme katmanına sahiptir.
           </p>
 
           <div className="pt-2">

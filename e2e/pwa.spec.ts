@@ -11,8 +11,8 @@ test.describe("PWA & SAFE OFFLINE FOUNDATION E2E", () => {
     expect(res.status()).toBe(200);
 
     const json = await res.json();
-    expect(json.name).toBe("Filmprint");
-    expect(json.short_name).toBe("Filmprint");
+    expect(json.name).toBe("SineAI");
+    expect(json.short_name).toBe("SineAI");
     expect(json.start_url).toBe("/");
     expect(json.display).toBe("standalone");
     expect(json.theme_color).toBe("#09090b");
@@ -36,7 +36,7 @@ test.describe("PWA & SAFE OFFLINE FOUNDATION E2E", () => {
     const res = await page.goto("/offline.html");
     expect(res?.status()).toBe(200);
 
-    await expect(page.locator("text=FILMPRINT")).toBeVisible();
+    await expect(page.locator("text=SINEAI")).toBeVisible();
     await expect(page.locator("text=Şu anda internet bağlantısı yok.")).toBeVisible();
     await expect(page.locator("text=Tekrar Dene")).toBeVisible();
   });

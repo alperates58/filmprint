@@ -6,6 +6,7 @@ export function enforceTestEnvironmentSafety(): void {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.TEST_APP_URL || "";
 
   const PROD_INDICATORS = [
+    "sineai.com.tr",
     "filmprint.alperates.com.tr",
     "production",
     "prod-db",

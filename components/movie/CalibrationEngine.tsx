@@ -282,7 +282,7 @@ export function CalibrationEngine({
       </main>
 
       <footer className="border-t border-border/60 py-6 text-center text-xs text-text-muted font-mono">
-        FILMPRINT &copy; {new Date().getFullYear()} — Filmprint Taste Engine
+        SINEAI &copy; {new Date().getFullYear()} — SineAI Taste Engine
       </footer>
     </div>
   );

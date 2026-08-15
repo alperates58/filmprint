@@ -12,8 +12,8 @@ export async function runPwaTests() {
   const manifestContent = fs.readFileSync(manifestPath, "utf8");
   const manifestJson = JSON.parse(manifestContent);
 
-  assert.strictEqual(manifestJson.name, "Filmprint", "Manifest name must be Filmprint");
-  assert.strictEqual(manifestJson.short_name, "Filmprint", "Manifest short_name must be Filmprint");
+  assert.strictEqual(manifestJson.name, "SineAI", "Manifest name must be SineAI");
+  assert.strictEqual(manifestJson.short_name, "SineAI", "Manifest short_name must be SineAI");
   assert.strictEqual(manifestJson.start_url, "/", "Manifest start_url must be /");
   assert.strictEqual(manifestJson.display, "standalone", "Manifest display must be standalone");
   assert.strictEqual(manifestJson.theme_color, "#09090b", "Manifest theme_color must match Filmprint dark theme");
@@ -36,7 +36,7 @@ export async function runPwaTests() {
   assert.strictEqual(fs.existsSync(offlinePath), true, "offline.html must exist in public/");
 
   const offlineContent = fs.readFileSync(offlinePath, "utf8");
-  assert.ok(offlineContent.includes("FILMPRINT"), "offline.html must show FILMPRINT brand");
+  assert.ok(offlineContent.includes("SINEAI"), "offline.html must show SINEAI brand");
   assert.ok(offlineContent.includes("Şu anda internet bağlantısı yok."), "offline.html must show offline status message");
   assert.ok(offlineContent.includes("Tekrar Dene"), "offline.html must provide Tekrar Dene button");
 

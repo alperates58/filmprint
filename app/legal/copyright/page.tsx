@@ -4,8 +4,8 @@ import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 
 export const metadata = {
-  title: "Telif Hakları & Yasal Haklar — Filmprint",
-  description: "Filmprint telif hakları bildirimi, TMDB API kullanımı ve DMCA telif bildirim kanalı.",
+  title: "Telif Hakları & Yasal Haklar — SineAI",
+  description: "SineAI telif hakları bildirimi, veri kaynakları kullanımı ve DMCA telif bildirim kanalı.",
 };
 
 export default function CopyrightPage() {
@@ -21,46 +21,43 @@ export default function CopyrightPage() {
           <h1 className="font-display text-3xl md:text-4xl font-extrabold text-text-primary">
             Telif Hakları ve Yasal Bildirimler
           </h1>
-          <p className="text-xs font-mono text-text-muted">Son Güncelleme: 13 Ağustos 2026</p>
+          <p className="text-xs font-mono text-text-muted">Son Güncelleme: 15 Ağustos 2026</p>
         </div>
 
         <div className="p-8 rounded-3xl bg-surface border border-border/80 space-y-6 text-xs md:text-sm text-text-secondary leading-relaxed shadow-cinematic">
-          {/* TMDB Attribution Card */}
+          {/* Metadata Attribution Card */}
           <div className="p-6 rounded-2xl bg-background border border-accent/30 space-y-3">
             <div className="flex items-center gap-3">
               <div className="px-3 py-1 rounded-lg bg-accent/20 text-accent font-bold font-mono text-xs">
-                TMDB API
+                Veri Sağlayıcı Lisansı
               </div>
               <h2 className="font-display text-base font-bold text-text-primary">
-                The Movie Database (TMDB) Lisans Bildirimi
+                Film ve Dizi Kataloğu Lisans Bildirimi
               </h2>
             </div>
             <p className="text-text-muted leading-relaxed">
-              Filmprint platformundaki film afişleri, fragman bağlantıları, oyuncu/yönetmen kadroları ve genel sinema metadataları TMDB API hizmeti aracılığıyla temin edilmektedir.
-            </p>
-            <p className="text-accent font-mono text-xs italic">
-              "This product uses the TMDB API but is not endorsed or certified by TMDB."
+              SineAI platformundaki film ve dizi afişleri, fragman bağlantıları, oyuncu/yönetmen kadroları ve genel sinematik metadatalar lisanslı küresel katalog veri sağlayıcıları aracılığıyla temin edilmektedir.
             </p>
           </div>
 
           <section className="space-y-2">
             <h2 className="font-display text-base font-bold text-text-primary">1. Film Görselleri ve Materyalleri</h2>
             <p>
-              Platformda sergilenen film posterleri, afişler ve sinematografik tanım metinleri hak sahiplerinin mülkiyetindedir. Filmprint bu materyalleri tanıtım ve akademik/istatistiki öneri amacıyla "Adil Kullanım" (Fair Use) kapsamında sunmaktadır.
+              Platformda sergilenen film posterleri, afişler ve sinematografik tanım metinleri hak sahiplerinin mülkiyetindedir. SineAI bu materyalleri tanıtım ve akademik/istatistiki öneri amacıyla "Adil Kullanım" (Fair Use) kapsamında sunmaktadır.
             </p>
           </section>
 
           <section className="space-y-2">
-            <h2 className="font-display text-base font-bold text-text-primary">2. Filmprint Algoritma ve Marka Hakları</h2>
+            <h2 className="font-display text-base font-bold text-text-primary">2. SineAI Algoritma ve Marka Hakları</h2>
             <p>
-              "Filmprint", "Film DNA", "Match Engine" markaları, vektörel eşleşme yazılımları, veri kalibrasyon formülleri ve özgün arayüz tasarımları Filmprint'e aittir. İzinsiz kopyalanamaz veya ticari amaçla kullanılamaz.
+              "SineAI", "Film DNA", "Match Engine" markaları, vektörel eşleşme yazılımları, veri kalibrasyon formülleri ve özgün arayüz tasarımları SineAI'a aittir. İzinsiz kopyalanamaz veya ticari amaçla kullanılamaz.
             </p>
           </section>
 
           <section className="space-y-2">
             <h2 className="font-display text-base font-bold text-text-primary">3. DMCA ve Telif Hakkı İhlali Bildirimleri</h2>
             <p>
-              Telif hakkı sahibi olduğunuz bir materyalin platformumuzda uygunsuz şekilde yer aldığını düşünüyorsanız, lütfen aşağıdaki bilgileri içeren resmi bildirimi <a href="mailto:legal@filmprint.app" className="text-accent underline font-mono">legal@filmprint.app</a> adresine iletiniz:
+              Telif hakkı sahibi olduğunuz bir materyalin platformumuzda uygunsuz şekilde yer aldığını düşünüyorsanız, lütfen aşağıdaki bilgileri içeren resmi bildirimi <a href="mailto:legal@sineai.com.tr" className="text-accent underline font-mono">legal@sineai.com.tr</a> adresine iletiniz:
             </p>
             <ul className="list-disc list-inside space-y-1 text-text-muted font-mono text-xs">
               <li>Telif hakkı sahibinin veya yetkili temsilcisinin imzası.</li>

@@ -30,7 +30,7 @@ export function HowItWorksSteps() {
       number: "04",
       title: "AI Semantic Reranker",
       description:
-        "DeepSeek yalnızca filtrelenmiş shortlist'i analiz eder; anlatım biçimi, psikolojik ton, story structure ve tema derinliğini inceler.",
+        "Yapay Zeka (AI) yalnızca filtrelenmiş shortlist'i analiz eder; anlatım biçimi, psikolojik ton, story structure ve tema derinliğini inceler.",
       icon: "🧠",
       highlight: "İkinci Aşama Semantik Analiz",
     },

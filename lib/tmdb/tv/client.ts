@@ -335,7 +335,14 @@ export class TMDBTvClient {
       where: { tmdbId },
     });
 
-    if (cached) {
+    const hasSuspiciousPoster =
+      !cached ||
+      !cached.posterPath ||
+      !cached.posterPath.startsWith("/") ||
+      cached.posterPath.length < 20 ||
+      cached.posterPath === "null";
+
+    if (cached && !hasSuspiciousPoster) {
       const metaObj = (cached.metadata as Record<string, unknown>) || {};
       return {
         id: cached.id,

@@ -26,7 +26,7 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "DeepSeek AI provider ayarları güvenli şekilde kaydedildi.",
+      message: "Yapay Zeka (AI) sağlayıcı ayarları güvenli şekilde kaydedildi.",
     });
   } catch (error) {
     if ((error as Error).message === "UNAUTHORIZED_ADMIN") {

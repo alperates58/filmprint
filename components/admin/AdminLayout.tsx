@@ -42,7 +42,7 @@ export function AdminLayout({ children, adminEmail }: AdminLayoutProps) {
           </div>
           <div>
             <h1 className="font-display font-bold text-sm tracking-wider text-text-primary">
-              FILMPRINT
+              SINEAI
             </h1>
             <p className="text-[9px] text-text-muted font-mono uppercase">
               ADMIN CONSOLE
@@ -124,7 +124,7 @@ export function AdminLayout({ children, adminEmail }: AdminLayoutProps) {
             </div>
             <div>
               <h1 className="font-display font-bold text-sm tracking-wider text-text-primary">
-                FILMPRINT
+                SINEAI
               </h1>
               <p className="text-[10px] text-text-muted font-mono uppercase tracking-widest">
                 ADMIN CONSOLE

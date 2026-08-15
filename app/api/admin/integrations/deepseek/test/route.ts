@@ -10,11 +10,11 @@ export async function POST() {
     if (!config.apiKey) {
       return NextResponse.json({
         success: false,
-        message: "DeepSeek API Anahtarı yapılandırılmamış.",
+        message: "AI API Anahtarı yapılandırılmamış.",
       });
     }
 
-    // Call DeepSeek models list endpoint server-side to test key and connection
+    // Call models list endpoint server-side to test key and connection
     const targetUrl = `${config.baseUrl.replace(/\/+$/, "")}/models`;
 
     const response = await fetch(targetUrl, {
@@ -28,22 +28,22 @@ export async function POST() {
     if (!response.ok) {
       return NextResponse.json({
         success: false,
-        message: `DeepSeek bağlantı hatası (HTTP status ${response.status}). API anahtarınızı veya Base URL'i kontrol ediniz.`,
+        message: `AI bağlantı hatası (HTTP status ${response.status}). API anahtarınızı veya Base URL'i kontrol ediniz.`,
       });
     }
 
     return NextResponse.json({
       success: true,
-      message: `DeepSeek AI provider bağlantısı başarılı! Model: ${config.modelId}`,
+      message: `AI sağlayıcı bağlantısı başarılı! Model: ${config.modelId}`,
     });
   } catch (error) {
     if ((error as Error).message === "UNAUTHORIZED_ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("[Admin DeepSeek Test Error]:", error);
+    console.error("[Admin AI Test Error]:", error);
     return NextResponse.json({
       success: false,
-      message: "DeepSeek bağlantı testi sırasında bir hata oluştu.",
+      message: "AI bağlantı testi sırasında bir hata oluştu.",
     });
   }
 }

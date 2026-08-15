@@ -18,7 +18,7 @@ export function GenreSignature({ genres }: GenreSignatureProps) {
             🍿 En Sevdiğin Türler
           </h3>
           <p className="text-xs text-text-muted font-mono mt-0.5">
-            Filmprint algoritmasının değerlendirdiğin filmlerden çıkardığı baskın sinema türü ağırlıkların.
+            SineAI algoritmasının değerlendirdiğin filmlerden çıkardığı baskın sinema türü ağırlıkların.
           </p>
         </div>
         <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest">

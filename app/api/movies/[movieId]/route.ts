@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/service";
 import { tmdbClient } from "@/lib/tmdb/client";
 import { InteractionStatus, RatingStatus } from "@prisma/client";
 import { getMoviePersonalMatch } from "@/lib/recommendation/universal-matcher";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 
 export async function GET(
   request: Request,
@@ -74,17 +75,8 @@ export async function GET(
       }
     }
 
-    const posterUrl = movie.posterPath
-      ? movie.posterPath.startsWith("http")
-        ? movie.posterPath
-        : `https://image.tmdb.org/t/p/w500${movie.posterPath}`
-      : null;
-
-    const backdropUrl = movie.backdropPath
-      ? movie.backdropPath.startsWith("http")
-        ? movie.backdropPath
-        : `https://image.tmdb.org/t/p/w1280${movie.backdropPath}`
-      : null;
+    const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
+    const backdropUrl = getTmdbImageUrl(movie.backdropPath, "w1280");
 
     let personalMatch = null;
     if (currentUser) {

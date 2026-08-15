@@ -7,6 +7,7 @@ import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { MovieDetailsModal } from "@/components/movie/MovieDetailsModal";
 import { getProgressionForCount } from "@/lib/progression/service";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 
 interface HomeMovie {
   id: string;
@@ -217,20 +218,14 @@ export function DiscoveryHome({
                       releaseYear: topHeroMatch.movie.releaseYear,
                       genres: topHeroMatch.movie.genres,
                       matchScore: topHeroMatch.match,
-                      headline: topHeroMatch.headline,
-                      reasons: topHeroMatch.reasons,
                     },
                   })
                 }
                 className="w-32 md:w-44 aspect-[2/3] rounded-2xl overflow-hidden bg-surface-elevated relative border border-border/80 shadow-lg cursor-pointer group flex-shrink-0"
               >
-                {topHeroMatch.movie.posterPath ? (
+                {getTmdbImageUrl(topHeroMatch.movie.posterPath, "w500") ? (
                   <Image
-                    src={
-                      topHeroMatch.movie.posterPath.startsWith("http")
-                        ? topHeroMatch.movie.posterPath
-                        : `https://image.tmdb.org/t/p/w500${topHeroMatch.movie.posterPath}`
-                    }
+                    src={getTmdbImageUrl(topHeroMatch.movie.posterPath, "w500")!}
                     alt={topHeroMatch.movie.title}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
@@ -351,11 +346,7 @@ export function DiscoveryHome({
               {/* Horizontal Scroll Movie Row */}
               <div className="flex gap-4 overflow-x-auto no-scrollbar pb-3 pt-1">
                 {mod.movies.map((movie: any) => {
-                  const posterUrl = movie.posterPath
-                    ? movie.posterPath.startsWith("http")
-                      ? movie.posterPath
-                      : `https://image.tmdb.org/t/p/w500${movie.posterPath}`
-                    : null;
+                  const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
 
                   return (
                     <div

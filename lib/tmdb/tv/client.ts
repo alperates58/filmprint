@@ -7,6 +7,7 @@ import {
   TV_GENRE_MAP,
 } from "./types";
 import { COMPREHENSIVE_FALLBACK_TV_SHOWS } from "./fallback-catalog";
+import { isValidTmdbImagePath } from "@/lib/tmdb/image";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 
@@ -335,14 +336,11 @@ export class TMDBTvClient {
       where: { tmdbId },
     });
 
-    const hasSuspiciousPoster =
+    const hasInvalidPoster =
       !cached ||
-      !cached.posterPath ||
-      !cached.posterPath.startsWith("/") ||
-      cached.posterPath.length < 20 ||
-      cached.posterPath === "null";
+      !isValidTmdbImagePath(cached.posterPath);
 
-    if (cached && !hasSuspiciousPoster) {
+    if (cached && !hasInvalidPoster) {
       const metaObj = (cached.metadata as Record<string, unknown>) || {};
       return {
         id: cached.id,

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Header } from "@/components/ui/Header";
 import { MovieNightSessionInfo, MovieNightRecommendationsResponse, GroupMovieMatchResult } from "@/lib/movie-night/types";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 
 export default function MovieNightSessionPage({
   params,
@@ -196,15 +197,11 @@ export default function MovieNightSessionPage({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center text-left">
-              {session.selectedMovie?.posterPath && (
+              {getTmdbImageUrl(session.selectedMovie?.posterPath, "w500") && (
                 <div className="w-48 aspect-[2/3] mx-auto rounded-2xl overflow-hidden bg-surface-elevated border border-border relative">
                   <Image
-                    src={
-                      session.selectedMovie.posterPath.startsWith("http")
-                        ? session.selectedMovie.posterPath
-                        : `https://image.tmdb.org/t/p/w500${session.selectedMovie.posterPath}`
-                    }
-                    alt={session.selectedMovie.title}
+                    src={getTmdbImageUrl(session.selectedMovie?.posterPath, "w500")!}
+                    alt={session.selectedMovie?.title || "Film"}
                     fill
                     className="object-cover"
                   />
@@ -418,11 +415,7 @@ function HeroGroupRecommendation({
   onSelectMovie: (id: string) => void;
 }) {
   const { movie, groupMatchScore, groupMatchLabel, memberScores } = item;
-  const posterUrl = movie.posterPath
-    ? movie.posterPath.startsWith("http")
-      ? movie.posterPath
-      : `https://image.tmdb.org/t/p/w500${movie.posterPath}`
-    : null;
+  const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
 
   return (
     <div className="p-6 md:p-10 rounded-3xl bg-surface border border-border/80 shadow-cinematic space-y-6">
@@ -508,11 +501,7 @@ function GroupAlternativesGrid({
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {items.map((item) => {
           const { movie, groupMatchScore } = item;
-          const posterUrl = movie.posterPath
-            ? movie.posterPath.startsWith("http")
-              ? movie.posterPath
-              : `https://image.tmdb.org/t/p/w500${movie.posterPath}`
-            : null;
+          const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
 
           return (
             <div

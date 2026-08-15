@@ -7,6 +7,7 @@ import { Footer } from "@/components/ui/Footer";
 import { getCurrentUser } from "@/lib/auth/service";
 import { db } from "@/lib/db/client";
 import { getTvHomeModules } from "@/lib/tv/recommendation/service";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 
 export const dynamic = "force-dynamic";
 
@@ -174,12 +175,7 @@ export default async function TvHomePage() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {module.items.slice(0, 6).map((item) => {
                     const show = item.tvShow;
-                    const posterUrl = show.posterPath
-                      ? show.posterPath.startsWith("http")
-                        ? show.posterPath
-                        : `https://image.tmdb.org/t/p/w500${show.posterPath}`
-                      : "/placeholder-poster.png";
-
+                    const posterUrl = getTmdbImageUrl(show.posterPath, "w500");
                     const year = show.firstAirDate?.slice(0, 4);
 
                     return (
@@ -189,13 +185,19 @@ export default async function TvHomePage() {
                         className="group relative flex flex-col rounded-2xl bg-surface border border-border/70 hover:border-accent/50 overflow-hidden shadow-sm hover:shadow-cinematic transition-all"
                       >
                         <div className="relative aspect-[2/3] w-full bg-surface-elevated overflow-hidden">
-                          <Image
-                            src={posterUrl}
-                            alt={show.name}
-                            fill
-                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw"
-                            className="object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
+                          {posterUrl ? (
+                            <Image
+                              src={posterUrl}
+                              alt={show.name}
+                              fill
+                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw"
+                              className="object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center p-3 text-center text-text-muted font-display text-xs">
+                              {show.name}
+                            </div>
+                          )}
                           <div className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-background/85 backdrop-blur-md border border-accent/30 text-accent font-mono text-[11px] font-bold">
                             %{item.matchScore}
                           </div>

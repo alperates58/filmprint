@@ -5,6 +5,7 @@ import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { getCurrentUser } from "@/lib/auth/service";
 import { getTvLibraryData } from "@/lib/tv/service";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 
 export default async function TvLibraryPage({
   searchParams,
@@ -135,11 +136,7 @@ export default async function TvLibraryPage({
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {libraryData.items.map((item) => {
-              const posterUrl = item.posterPath
-                ? item.posterPath.startsWith("http")
-                  ? item.posterPath
-                  : `https://image.tmdb.org/t/p/w500${item.posterPath}`
-                : null;
+              const posterUrl = getTmdbImageUrl(item.posterPath, "w500");
 
               return (
                 <div

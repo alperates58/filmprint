@@ -25,6 +25,7 @@ import { runTvRecommendationMatcherTests } from "./tv_recommendation_matcher.tes
 import { runTvHybridRecommendationTests } from "./recommendation_hybrid_tv.test";
 import { runTvCalibrationSupplyTests } from "./tv_calibration_supply.test";
 import { runHybridIntegrationRuntimeTests } from "./hybrid_integration_runtime.test";
+import { runTmdbImageGuardTests } from "./tmdb_image_guard.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -60,6 +61,7 @@ async function runAllUnitAndRegressionTests() {
     { name: "TV Phase 3 Deterministic Match Engine & Candidate Selector Tests", fn: runTvRecommendationMatcherTests },
     { name: "TV Phase 3.5 Shared Hybrid AI Recommendation & Controls Tests", fn: runTvHybridRecommendationTests },
     { name: "Hybrid AI Runtime Integration & Real Order Permutation Tests", fn: runHybridIntegrationRuntimeTests },
+    { name: "TMDB Image Guard & Poster Path Validation Tests", fn: runTmdbImageGuardTests },
   ];
 
   let passedSuites = 0;

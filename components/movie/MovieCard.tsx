@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 
 export interface MovieItem {
   id: string;
@@ -58,17 +59,8 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [step, movie.id, onAnswer]);
 
-  const posterUrl = movie.posterPath
-    ? movie.posterPath.startsWith("http")
-      ? movie.posterPath
-      : `https://image.tmdb.org/t/p/w500${movie.posterPath}`
-    : null;
-
-  const backdropUrl = movie.backdropPath
-    ? movie.backdropPath.startsWith("http")
-      ? movie.backdropPath
-      : `https://image.tmdb.org/t/p/w1280${movie.backdropPath}`
-    : null;
+  const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
+  const backdropUrl = getTmdbImageUrl(movie.backdropPath, "w1280");
 
   return (
     <div

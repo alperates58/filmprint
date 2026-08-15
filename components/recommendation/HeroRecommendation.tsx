@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 import { PersonalizedRecommendationItem } from "@/lib/recommendation/types";
 
 interface HeroRecommendationProps {
@@ -25,11 +26,7 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
   const reasons = dynamicExplanation?.reasons || item.reasons;
   const isAi = dynamicExplanation?.isAiGenerated ?? item.isAiGenerated;
 
-  const posterUrl = movie.posterPath
-    ? movie.posterPath.startsWith("http")
-      ? movie.posterPath
-      : `https://image.tmdb.org/t/p/w500${movie.posterPath}`
-    : null;
+  const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
 
   const handleOpenDetails = () => {
     if (onOpenDetails) {

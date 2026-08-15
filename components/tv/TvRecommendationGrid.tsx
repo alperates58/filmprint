@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 import type { PersonalizedTvRecommendationItem } from "@/lib/tv/recommendation/types";
 
 interface TvRecommendationGridProps {
@@ -168,11 +169,7 @@ export function TvRecommendationGrid({ items, onFeedbackAction, hybridPending }:
           );
         }
 
-        const posterUrl = show.posterPath
-          ? show.posterPath.startsWith("http")
-            ? show.posterPath
-            : `https://image.tmdb.org/t/p/w500${show.posterPath}`
-          : "/placeholder-poster.png";
+        const posterUrl = getTmdbImageUrl(show.posterPath, "w500");
 
         const seasons = show.metadata?.numberOfSeasons;
         const isMini = seasons === 1 && (show.status === "Ended" || show.status === "Canceled");
@@ -195,13 +192,20 @@ export function TvRecommendationGrid({ items, onFeedbackAction, hybridPending }:
           >
             {/* Poster & Badges Container */}
             <div className="relative aspect-[16/10] sm:aspect-[2/3] w-full bg-surface-elevated overflow-hidden">
-              <Image
-                src={posterUrl}
-                alt={show.name}
-                fill
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
-              />
+              {posterUrl ? (
+                <Image
+                  src={posterUrl}
+                  alt={show.name}
+                  fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-gradient-to-b from-surface-elevated via-background to-surface text-center">
+                  <span className="text-3xl mb-2">📺</span>
+                  <span className="text-xs font-display font-semibold text-text-muted line-clamp-2">{show.name}</span>
+                </div>
+              )}
 
               {/* Gradient Overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/20 to-transparent" />

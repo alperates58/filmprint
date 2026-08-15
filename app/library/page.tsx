@@ -8,6 +8,7 @@ import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 
 import { MovieDetailsModal } from "@/components/movie/MovieDetailsModal";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 
 interface LibraryItem {
   id: string;
@@ -361,11 +362,7 @@ function LibraryContent() {
               const { movieId, title, releaseYear, posterPath, genres, status, rating } = item;
               const isRatingOpen = activeRatingMovieId === movieId;
               const isMenuOpen = activeMenuMovieId === movieId;
-              const posterUrl = posterPath
-                ? posterPath.startsWith("http")
-                  ? posterPath
-                  : `https://image.tmdb.org/t/p/w500${posterPath}`
-                : null;
+              const posterUrl = getTmdbImageUrl(posterPath, "w500");
 
               return (
                 <div

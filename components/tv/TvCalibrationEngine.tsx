@@ -6,6 +6,7 @@ import { Header } from "@/components/ui/Header";
 import { TvCard } from "@/components/tv/TvCard";
 import { TvCardSkeleton } from "@/components/tv/TvCardSkeleton";
 import { TvShowItem, TvInteractionStatusType, TvRatingStatusType } from "@/components/tv/types";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 
 interface TvCalibrationEngineProps {
   initialTvShows?: TvShowItem[];
@@ -46,10 +47,8 @@ export function TvCalibrationEngine({
   // Preload poster images for upcoming TV shows
   const preloadUpcomingImages = useCallback((showList: TvShowItem[]) => {
     showList.slice(1, 4).forEach((s) => {
-      if (s.posterPath) {
-        const url = s.posterPath.startsWith("http")
-          ? s.posterPath
-          : `https://image.tmdb.org/t/p/w500${s.posterPath}`;
+      const url = getTmdbImageUrl(s.posterPath, "w500");
+      if (url) {
         const img = new window.Image();
         img.src = url;
       }

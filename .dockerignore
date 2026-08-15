@@ -1,26 +1,42 @@
+# Dependencies & Build Artifacts
 node_modules
 .next
 .git
 .github
+.gemini
+.vscode
+.idea
+.turbo
+.vercel
+
+# Environment & Secrets
 .env
 .env.local
 .env*.local
 *.log
-Dockerfile
-.dockerignore
-docker-compose.yml
-.vscode
-.idea
-*.md
-NEW_CHAT_PROMPT.txt
-docs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test Suites & Quality Tooling
 tests/
 e2e/
 test-results/
 playwright-report/
-scripts/
+coverage/
 playwright.config.ts
 tsconfig.test.json
+*.tsbuildinfo
+tsconfig.test.tsbuildinfo
 tsconfig.tsbuildinfo
 
+# Documentation & Scratch Artifacts
+*.md
+docs/
+artifacts/
+NEW_CHAT_PROMPT.txt
 
+# Docker config
+Dockerfile
+.dockerignore
+docker-compose.yml

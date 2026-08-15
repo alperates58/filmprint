@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 import { PersonalizedRecommendationItem } from "@/lib/recommendation/types";
 
 interface RecommendationGridProps {
@@ -109,11 +110,7 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
           const isExpanded = expandedMovieId === movie.id;
           const isLoadingExplain = loadingExplanationMovieId === movie.id;
 
-          const posterUrl = movie.posterPath
-            ? movie.posterPath.startsWith("http")
-              ? movie.posterPath
-              : `https://image.tmdb.org/t/p/w500${movie.posterPath}`
-            : null;
+          const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
 
           return (
             <div

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 import { TvShowItem, TvInteractionStatusType, TvRatingStatusType } from "./types";
 
 interface TvCardProps {
@@ -25,24 +26,27 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
     setImgError(false);
   }, [tvShow.id]);
 
-  // Keyboard navigation shortcuts
+  const handleStatusClick = (status: "WATCHED" | "PARTIALLY_WATCHED") => {
+    setChosenStatus(status);
+    setStep("step2");
+  };
+
+  // Keyboard shortcut listener for rapid keyboard-driven TV calibration
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input
-      if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) return;
+      // Don't trigger if user is focusing an input or textarea
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA"
+      ) {
+        return;
+      }
 
       if (step === "step1") {
-        if (e.key === "1") {
-          setChosenStatus("WATCHED");
-          setStep("step2");
-        } else if (e.key === "2") {
-          setChosenStatus("PARTIALLY_WATCHED");
-          setStep("step2");
-        } else if (e.key === "3") {
-          onAnswer("NOT_WATCHED", null);
-        } else if (e.key === "4") {
-          onAnswer("UNSURE", null);
-        }
+        if (e.key === "1") handleStatusClick("WATCHED");
+        else if (e.key === "2") handleStatusClick("PARTIALLY_WATCHED");
+        else if (e.key === "3") onAnswer("NOT_WATCHED", null);
+        else if (e.key === "4") onAnswer("UNSURE", null);
       } else if (step === "step2") {
         if (e.key === "1") onAnswer(chosenStatus, "LOVE");
         else if (e.key === "2") onAnswer(chosenStatus, "LIKE");
@@ -56,17 +60,8 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [step, chosenStatus, tvShow.id, onAnswer]);
 
-  const posterUrl = tvShow.posterPath
-    ? tvShow.posterPath.startsWith("http")
-      ? tvShow.posterPath
-      : `https://image.tmdb.org/t/p/w500${tvShow.posterPath}`
-    : null;
-
-  const backdropUrl = tvShow.backdropPath
-    ? tvShow.backdropPath.startsWith("http")
-      ? tvShow.backdropPath
-      : `https://image.tmdb.org/t/p/w1280${tvShow.backdropPath}`
-    : null;
+  const posterUrl = getTmdbImageUrl(tvShow.posterPath, "w500");
+  const backdropUrl = getTmdbImageUrl(tvShow.backdropPath, "w1280");
 
   // Format air years
   const startYear = tvShow.firstAirDate ? tvShow.firstAirDate.substring(0, 4) : "";

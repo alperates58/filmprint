@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 
 export interface MovieDetailsModalProps {
   movieId: string | null;
@@ -190,12 +191,7 @@ export function MovieDetailsModal({
   };
 
   const posterUrl =
-    details?.posterUrl ||
-    (initialData?.posterPath
-      ? initialData.posterPath.startsWith("http")
-        ? initialData.posterPath
-        : `https://image.tmdb.org/t/p/w500${initialData.posterPath}`
-      : null);
+    details?.posterUrl || getTmdbImageUrl(initialData?.posterPath, "w500");
 
   const backdropUrl = details?.backdropUrl;
 
@@ -518,9 +514,9 @@ export function MovieDetailsModal({
                           className="flex-shrink-0 w-24 p-2 rounded-xl bg-surface-elevated border border-border/60 text-center space-y-1.5"
                         >
                           <div className="w-12 h-12 rounded-full overflow-hidden bg-surface mx-auto relative border border-border/60">
-                            {actor.profilePath ? (
+                            {getTmdbImageUrl(actor.profilePath, "w185") ? (
                               <Image
-                                src={`https://image.tmdb.org/t/p/w185${actor.profilePath}`}
+                                src={getTmdbImageUrl(actor.profilePath, "w185")!}
                                 alt={actor.name}
                                 fill
                                 className="object-cover"

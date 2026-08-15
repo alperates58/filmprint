@@ -6,6 +6,7 @@ import { Header } from "@/components/ui/Header";
 import { MovieCard, MovieItem } from "@/components/movie/MovieCard";
 import { MovieCardSkeleton } from "@/components/movie/MovieCardSkeleton";
 import { getProgressionForCount } from "@/lib/progression/service";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 
 interface CalibrationEngineProps {
   initialMovies?: MovieItem[];
@@ -26,17 +27,16 @@ export function CalibrationEngine({
   const [isLoading, setIsLoading] = useState<boolean>(initialMovies.length === 0);
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   const isFetchingRef = useRef<boolean>(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const milestoneTarget = 30;
 
-  // Fetch authenticated user info
+  // Fetch logged in user status
   useEffect(() => {
     fetch("/api/auth/me")
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data.user?.name) {
+        if (data?.user) {
           setUserName(data.user.name);
         }
       })
@@ -46,10 +46,8 @@ export function CalibrationEngine({
   // Preload poster images for upcoming movies in queue
   const preloadUpcomingImages = useCallback((movieList: MovieItem[]) => {
     movieList.slice(1, 4).forEach((m) => {
-      if (m.posterPath) {
-        const url = m.posterPath.startsWith("http")
-          ? m.posterPath
-          : `https://image.tmdb.org/t/p/w500${m.posterPath}`;
+      const url = getTmdbImageUrl(m.posterPath, "w500");
+      if (url) {
         const img = new window.Image();
         img.src = url;
       }

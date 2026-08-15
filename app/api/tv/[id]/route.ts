@@ -3,6 +3,7 @@ import { db } from "@/lib/db/client";
 import { getCurrentUser } from "@/lib/auth/service";
 import { tmdbTvClient } from "@/lib/tmdb/tv/client";
 import { TvInteractionStatus, RatingStatus } from "@prisma/client";
+import { getTmdbImageUrl } from "@/lib/tmdb/image";
 
 export async function GET(
   request: Request,
@@ -104,17 +105,8 @@ export async function GET(
       }
     }
 
-    const posterUrl = show.posterPath
-      ? show.posterPath.startsWith("http")
-        ? show.posterPath
-        : `https://image.tmdb.org/t/p/w500${show.posterPath}`
-      : null;
-
-    const backdropUrl = show.backdropPath
-      ? show.backdropPath.startsWith("http")
-        ? show.backdropPath
-        : `https://image.tmdb.org/t/p/w1280${show.backdropPath}`
-      : null;
+    const posterUrl = getTmdbImageUrl(show.posterPath, "w500");
+    const backdropUrl = getTmdbImageUrl(show.backdropPath, "w1280");
 
     return NextResponse.json({
       id: show.id,

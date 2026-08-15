@@ -99,7 +99,7 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
         isTransitioning ? "opacity-40 scale-[0.98] filter blur-[1px]" : "opacity-100 scale-100"
       }`}
     >
-      {/* Background Backdrop Vignette */}
+      {/* Subtle Background Vignette Layer */}
       {backdropUrl && (
         <div className="absolute inset-0 z-0 opacity-15 pointer-events-none overflow-hidden">
           <Image
@@ -118,138 +118,137 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
       {/* MOBILE COMPACT LAYOUT (block md:hidden) — GUARANTEED ABOVE-THE-FOLD       */}
       {/* ========================================================================= */}
       <div className="relative z-10 flex flex-col md:hidden space-y-3">
-        {/* Top Info Row */}
+        {/* Top Info Row: Side-by-side Poster + Title & Metadata */}
         <div className="flex gap-3.5 items-start">
-          {/* Poster */}
-          <div className="w-24 sm:w-28 aspect-[2/3] rounded-xl bg-surface-elevated border border-border/80 flex-shrink-0 relative overflow-hidden shadow-md">
+          {/* Compact Mobile Poster */}
+          <div className="w-24 sm:w-28 aspect-[2/3] rounded-xl bg-surface-elevated border border-border/80 flex-shrink-0 relative overflow-hidden shadow-md group">
             {posterUrl ? (
-              <img
+              <Image
                 src={posterUrl}
                 alt={tvShow.name}
-                className="w-full h-full object-cover"
-                loading="eager"
+                fill
+                className="object-cover"
+                sizes="112px"
+                priority
+                unoptimized
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-text-muted text-[10px] p-2 text-center font-mono">
-                {tvShow.name}
+              <div className="w-full h-full flex flex-col justify-center items-center p-2 bg-surface-elevated text-center">
+                <span className="text-xl">📺</span>
+                <span className="text-[9px] font-mono text-text-muted mt-1 line-clamp-2">{tvShow.name}</span>
+              </div>
+            )}
+
+            {tvShow.voteAverage > 0 && (
+              <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-background/90 backdrop-blur-md border border-border text-[10px] font-mono font-bold text-text-primary flex items-center gap-0.5 shadow-sm">
+                <span className="text-warning text-[9px]">★</span>
+                <span>{tvShow.voteAverage.toFixed(1)}</span>
               </div>
             )}
           </div>
 
-          {/* Metadata */}
-          <div className="flex-1 min-w-0 space-y-1">
-            <h2 className="font-display text-lg sm:text-xl font-bold text-text-primary leading-tight line-clamp-2">
-              {tvShow.name}
-            </h2>
-
-            {tvShow.originalName && tvShow.originalName !== tvShow.name && (
-              <p className="text-[11px] text-text-muted italic truncate">
-                {tvShow.originalName}
-              </p>
-            )}
-
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-mono text-text-secondary pt-0.5">
-              {airYears && <span className="font-medium text-text-primary">{airYears}</span>}
+          {/* Compact Info Column */}
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+              {airYears && (
+                <span className="px-2 py-0.5 rounded-md bg-surface-elevated border border-border/80 font-mono text-text-secondary font-medium">
+                  {airYears}
+                </span>
+              )}
               {tvShow.numberOfSeasons && (
-                <>
-                  <span className="text-text-muted">•</span>
-                  <span>{tvShow.numberOfSeasons} Sezon</span>
-                </>
+                <span className="px-2 py-0.5 rounded-md bg-surface-elevated/70 border border-border/60 font-mono text-text-muted">
+                  {tvShow.numberOfSeasons} Sezon
+                </span>
               )}
               {statusLabel && (
-                <>
-                  <span className="text-text-muted">•</span>
-                  <span className="text-accent">{statusLabel}</span>
-                </>
+                <span className="px-2 py-0.5 rounded-md bg-surface-elevated/70 border border-border/60 font-mono text-text-muted truncate max-w-[85px]">
+                  {statusLabel}
+                </span>
               )}
-              {tvShow.voteAverage > 0 && (
-                <>
-                  <span className="text-text-muted">•</span>
-                  <span className="text-accent font-bold">★ {tvShow.voteAverage.toFixed(1)}</span>
-                </>
-              )}
-            </div>
-
-            {/* Genre Chips */}
-            <div className="flex flex-wrap gap-1 pt-1">
-              {tvShow.genres.slice(0, 3).map((genre) => (
+              {tvShow.genres.slice(0, 2).map((genre) => (
                 <span
                   key={genre}
-                  className="px-2 py-0.5 rounded-md bg-surface-elevated border border-border/60 text-[10px] font-mono text-text-secondary"
+                  className="px-2 py-0.5 rounded-md bg-surface-elevated/70 border border-border/60 text-text-muted truncate max-w-[90px]"
                 >
                   {genre}
                 </span>
               ))}
             </div>
+
+            <div>
+              <h2 className="font-display text-base sm:text-lg font-bold tracking-tight text-text-primary leading-tight line-clamp-2">
+                {tvShow.name}
+              </h2>
+              {tvShow.originalName && tvShow.originalName !== tvShow.name && (
+                <p className="text-[10px] text-text-muted font-mono italic truncate mt-0.5">
+                  {tvShow.originalName}
+                </p>
+              )}
+            </div>
+
+            {tvShow.overview && (
+              <p className="text-text-secondary text-xs leading-snug line-clamp-2">
+                {tvShow.overview}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Overview Clamped */}
-        {tvShow.overview && (
-          <p className="text-xs text-text-secondary leading-relaxed line-clamp-2 sm:line-clamp-3 bg-surface-elevated/40 p-2.5 rounded-xl border border-border/40">
-            {tvShow.overview}
-          </p>
-        )}
-
-        {/* Actions Container */}
-        <div className="pt-1">
+        {/* Mobile Interaction Controls */}
+        <div className="pt-2.5 border-t border-border/60 space-y-2">
           {step === "step1" ? (
-            <div className="space-y-2">
-              <div className="text-center text-xs font-mono text-text-secondary font-medium">
-                Bu diziyi izledin mi?
-              </div>
+            <div className="space-y-2 animate-fadeIn">
+              <p className="text-[10px] uppercase tracking-wider text-text-muted font-mono font-semibold">
+                BU DİZİYİ İZLEDİN Mİ?
+              </p>
 
-              {/* Primary Action Button */}
               <button
                 onClick={() => {
                   setChosenStatus("WATCHED");
                   setStep("step2");
                 }}
-                className="w-full py-3 px-4 rounded-xl bg-accent text-white font-mono text-xs font-bold shadow-cinematic hover:bg-accent/90 transition-all active:scale-[0.99] flex items-center justify-center gap-2"
+                className="w-full min-h-[48px] px-4 rounded-xl bg-accent text-white font-semibold text-sm hover:bg-accent-hover active:scale-[0.98] transition-all shadow-md flex items-center justify-center gap-2"
               >
-                <span>✓ İzledim</span>
-                <span className="text-[10px] opacity-75 font-normal">(& Puanla)</span>
+                <span>İzledim</span>
+                <span className="text-xs opacity-75 font-mono">→</span>
               </button>
 
-              {/* Secondary Actions Row */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => {
                     setChosenStatus("PARTIALLY_WATCHED");
                     setStep("step2");
                   }}
-                  className="py-2.5 px-2 rounded-xl bg-surface-elevated border border-accent/40 text-accent font-mono text-[11px] font-semibold hover:bg-accent/10 transition-all active:scale-[0.98] text-center"
+                  className="min-h-[44px] px-3 rounded-xl bg-surface-elevated border border-accent/40 text-accent font-medium text-xs hover:bg-accent/10 active:scale-[0.98] transition-all flex items-center justify-center"
+                  aria-label="Kısmen İzledim"
                 >
-                  ⏳ Kısmen
+                  Kısmen İzledim
                 </button>
 
                 <button
                   onClick={() => onAnswer("NOT_WATCHED", null)}
-                  className="py-2.5 px-2 rounded-xl bg-surface-elevated border border-border text-text-secondary font-mono text-[11px] font-medium hover:text-text-primary hover:border-text-muted transition-all active:scale-[0.98] text-center"
+                  className="min-h-[44px] px-3 rounded-xl bg-surface-elevated border border-border text-text-primary font-medium text-xs hover:bg-border/60 active:scale-[0.98] transition-all flex items-center justify-center"
                 >
-                  ✕ İzlemedim
-                </button>
-
-                <button
-                  onClick={() => onAnswer("UNSURE", null)}
-                  className="py-2.5 px-2 rounded-xl bg-surface-elevated border border-border text-text-muted font-mono text-[11px] font-medium hover:text-text-secondary transition-all active:scale-[0.98] text-center"
-                >
-                  ? Emin Değilim
+                  İzlemedim
                 </button>
               </div>
+
+              <button
+                onClick={() => onAnswer("UNSURE", null)}
+                className="w-full min-h-[38px] px-3 rounded-xl bg-surface-elevated/60 border border-border/60 text-text-muted font-medium text-xs hover:text-text-secondary active:scale-[0.98] transition-all flex items-center justify-center"
+              >
+                Emin Değilim
+              </button>
             </div>
           ) : (
-            /* Mobile Step 2: Rating Flow */
-            <div className="space-y-2.5 animate-fadeIn">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-mono text-text-primary font-bold">
-                  {chosenStatus === "PARTIALLY_WATCHED"
-                    ? "Kısmen izlediğin diziyi puanla:"
-                    : "Diziyi nasıl buldun?"}
-                </div>
+            <div className="space-y-2 animate-fadeIn">
+              <div className="flex justify-between items-center">
+                <p className="text-[10px] uppercase tracking-wider text-text-muted font-mono font-semibold">
+                  NASIL BULDUN?
+                </p>
                 <button
                   onClick={() => setStep("step1")}
-                  className="text-[11px] font-mono text-text-muted hover:text-text-primary underline"
+                  className="text-[11px] text-text-muted hover:text-text-primary font-mono underline transition-colors"
                 >
                   ← Geri
                 </button>
@@ -258,27 +257,30 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => onAnswer(chosenStatus, "LOVE")}
-                  className="py-2.5 px-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-bold hover:bg-emerald-500/25 transition-all text-center"
+                  className="min-h-[48px] px-3 rounded-xl bg-success/15 border border-success/40 text-success font-medium text-xs hover:bg-success/25 active:scale-[0.98] transition-all flex items-center justify-center"
                 >
-                  🔥 Çok Sevdim
+                  <span className="font-semibold">😍 Çok Sevdim</span>
                 </button>
+
                 <button
                   onClick={() => onAnswer(chosenStatus, "LIKE")}
-                  className="py-2.5 px-3 rounded-xl bg-blue-500/15 border border-blue-500/40 text-blue-300 font-mono text-xs font-bold hover:bg-blue-500/25 transition-all text-center"
+                  className="min-h-[48px] px-3 rounded-xl bg-surface-elevated border border-success/30 text-text-primary font-medium text-xs hover:border-success/60 active:scale-[0.98] transition-all flex items-center justify-center"
                 >
-                  👍 Beğendim
+                  <span className="font-semibold">👍 Beğendim</span>
                 </button>
+
                 <button
                   onClick={() => onAnswer(chosenStatus, "NEUTRAL")}
-                  className="py-2.5 px-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono text-xs font-bold hover:bg-amber-500/25 transition-all text-center"
+                  className="min-h-[48px] px-3 rounded-xl bg-warning/10 border border-warning/30 text-warning font-medium text-xs hover:bg-warning/20 active:scale-[0.98] transition-all flex items-center justify-center"
                 >
-                  😐 Ortalama
+                  <span className="font-semibold">😐 Ortalama</span>
                 </button>
+
                 <button
                   onClick={() => onAnswer(chosenStatus, "DISLIKE")}
-                  className="py-2.5 px-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 font-mono text-xs font-bold hover:bg-rose-500/25 transition-all text-center"
+                  className="min-h-[48px] px-3 rounded-xl bg-destructive/15 border border-destructive/40 text-destructive font-medium text-xs hover:bg-destructive/25 active:scale-[0.98] transition-all flex items-center justify-center"
                 >
-                  👎 Sevmedim
+                  <span className="font-semibold">👎 Sevmedim</span>
                 </button>
               </div>
             </div>
@@ -287,175 +289,197 @@ export function TvCard({ tvShow, onAnswer, isTransitioning = false }: TvCardProp
       </div>
 
       {/* ========================================================================= */}
-      {/* DESKTOP LAYOUT (hidden md:flex)                                           */}
+      {/* DESKTOP CINEMATIC LAYOUT (hidden md:flex) — FULL FEATURED                 */}
       {/* ========================================================================= */}
-      <div className="relative z-10 hidden md:flex gap-8 items-stretch">
-        {/* Left Column: Big Poster */}
-        <div className="w-56 aspect-[2/3] rounded-2xl bg-surface-elevated border border-border/80 flex-shrink-0 relative overflow-hidden shadow-cinematic group">
+      <div className="relative z-10 hidden md:flex flex-row gap-10 items-start">
+        {/* Poster Frame (Fixed 2:3 Aspect Ratio) */}
+        <div className="w-64 aspect-[2/3] rounded-2xl bg-surface-elevated border border-border/80 flex-shrink-0 relative overflow-hidden shadow-2xl group">
           {posterUrl ? (
-            <img
+            <Image
               src={posterUrl}
               alt={tvShow.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              loading="eager"
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes="256px"
+              priority
+              unoptimized
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-text-muted text-xs font-mono p-4 text-center">
-              {tvShow.name}
+            <div className="w-full h-full flex flex-col justify-between p-5 bg-gradient-to-b from-surface-elevated via-background to-surface border border-accent/20 text-center relative overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-accent/15 border border-accent/30 text-accent font-bold flex items-center justify-center mx-auto mt-4">
+                📺
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono text-accent uppercase tracking-widest font-semibold">
+                  FILMPRINT TV
+                </span>
+                <h3 className="font-display text-sm font-bold text-text-primary line-clamp-2 px-1">
+                  {tvShow.name}
+                </h3>
+                {airYears && (
+                  <p className="text-[10px] font-mono text-text-muted">{airYears}</p>
+                )}
+              </div>
+              <div className="w-full h-1 bg-accent/20 rounded-full mb-2" />
             </div>
           )}
+
+          {/* Vote Rating Badge */}
           {tvShow.voteAverage > 0 && (
-            <div className="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md border border-white/10 text-xs font-mono text-accent font-bold">
-              ★ {tvShow.voteAverage.toFixed(1)}
+            <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-background/85 backdrop-blur-md border border-border text-xs font-mono font-semibold text-text-primary flex items-center gap-1 shadow-md">
+              <span className="text-warning">★</span>
+              <span>{tvShow.voteAverage.toFixed(1)}</span>
             </div>
           )}
         </div>
 
-        {/* Right Column: Metadata + Actions */}
-        <div className="flex-1 flex flex-col justify-between space-y-6">
-          <div className="space-y-3">
-            {/* Title & Original Title */}
-            <div>
-              <h2 className="font-display text-2xl md:text-3xl font-bold text-text-primary tracking-tight">
-                {tvShow.name}
-              </h2>
-              {tvShow.originalName && tvShow.originalName !== tvShow.name && (
-                <p className="text-xs text-text-muted italic mt-0.5">
-                  {tvShow.originalName}
-                </p>
-              )}
-            </div>
-
-            {/* Badges Row */}
-            <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+        {/* Info & Interaction Controls */}
+        <div className="flex-1 flex flex-col justify-between w-full min-h-[320px] space-y-6">
+          {/* Metadata Block */}
+          <div className="space-y-3 text-left">
+            <div className="flex flex-wrap items-center justify-start gap-2">
               {airYears && (
-                <span className="px-2.5 py-1 rounded-lg bg-surface-elevated border border-border text-text-primary font-medium">
+                <span className="px-2.5 py-0.5 rounded-full bg-surface-elevated border border-border text-xs font-mono text-text-secondary font-medium">
                   {airYears}
                 </span>
               )}
               {tvShow.numberOfSeasons && (
-                <span className="px-2.5 py-1 rounded-lg bg-surface-elevated border border-border text-text-secondary">
-                  {tvShow.numberOfSeasons} Sezon
-                  {tvShow.numberOfEpisodes ? ` (${tvShow.numberOfEpisodes} Bölüm)` : ""}
+                <span className="px-2.5 py-0.5 rounded-full bg-surface-elevated border border-border text-xs font-mono text-text-secondary">
+                  {tvShow.numberOfSeasons} Sezon{tvShow.numberOfEpisodes ? ` (${tvShow.numberOfEpisodes} Bölüm)` : ""}
                 </span>
               )}
               {statusLabel && (
-                <span className="px-2.5 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent font-semibold">
+                <span className="px-2.5 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-xs font-mono text-accent font-semibold">
                   {statusLabel}
                 </span>
               )}
-            </div>
-
-            {/* Genre Chips */}
-            <div className="flex flex-wrap gap-1.5 pt-1">
               {tvShow.genres.map((genre) => (
                 <span
                   key={genre}
-                  className="px-2.5 py-1 rounded-lg bg-surface-elevated border border-border/80 text-xs font-mono text-text-secondary"
+                  className="px-2.5 py-0.5 rounded-full bg-surface-elevated/70 border border-border/60 text-xs font-sans text-text-muted"
                 >
                   {genre}
                 </span>
               ))}
             </div>
 
-            {/* Overview */}
+            <div>
+              <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary leading-snug">
+                {tvShow.name}
+              </h2>
+              {tvShow.originalName && tvShow.originalName !== tvShow.name && (
+                <p className="text-xs text-text-muted font-mono italic mt-0.5">
+                  {tvShow.originalName}
+                </p>
+              )}
+            </div>
+
             {tvShow.overview && (
-              <p className="text-sm text-text-secondary leading-relaxed line-clamp-4 pt-1">
+              <p className="text-text-secondary text-sm leading-relaxed line-clamp-4">
                 {tvShow.overview}
               </p>
             )}
           </div>
 
-          {/* Desktop Actions */}
-          <div className="border-t border-border/60 pt-5">
+          {/* Dynamic Interaction Controls Container */}
+          <div className="pt-4 border-t border-border/60 space-y-4">
             {step === "step1" ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs font-mono text-text-muted">
-                  <span>Bu diziyi izledin mi?</span>
-                  <span className="text-[11px] opacity-75">Klavye: [1-4]</span>
+              /* Step 1: "BU DİZİYİ İZLEDİN Mİ?" */
+              <div className="space-y-3 animate-fadeIn">
+                <div className="flex justify-between items-center">
+                  <p className="text-xs uppercase tracking-widest text-text-muted font-mono">
+                    BU DİZİYİ İZLEDİN Mİ?
+                  </p>
+                  <span className="text-[10px] font-mono text-text-muted">
+                    Kısayol: [1] İzledim, [2] Kısmen, [3] İzlemedim, [4] Emin Değilim
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-4 gap-3">
-                  {/* Action 1: İzledim */}
                   <button
                     onClick={() => {
                       setChosenStatus("WATCHED");
                       setStep("step2");
                     }}
-                    className="py-3 px-3 rounded-xl bg-accent text-white font-mono text-xs font-bold shadow-cinematic hover:bg-accent/90 transition-all hover:scale-[1.02] active:scale-[0.98] text-center"
+                    className="min-h-[48px] px-4 rounded-xl bg-accent text-white font-medium text-sm hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 shadow-md flex items-center justify-center gap-2 group"
                   >
-                    ✓ İzledim <span className="text-[10px] opacity-75 block font-normal">[1]</span>
+                    <span>İzledim</span>
+                    <span className="text-xs opacity-75 font-mono group-hover:translate-x-0.5 transition-transform">
+                      →
+                    </span>
                   </button>
 
-                  {/* Action 2: Kısmen İzledim */}
                   <button
                     onClick={() => {
                       setChosenStatus("PARTIALLY_WATCHED");
                       setStep("step2");
                     }}
-                    className="py-3 px-3 rounded-xl bg-surface-elevated border border-accent/40 text-accent font-mono text-xs font-semibold hover:bg-accent/15 transition-all hover:scale-[1.02] active:scale-[0.98] text-center"
+                    className="min-h-[48px] px-3 rounded-xl bg-surface-elevated border border-accent/40 text-accent font-medium text-sm hover:bg-accent/15 active:scale-[0.98] transition-all duration-150 flex items-center justify-center"
                   >
-                    ⏳ Kısmen İzledim <span className="text-[10px] opacity-75 block font-normal">[2]</span>
+                    Kısmen İzledim
                   </button>
 
-                  {/* Action 3: İzlemedim */}
                   <button
                     onClick={() => onAnswer("NOT_WATCHED", null)}
-                    className="py-3 px-3 rounded-xl bg-surface-elevated border border-border text-text-secondary font-mono text-xs font-medium hover:text-text-primary hover:border-text-muted transition-all hover:scale-[1.02] active:scale-[0.98] text-center"
+                    className="min-h-[48px] px-4 rounded-xl bg-surface-elevated border border-border text-text-primary font-medium text-sm hover:bg-border/60 active:scale-[0.98] transition-all duration-150 flex items-center justify-center"
                   >
-                    ✕ İzlemedim <span className="text-[10px] opacity-75 block font-normal">[3]</span>
+                    İzlemedim
                   </button>
 
-                  {/* Action 4: Emin Değilim */}
                   <button
                     onClick={() => onAnswer("UNSURE", null)}
-                    className="py-3 px-3 rounded-xl bg-surface-elevated border border-border text-text-muted font-mono text-xs font-medium hover:text-text-secondary transition-all hover:scale-[1.02] active:scale-[0.98] text-center"
+                    className="min-h-[48px] px-4 rounded-xl bg-surface-elevated/50 border border-border/60 text-text-muted font-medium text-sm hover:text-text-secondary hover:bg-surface-elevated active:scale-[0.98] transition-all duration-150 flex items-center justify-center"
                   >
-                    ? Emin Değilim <span className="text-[10px] opacity-75 block font-normal">[4]</span>
+                    Emin Değilim
                   </button>
                 </div>
               </div>
             ) : (
-              /* Desktop Step 2: Rating Flow */
+              /* Step 2: "NASIL BULDUN?" */
               <div className="space-y-3 animate-fadeIn">
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-text-primary font-bold">
-                    {chosenStatus === "PARTIALLY_WATCHED"
-                      ? "Kısmen izlediğin bu diziyi nasıl buldun?"
-                      : "Bu diziyi nasıl buldun?"}
-                  </span>
+                <div className="flex justify-between items-center">
+                  <p className="text-xs uppercase tracking-widest text-text-muted font-mono">
+                    NASIL BULDUN?
+                  </p>
                   <button
                     onClick={() => setStep("step1")}
-                    className="text-[11px] text-text-muted hover:text-text-primary underline flex items-center gap-1"
+                    className="text-xs text-text-muted hover:text-text-secondary font-mono underline underline-offset-2 transition-colors"
                   >
-                    ← Geri Dön [Esc]
+                    ← Geri
                   </button>
                 </div>
 
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-4 gap-2.5">
                   <button
                     onClick={() => onAnswer(chosenStatus, "LOVE")}
-                    className="py-3 px-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-bold hover:bg-emerald-500/25 transition-all hover:scale-[1.02] text-center"
+                    className="min-h-[48px] px-3 rounded-xl bg-success/15 border border-success/40 text-success font-medium text-sm hover:bg-success/25 active:scale-[0.98] transition-all duration-150 flex flex-col items-center justify-center py-2"
                   >
-                    🔥 Çok Sevdim <span className="text-[10px] opacity-75 block font-normal">[1]</span>
+                    <span className="font-semibold">Çok Sevdim</span>
+                    <span className="text-[10px] opacity-75 font-mono">[1]</span>
                   </button>
+
                   <button
                     onClick={() => onAnswer(chosenStatus, "LIKE")}
-                    className="py-3 px-2 rounded-xl bg-blue-500/15 border border-blue-500/40 text-blue-300 font-mono text-xs font-bold hover:bg-blue-500/25 transition-all hover:scale-[1.02] text-center"
+                    className="min-h-[48px] px-3 rounded-xl bg-surface-elevated border border-success/30 text-text-primary font-medium text-sm hover:border-success/60 active:scale-[0.98] transition-all duration-150 flex flex-col items-center justify-center py-2"
                   >
-                    👍 Beğendim <span className="text-[10px] opacity-75 block font-normal">[2]</span>
+                    <span className="font-semibold">Beğendim</span>
+                    <span className="text-[10px] opacity-75 font-mono">[2]</span>
                   </button>
+
                   <button
                     onClick={() => onAnswer(chosenStatus, "NEUTRAL")}
-                    className="py-3 px-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono text-xs font-bold hover:bg-amber-500/25 transition-all hover:scale-[1.02] text-center"
+                    className="min-h-[48px] px-3 rounded-xl bg-warning/10 border border-warning/30 text-warning font-medium text-sm hover:bg-warning/20 active:scale-[0.98] transition-all duration-150 flex flex-col items-center justify-center py-2"
                   >
-                    😐 Ortalama <span className="text-[10px] opacity-75 block font-normal">[3]</span>
+                    <span className="font-semibold">Ortalama</span>
+                    <span className="text-[10px] opacity-75 font-mono">[3]</span>
                   </button>
+
                   <button
                     onClick={() => onAnswer(chosenStatus, "DISLIKE")}
-                    className="py-3 px-2 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 font-mono text-xs font-bold hover:bg-rose-500/25 transition-all hover:scale-[1.02] text-center"
+                    className="min-h-[48px] px-3 rounded-xl bg-destructive/15 border border-destructive/40 text-destructive font-medium text-sm hover:bg-destructive/25 active:scale-[0.98] transition-all duration-150 flex flex-col items-center justify-center py-2"
                   >
-                    👎 Sevmedim <span className="text-[10px] opacity-75 block font-normal">[4]</span>
+                    <span className="font-semibold">Sevmedim</span>
+                    <span className="text-[10px] opacity-75 font-mono">[4]</span>
                   </button>
                 </div>
               </div>

@@ -27,7 +27,8 @@ export default async function AdminUserDetailPage({
   }
 
   const { user } = data;
-  const dna = user.filmDnaStatus;
+  const filmDna = user.filmDnaStatus;
+  const tvDna = user.tvDnaStatus;
 
   return (
     <AdminLayout adminEmail={session.email}>
@@ -80,23 +81,60 @@ export default async function AdminUserDetailPage({
           </div>
         </div>
 
-        {/* User Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="p-4 rounded-xl bg-surface border border-border space-y-1">
-            <p className="text-[10px] text-text-muted font-mono uppercase">TOPLAM CEVAP</p>
-            <p className="font-display text-2xl font-bold text-text-primary">{user.stats.totalInteractions}</p>
+        {/* Film & TV Stats Grids */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Film Stats */}
+          <div className="p-4 rounded-2xl bg-surface border border-border/80 space-y-3">
+            <h2 className="font-display text-sm font-bold text-text-primary flex items-center gap-1.5">
+              <span>🎬</span> Film İstatistikleri
+            </h2>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="p-2.5 rounded-xl bg-surface-elevated border border-border space-y-0.5">
+                <p className="text-[9px] text-text-muted font-mono uppercase">TOPLAM</p>
+                <p className="font-display text-lg font-bold text-text-primary">{user.stats.totalInteractions}</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-surface-elevated border border-border space-y-0.5">
+                <p className="text-[9px] text-text-muted font-mono uppercase">İZLEDİ</p>
+                <p className="font-display text-lg font-bold text-success">{user.stats.watched}</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-surface-elevated border border-border space-y-0.5">
+                <p className="text-[9px] text-text-muted font-mono uppercase">İZLEMEDİ</p>
+                <p className="font-display text-lg font-bold text-text-primary">{user.stats.notWatched}</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-surface-elevated border border-border space-y-0.5">
+                <p className="text-[9px] text-text-muted font-mono uppercase">EMİN DEĞİL</p>
+                <p className="font-display text-lg font-bold text-text-muted">{user.stats.unsure}</p>
+              </div>
+            </div>
           </div>
-          <div className="p-4 rounded-xl bg-surface border border-border space-y-1">
-            <p className="text-[10px] text-text-muted font-mono uppercase">İZLEDİ</p>
-            <p className="font-display text-2xl font-bold text-success">{user.stats.watched}</p>
-          </div>
-          <div className="p-4 rounded-xl bg-surface border border-border space-y-1">
-            <p className="text-[10px] text-text-muted font-mono uppercase">İZLEMEDİ</p>
-            <p className="font-display text-2xl font-bold text-text-primary">{user.stats.notWatched}</p>
-          </div>
-          <div className="p-4 rounded-xl bg-surface border border-border space-y-1">
-            <p className="text-[10px] text-text-muted font-mono uppercase">EMİN DEĞİL</p>
-            <p className="font-display text-2xl font-bold text-text-muted">{user.stats.unsure}</p>
+
+          {/* TV Stats */}
+          <div className="p-4 rounded-2xl bg-surface border border-border/80 space-y-3">
+            <h2 className="font-display text-sm font-bold text-text-primary flex items-center gap-1.5">
+              <span>📺</span> Dizi İstatistikleri
+            </h2>
+            <div className="grid grid-cols-5 gap-2 text-center">
+              <div className="p-2.5 rounded-xl bg-surface-elevated border border-border space-y-0.5">
+                <p className="text-[9px] text-text-muted font-mono uppercase">TOPLAM</p>
+                <p className="font-display text-lg font-bold text-text-primary">{user.tvStats.totalInteractions}</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-surface-elevated border border-border space-y-0.5">
+                <p className="text-[9px] text-text-muted font-mono uppercase">İZLEDİ</p>
+                <p className="font-display text-lg font-bold text-success">{user.tvStats.watched}</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-surface-elevated border border-border space-y-0.5">
+                <p className="text-[9px] text-text-muted font-mono uppercase">KISMEN</p>
+                <p className="font-display text-lg font-bold text-accent">{user.tvStats.partiallyWatched}</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-surface-elevated border border-border space-y-0.5">
+                <p className="text-[9px] text-text-muted font-mono uppercase">İZLEMEDİ</p>
+                <p className="font-display text-lg font-bold text-text-primary">{user.tvStats.notWatched}</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-surface-elevated border border-border space-y-0.5">
+                <p className="text-[9px] text-text-muted font-mono uppercase">EMİN DEĞİL</p>
+                <p className="font-display text-lg font-bold text-text-muted">{user.tvStats.unsure}</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -133,107 +171,257 @@ export default async function AdminUserDetailPage({
                 </span>
               </div>
               <div className="p-3 rounded-xl bg-surface-elevated border border-border">
-                <span className="text-text-muted block text-[10px]">FILM DNA CONFIDENCE</span>
-                <span className="font-bold text-success">%{Math.round(dna.confidence * 100)}</span>
+                <span className="text-text-muted block text-[10px]">FILM DNA GÜVEN</span>
+                <span className="font-bold text-success">%{Math.round(filmDna.confidence * 100)}</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Film DNA Status Card */}
-        <div className="p-5 rounded-2xl bg-surface border border-border/80 space-y-3 shadow-md">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-base font-bold text-text-primary">
-              Film DNA Profil Durumu
-            </h2>
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-mono font-medium ${
-                dna.ready
-                  ? "bg-success/15 border border-success/30 text-success"
-                  : "bg-surface-elevated border border-border text-text-muted"
-              }`}
-            >
-              {dna.ready ? "Profil Hazır" : "Kalibrasyon Aşamasında"}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
-            <div className="p-3 rounded-xl bg-surface-elevated border border-border">
-              <span className="text-text-muted block text-[10px]">ALGORİTMA SÜRÜMÜ</span>
-              <span className="font-bold text-text-primary">v{dna.version}.0</span>
-            </div>
-            <div className="p-3 rounded-xl bg-surface-elevated border border-border">
-              <span className="text-text-muted block text-[10px]">GÜVEN ORANI</span>
-              <span className="font-bold text-accent">%{Math.round(dna.confidence * 100)}</span>
-            </div>
-            <div className="p-3 rounded-xl bg-surface-elevated border border-border">
-              <span className="text-text-muted block text-[10px]">DEĞERLENDİRİLEN FİLM</span>
-              <span className="font-bold text-text-primary">{user.stats.watched}</span>
-            </div>
-            <div className="p-3 rounded-xl bg-surface-elevated border border-border">
-              <span className="text-text-muted block text-[10px]">SON HESAPLAMA</span>
-              <span className="text-text-secondary">
-                {dna.lastCalculated
-                  ? new Date(dna.lastCalculated).toLocaleTimeString("tr-TR")
-                  : "-"}
+        {/* Film DNA & TV DNA Profil Durumları */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Film DNA Status Card */}
+          <div className="p-5 rounded-2xl bg-surface border border-border/80 space-y-3 shadow-md">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-1.5">
+                <span>🎬</span> Film DNA Profil Durumu
+              </h2>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-mono font-medium ${
+                  filmDna.ready
+                    ? "bg-success/15 border border-success/30 text-success"
+                    : "bg-surface-elevated border border-border text-text-muted"
+                }`}
+              >
+                {filmDna.ready ? "Profil Hazır" : "Kalibrasyon Aşamasında"}
               </span>
             </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+              <div className="p-3 rounded-xl bg-surface-elevated border border-border">
+                <span className="text-text-muted block text-[10px]">ALGORİTMA</span>
+                <span className="font-bold text-text-primary">v{filmDna.version}.0</span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface-elevated border border-border">
+                <span className="text-text-muted block text-[10px]">GÜVEN ORANI</span>
+                <span className="font-bold text-accent">%{Math.round(filmDna.confidence * 100)}</span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface-elevated border border-border">
+                <span className="text-text-muted block text-[10px]">KAYNAK FİLM</span>
+                <span className="font-bold text-text-primary">{user.stats.watched}</span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface-elevated border border-border">
+                <span className="text-text-muted block text-[10px]">SON HESAPLAMA</span>
+                <span className="text-text-secondary truncate">
+                  {filmDna.lastCalculated
+                    ? new Date(filmDna.lastCalculated).toLocaleTimeString("tr-TR")
+                    : "-"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* TV DNA Status Card */}
+          <div className="p-5 rounded-2xl bg-surface border border-border/80 space-y-3 shadow-md">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-1.5">
+                <span>📺</span> Dizi DNA Profil Durumu
+              </h2>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-mono font-medium ${
+                  tvDna.ready
+                    ? "bg-success/15 border border-success/30 text-success"
+                    : "bg-surface-elevated border border-border text-text-muted"
+                }`}
+              >
+                {tvDna.ready ? "Profil Hazır" : "Kalibrasyon Aşamasında"}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+              <div className="p-3 rounded-xl bg-surface-elevated border border-border">
+                <span className="text-text-muted block text-[10px]">ALGORİTMA</span>
+                <span className="font-bold text-text-primary">v{tvDna.version}.0</span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface-elevated border border-border">
+                <span className="text-text-muted block text-[10px]">GÜVEN ORANI</span>
+                <span className="font-bold text-success">%{Math.round(tvDna.confidence * 100)}</span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface-elevated border border-border">
+                <span className="text-text-muted block text-[10px]">KAYNAK DİZİ</span>
+                <span className="font-bold text-text-primary">{user.tvStats.watched + user.tvStats.partiallyWatched}</span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface-elevated border border-border">
+                <span className="text-text-muted block text-[10px]">SON HESAPLAMA</span>
+                <span className="text-text-secondary truncate">
+                  {tvDna.lastCalculated
+                    ? new Date(tvDna.lastCalculated).toLocaleTimeString("tr-TR")
+                    : "-"}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* User Interactions History Table */}
+        {/* User Film Interactions History Table */}
         <div className="bg-surface border border-border/80 rounded-2xl overflow-hidden shadow-md space-y-3 p-4">
-          <h2 className="font-display text-base font-bold text-text-primary">
-            Cevaplanan Film Geçmişi ({user.interactions.length})
+          <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-2">
+            <span>🎬</span> Cevaplanan Film Geçmişi ({user.interactions.length})
           </h2>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-border/60 text-[11px] font-mono text-text-muted uppercase">
-                  <th className="py-2.5 px-3">Film Adı</th>
-                  <th className="py-2.5 px-3">Yıl</th>
-                  <th className="py-2.5 px-3">Durum</th>
-                  <th className="py-2.5 px-3">Rating</th>
-                  <th className="py-2.5 px-3 text-right">Tarih</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40 text-xs font-mono">
-                {user.interactions.map((i: any) => (
-                  <tr key={i.id} className="hover:bg-surface-elevated/40">
-                    <td className="py-3 px-3 font-semibold text-text-primary">
-                      {i.movieTitle}
-                    </td>
-                    <td className="py-3 px-3 text-text-muted">{i.releaseYear || "-"}</td>
-                    <td className="py-3 px-3">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] ${
-                          i.status === "WATCHED"
-                            ? "bg-success/15 text-success"
-                            : i.status === "NOT_WATCHED"
-                            ? "bg-surface-elevated text-text-primary"
-                            : "bg-surface-elevated text-text-muted"
-                        }`}
-                      >
-                        {i.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3">
-                      {i.rating ? (
-                        <span className="font-bold text-accent">{i.rating}</span>
-                      ) : (
-                        <span className="text-text-muted">-</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-3 text-right text-text-muted">
-                      {new Date(i.answeredAt).toLocaleString("tr-TR")}
-                    </td>
+          {user.interactions.length === 0 ? (
+            <p className="text-xs text-text-muted font-mono py-4 text-center">Henüz film etkileşimi bulunmuyor.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-border/60 text-[11px] font-mono text-text-muted uppercase">
+                    <th className="py-2.5 px-3">Film Adı</th>
+                    <th className="py-2.5 px-3">Yıl</th>
+                    <th className="py-2.5 px-3">Durum</th>
+                    <th className="py-2.5 px-3">Rating</th>
+                    <th className="py-2.5 px-3 text-right">Tarih</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-border/40 text-xs font-mono">
+                  {user.interactions.map((i: any) => (
+                    <tr key={i.id} className="hover:bg-surface-elevated/40">
+                      <td className="py-3 px-3 font-semibold text-text-primary">
+                        {i.movieTitle}
+                      </td>
+                      <td className="py-3 px-3 text-text-muted">{i.releaseYear || "-"}</td>
+                      <td className="py-3 px-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] ${
+                            i.status === "WATCHED"
+                              ? "bg-success/15 text-success"
+                              : i.status === "NOT_WATCHED"
+                              ? "bg-surface-elevated text-text-primary"
+                              : "bg-surface-elevated text-text-muted"
+                          }`}
+                        >
+                          {i.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        {i.rating ? (
+                          <span className="font-bold text-accent">{i.rating}</span>
+                        ) : (
+                          <span className="text-text-muted">-</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 text-right text-text-muted">
+                        {new Date(i.answeredAt).toLocaleString("tr-TR")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
+
+        {/* User TV Interactions History Table */}
+        <div className="bg-surface border border-border/80 rounded-2xl overflow-hidden shadow-md space-y-3 p-4">
+          <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-2">
+            <span>📺</span> Cevaplanan Dizi Geçmişi ({user.tvInteractions.length})
+          </h2>
+
+          {user.tvInteractions.length === 0 ? (
+            <p className="text-xs text-text-muted font-mono py-4 text-center">Henüz dizi etkileşimi bulunmuyor.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-border/60 text-[11px] font-mono text-text-muted uppercase">
+                    <th className="py-2.5 px-3">Dizi Adı</th>
+                    <th className="py-2.5 px-3">İlk Yayın</th>
+                    <th className="py-2.5 px-3">Durum</th>
+                    <th className="py-2.5 px-3">Rating</th>
+                    <th className="py-2.5 px-3 text-right">Tarih</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/40 text-xs font-mono">
+                  {user.tvInteractions.map((i: any) => (
+                    <tr key={i.id} className="hover:bg-surface-elevated/40">
+                      <td className="py-3 px-3 font-semibold text-text-primary">
+                        {i.tvShowName}
+                      </td>
+                      <td className="py-3 px-3 text-text-muted">{i.firstAirDate || "-"}</td>
+                      <td className="py-3 px-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] ${
+                            i.status === "WATCHED"
+                              ? "bg-success/15 text-success"
+                              : i.status === "PARTIALLY_WATCHED"
+                              ? "bg-accent/15 text-accent font-bold"
+                              : i.status === "NOT_WATCHED"
+                              ? "bg-surface-elevated text-text-primary"
+                              : "bg-surface-elevated text-text-muted"
+                          }`}
+                        >
+                          {i.status === "PARTIALLY_WATCHED" ? "KISMEN İZLEDİ" : i.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        {i.rating ? (
+                          <span className="font-bold text-accent">{i.rating}</span>
+                        ) : (
+                          <span className="text-text-muted">-</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 text-right text-text-muted">
+                        {new Date(i.answeredAt).toLocaleString("tr-TR")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* User TV Recommendations Feedback Table */}
+        {user.tvRecommendationFeedbacks.length > 0 && (
+          <div className="bg-surface border border-border/80 rounded-2xl overflow-hidden shadow-md space-y-3 p-4">
+            <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-2">
+              <span>📺</span> Dizi Öneri Geri Bildirimleri ({user.tvRecommendationFeedbacks.length})
+            </h2>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-border/60 text-[11px] font-mono text-text-muted uppercase">
+                    <th className="py-2.5 px-3">Dizi</th>
+                    <th className="py-2.5 px-3">Eşleşme Skoru</th>
+                    <th className="py-2.5 px-3">Geri Bildirim Aksiyonu</th>
+                    <th className="py-2.5 px-3 text-right">Tarih</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/40 text-xs font-mono">
+                  {user.tvRecommendationFeedbacks.map((f: any) => (
+                    <tr key={f.id} className="hover:bg-surface-elevated/40">
+                      <td className="py-3 px-3 font-semibold text-text-primary">
+                        {f.tvShowName}
+                      </td>
+                      <td className="py-3 px-3 text-accent font-bold">
+                        %{f.matchScore}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="px-2 py-0.5 rounded bg-surface-elevated text-text-secondary text-[10px]">
+                          {f.action}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right text-text-muted">
+                        {new Date(f.updatedAt).toLocaleString("tr-TR")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

@@ -62,15 +62,17 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                   <th className="py-3 px-4">Durum</th>
                   <th className="py-3 px-4">Kayıt Tarihi</th>
                   <th className="py-3 px-4">Son Aktivite</th>
-                  <th className="py-3 px-4 text-center">Film</th>
-                  <th className="py-3 px-4 text-center">Film DNA</th>
+                  <th className="py-3 px-3 text-center">Film</th>
+                  <th className="py-3 px-3 text-center">Dizi</th>
+                  <th className="py-3 px-3 text-center">Film DNA</th>
+                  <th className="py-3 px-3 text-center">Dizi DNA</th>
                   <th className="py-3 px-4 text-right">İşlem</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40 text-xs">
                 {data.users.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-text-muted font-mono text-xs">
+                    <td colSpan={10} className="py-8 text-center text-text-muted font-mono text-xs">
                       Kullanıcı bulunamadı.
                     </td>
                   </tr>
@@ -129,18 +131,38 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                         {new Date(user.lastSeenAt).toLocaleDateString("tr-TR")}
                       </td>
 
-                      <td className="py-3 px-4 text-center font-mono font-semibold text-text-primary">
-                        {user.interactionCount}
+                      {/* Movie count */}
+                      <td className="py-3 px-3 text-center font-mono font-semibold text-text-primary">
+                        {user.movieInteractionCount}
                       </td>
 
-                      <td className="py-3 px-4 text-center font-mono">
+                      {/* TV count */}
+                      <td className="py-3 px-3 text-center font-mono font-semibold text-accent">
+                        {user.tvInteractionCount}
+                      </td>
+
+                      {/* Film DNA Status */}
+                      <td className="py-3 px-3 text-center font-mono">
                         {user.hasTasteProfile ? (
                           <span className="px-2 py-0.5 rounded-md bg-accent/15 text-accent text-[10px] font-bold border border-accent/30">
-                            HAZIR (%{Math.round(user.confidence * 100)})
+                            %{Math.round(user.confidence * 100)}
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-md bg-surface-elevated text-text-muted text-[10px] border border-border">
-                            EKSİK
+                            -
+                          </span>
+                        )}
+                      </td>
+
+                      {/* TV DNA Status */}
+                      <td className="py-3 px-3 text-center font-mono">
+                        {user.hasTvTasteProfile ? (
+                          <span className="px-2 py-0.5 rounded-md bg-success/15 text-success text-[10px] font-bold border border-success/30">
+                            %{Math.round(user.tvConfidence * 100)}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-surface-elevated text-text-muted text-[10px] border border-border">
+                            -
                           </span>
                         )}
                       </td>
@@ -217,16 +239,30 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                     )}
 
                     <span className="px-2 py-0.5 rounded-md bg-surface-elevated text-text-primary text-[10px]">
-                      🎬 {user.interactionCount} film
+                      🎬 {user.movieInteractionCount} film
+                    </span>
+
+                    <span className="px-2 py-0.5 rounded-md bg-surface-elevated text-accent text-[10px]">
+                      📺 {user.tvInteractionCount} dizi
                     </span>
 
                     {user.hasTasteProfile ? (
                       <span className="px-2 py-0.5 rounded-md bg-accent/15 text-accent text-[10px] font-bold border border-accent/30">
-                        DNA %{Math.round(user.confidence * 100)}
+                        Film DNA %{Math.round(user.confidence * 100)}
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-md bg-surface-elevated text-text-muted text-[10px] border border-border">
-                        DNA EKSİK
+                        Film DNA -
+                      </span>
+                    )}
+
+                    {user.hasTvTasteProfile ? (
+                      <span className="px-2 py-0.5 rounded-md bg-success/15 text-success text-[10px] font-bold border border-success/30">
+                        Dizi DNA %{Math.round(user.tvConfidence * 100)}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md bg-surface-elevated text-text-muted text-[10px] border border-border">
+                        Dizi DNA -
                       </span>
                     )}
                   </div>

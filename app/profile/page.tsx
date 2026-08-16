@@ -26,7 +26,7 @@ export default async function ProfilePage() {
   ]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background selection:bg-accent selection:text-white">
+    <div className="min-h-screen flex flex-col bg-bg-base text-text-primary selection:bg-accent selection:text-white">
       <Header
         progressCount={data.current}
         progressTarget={data.required}
@@ -35,20 +35,20 @@ export default async function ProfilePage() {
         userEmail={currentUser.email || undefined}
       />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 md:py-12 space-y-8">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-8">
         {!data.ready || !data.profile ? (
           /* Profile Not Ready State */
           <div className="space-y-8 animate-fadeIn">
-            <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface border border-border/80 rounded-3xl p-8 md:p-12 shadow-cinematic my-8">
-              <div className="w-16 h-16 rounded-full bg-accent/15 border border-accent/30 text-accent flex items-center justify-center mx-auto text-2xl font-bold font-mono">
-                DNA
+            <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface-1 border border-border rounded-3xl p-8 md:p-12 shadow-md my-8">
+              <div className="w-16 h-16 rounded-2xl bg-accent-subtle border border-accent/30 text-accent flex items-center justify-center mx-auto text-2xl font-bold">
+                🧬
               </div>
 
               <div className="space-y-2">
                 <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
-                  Film DNA'nız Henüz Hazır Değil
+                  Film DNA&apos;nız Henüz Hazır Değil
                 </h1>
-                <p className="text-text-secondary text-sm leading-relaxed">
+                <p className="text-text-secondary text-sm leading-relaxed font-sans">
                   Kişisel Film DNA profilinizin oluşması için en az{" "}
                   <strong className="text-text-primary">{data.required} filmi</strong>{" "}
                   değerlendirmeniz gerekmektedir.
@@ -56,14 +56,14 @@ export default async function ProfilePage() {
               </div>
 
               {/* Progress Bar */}
-              <div className="space-y-2 pt-2">
-                <div className="flex justify-between text-xs font-mono text-text-muted">
-                  <span>KALİBRASYON İLERLEMESİ</span>
+              <div className="space-y-2 pt-2 font-sans">
+                <div className="flex justify-between text-xs text-text-muted">
+                  <span className="font-semibold">KALİBRASYON İLERLEMESİ</span>
                   <span className="font-bold text-text-primary">
                     {data.current} / {data.required} Film
                   </span>
                 </div>
-                <div className="w-full h-3 rounded-full bg-surface-elevated overflow-hidden border border-border">
+                <div className="w-full h-3 rounded-full bg-surface-2 overflow-hidden border border-border">
                   <div
                     className="h-full rounded-full bg-accent transition-all duration-500"
                     style={{
@@ -79,7 +79,7 @@ export default async function ProfilePage() {
               <div className="pt-4">
                 <Link
                   href="/"
-                  className="inline-flex items-center justify-center px-6 py-3.5 rounded-xl bg-accent text-white font-medium text-sm hover:bg-accent-hover active:scale-[0.98] transition-all shadow-md"
+                  className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-accent text-white font-semibold text-xs hover:bg-accent-hover active:scale-95 transition-all shadow-sm min-h-[44px]"
                 >
                   Filmleri Değerlendirmeye Başla →
                 </Link>
@@ -87,51 +87,12 @@ export default async function ProfilePage() {
             </div>
 
             <FilmJourney evaluatedCount={data.current} />
-
-            {/* Filmlerim Summary Card */}
-            <div className="p-6 rounded-3xl bg-surface border border-border/80 space-y-4 shadow-cinematic">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-mono text-accent uppercase tracking-widest font-semibold">
-                    KİŞİSEL KÜTÜPHANE ÖZETİ
-                  </span>
-                  <h3 className="font-display text-xl font-bold text-text-primary">
-                    Filmlerim
-                  </h3>
-                </div>
-                <Link
-                  href="/library"
-                  className="px-4 py-2 rounded-xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all"
-                >
-                  Tüm Filmlerimi Gör ➔
-                </Link>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-                <Link href="/library?tab=watched" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
-                  <p className="text-2xl font-mono font-bold text-text-primary">{watchedCount}</p>
-                  <p className="text-xs font-mono text-text-muted">🎬 İzledim</p>
-                </Link>
-                <Link href="/library?tab=not_watched" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
-                  <p className="text-2xl font-mono font-bold text-text-primary">{notWatchedCount}</p>
-                  <p className="text-xs font-mono text-text-muted">🙈 İzlemedim</p>
-                </Link>
-                <Link href="/library?tab=unsure" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
-                  <p className="text-2xl font-mono font-bold text-text-primary">{unsureCount}</p>
-                  <p className="text-xs font-mono text-text-muted">🤔 Emin Değilim</p>
-                </Link>
-                <Link href="/library?tab=watch_later" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
-                  <p className="text-2xl font-mono font-bold text-text-primary">{watchLaterCount}</p>
-                  <p className="text-xs font-mono text-text-muted">🔖 Daha Sonra</p>
-                </Link>
-              </div>
-            </div>
           </div>
         ) : (
           /* Ready Film DNA Profile View */
           <div className="space-y-8 animate-fadeIn">
             {/* Profile Hero Header */}
-            <div className="p-6 md:p-10 rounded-3xl bg-surface border border-border/80 space-y-6 shadow-cinematic relative overflow-hidden">
+            <div className="p-6 md:p-10 rounded-3xl bg-surface-1 border border-border space-y-6 shadow-md relative overflow-hidden">
               {/* User Identity Banner */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-6">
                 <div className="flex items-center gap-4">
@@ -142,33 +103,33 @@ export default async function ProfilePage() {
                       className="w-14 h-14 rounded-2xl object-cover border border-border shadow-sm"
                     />
                   ) : (
-                    <div className="w-14 h-14 rounded-2xl bg-accent/15 border border-accent/30 flex items-center justify-center text-accent font-mono font-bold text-xl">
+                    <div className="w-14 h-14 rounded-2xl bg-accent-subtle border border-accent/30 flex items-center justify-center text-accent font-bold text-xl">
                       {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : "👤"}
                     </div>
                   )}
 
                   <div>
-                    <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold">
-                      KİŞİSEL KİMLİK & FILM DNA
-                    </span>
-                    <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary mt-0.5">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-subtle border border-accent/30 text-accent text-xs font-semibold">
+                      <span>🧬 KİŞİSEL SİNEMA KİMLİĞİ</span>
+                    </div>
+                    <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary mt-1">
                       {currentUser.name || "SineAI Kullanıcısı"}
                     </h1>
                     {currentUser.email && (
-                      <p className="text-xs font-mono text-text-secondary">{currentUser.email}</p>
+                      <p className="text-xs text-text-secondary font-sans">{currentUser.email}</p>
                     )}
                   </div>
                 </div>
 
                 {/* Confidence Badge */}
-                <div className="self-start sm:self-auto px-4 py-2.5 rounded-2xl bg-surface-elevated border border-border/80 flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-success animate-pulse" />
-                  <div>
-                    <p className="text-[10px] uppercase font-mono text-text-muted">PROFİL GÜVENİ</p>
-                    <p className="text-sm font-mono font-bold text-text-primary">
+                <div className="self-start sm:self-auto px-4 py-2.5 rounded-2xl bg-surface-2 border border-border flex items-center gap-3">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <div className="font-sans">
+                    <p className="text-[10px] uppercase font-semibold text-text-muted">PROFİL GÜVENİ</p>
+                    <p className="text-xs font-bold text-text-primary">
                       %{Math.round(data.profile.confidence * 100)}{" "}
-                      <span className="text-xs text-text-muted font-normal">
-                        ({data.profile.sample.ratedMovies} Değerlendirilmiş Film)
+                      <span className="text-[11px] text-text-muted font-normal">
+                        ({data.profile.sample.ratedMovies} Film)
                       </span>
                     </p>
                   </div>
@@ -176,46 +137,46 @@ export default async function ProfilePage() {
               </div>
 
               {/* Natural Turkish Summary Paragraph */}
-              <div className="p-5 rounded-2xl bg-surface-elevated/70 border border-border/60 text-sm md:text-base text-text-primary leading-relaxed">
+              <div className="p-5 rounded-2xl bg-surface-2 border border-border/70 text-sm md:text-base text-text-primary leading-relaxed font-sans">
                 <p>{data.profile.summary.replace(/\*\*(.*?)\*\*/g, "$1")}</p>
               </div>
 
               {/* Top Quick Insight Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                <div className="p-4 rounded-2xl bg-surface-elevated border border-border/60 space-y-1">
-                  <p className="text-[10px] uppercase font-mono text-accent font-semibold">🍿 EN SEVDİĞİN TÜR</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 font-sans">
+                <div className="p-4 rounded-2xl bg-surface-2 border border-border space-y-1">
+                  <p className="text-[11px] font-semibold text-accent">🍿 BASKIN TÜR</p>
                   <p className="text-sm font-bold text-text-primary">
                     {data.profile.genres[0]?.name || "Sinema"}
                   </p>
-                  <p className="text-[10px] font-mono text-text-muted">
-                    %{Math.round((data.profile.genres[0]?.score || 0) * 100)} Baskınlık
+                  <p className="text-[11px] text-text-muted">
+                    %{Math.round((data.profile.genres[0]?.score || 0) * 100)} Yoğunluk
                   </p>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-surface-elevated border border-border/60 space-y-1">
-                  <p className="text-[10px] uppercase font-mono text-accent font-semibold">⌛ EN GÜÇLÜ DÖNEM</p>
+                <div className="p-4 rounded-2xl bg-surface-2 border border-border space-y-1">
+                  <p className="text-[11px] font-semibold text-accent">⌛ EN GÜÇLÜ DÖNEM</p>
                   <p className="text-sm font-bold text-text-primary">
                     {data.profile.eras[0]?.label || "Günümüz Sineması"}
                   </p>
-                  <p className="text-[10px] font-mono text-text-muted">
+                  <p className="text-[11px] text-text-muted">
                     {data.profile.eras[0]?.key || "2010s"}
                   </p>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-surface-elevated border border-border/60 space-y-1">
-                  <p className="text-[10px] uppercase font-mono text-accent font-semibold">🎭 İZLEME TARZIN</p>
+                <div className="p-4 rounded-2xl bg-surface-2 border border-border space-y-1">
+                  <p className="text-[11px] font-semibold text-accent">🎭 İZLEME TARZI</p>
                   <p className="text-sm font-bold text-text-primary line-clamp-1">
                     {data.profile.traits[0] || "Dengeli Sinefil"}
                   </p>
-                  <p className="text-[10px] font-mono text-text-muted">Ana Karakter Özelliği</p>
+                  <p className="text-[11px] text-text-muted">Karakter Özelliği</p>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-surface-elevated border border-border/60 space-y-1">
-                  <p className="text-[10px] uppercase font-mono text-accent font-semibold">🧭 KEŞİF SEVİYEN</p>
+                <div className="p-4 rounded-2xl bg-surface-2 border border-border space-y-1">
+                  <p className="text-[11px] font-semibold text-accent">🧭 KEŞİF SEVİYESİ</p>
                   <p className="text-sm font-bold text-text-primary line-clamp-1">
                     {data.profile.popularity.label || "Dengeli"}
                   </p>
-                  <p className="text-[10px] font-mono text-text-muted">Popülerlik Dengesi</p>
+                  <p className="text-[11px] text-text-muted">Popülerlik Dengesi</p>
                 </div>
               </div>
 
@@ -223,9 +184,9 @@ export default async function ProfilePage() {
               <div className="pt-2 flex flex-col sm:flex-row gap-3">
                 <Link
                   href="/"
-                  className="px-6 py-3 rounded-xl bg-accent text-white font-medium text-xs md:text-sm hover:bg-accent-hover active:scale-[0.98] transition-all shadow-md text-center"
+                  className="px-6 py-3 rounded-xl bg-accent text-white font-semibold text-xs hover:bg-accent-hover active:scale-95 transition-all shadow-sm text-center min-h-[44px] flex items-center justify-center"
                 >
-                  Film DNA'mı Keskinleştir (Değerlendirmeye Devam Et) →
+                  Film DNA&apos;mı Keskinleştir (Değerlendirmeye Devam Et) →
                 </Link>
               </div>
             </div>
@@ -233,41 +194,41 @@ export default async function ProfilePage() {
             {/* Film Journey & Rank Progression Section */}
             <FilmJourney evaluatedCount={data.current} />
 
-            {/* Filmlerim Summary Card */}
-            <div className="p-6 rounded-3xl bg-surface border border-border/80 space-y-4 shadow-cinematic">
+            {/* Filmlerim Summary Card (Preserving Navigation Semantics: /library?mediaType=FILM) */}
+            <div className="p-6 rounded-3xl bg-surface-1 border border-border space-y-4 shadow-md">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-mono text-accent uppercase tracking-widest font-semibold">
-                    KİŞİSEL KÜTÜPHANE ÖZETİ
-                  </span>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-subtle border border-accent/30 text-accent text-xs font-semibold mb-1">
+                    <span>🎬 KİŞİSEL KÜTÜPHANE</span>
+                  </div>
                   <h3 className="font-display text-xl font-bold text-text-primary">
                     Filmlerim
                   </h3>
                 </div>
                 <Link
-                  href="/library"
-                  className="px-4 py-2 rounded-xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all"
+                  href="/library?mediaType=FILM"
+                  className="px-4 py-2 rounded-xl bg-surface-2 border border-border hover:border-accent text-text-primary text-xs font-semibold hover:bg-surface-3 transition-all min-h-[40px] flex items-center"
                 >
-                  Tüm Filmlerimi Gör ➔
+                  Tüm Filmlerim ➔
                 </Link>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-                <Link href="/library?tab=watched" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
-                  <p className="text-2xl font-mono font-bold text-text-primary">{watchedCount}</p>
-                  <p className="text-xs font-mono text-text-muted">🎬 İzledim</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1 font-sans">
+                <Link href="/library?mediaType=FILM&tab=watched" className="p-4 rounded-2xl bg-surface-2 border border-border hover:border-accent transition-all space-y-1">
+                  <p className="text-2xl font-bold text-text-primary">{watchedCount}</p>
+                  <p className="text-xs text-text-secondary">🎬 İzledim</p>
                 </Link>
-                <Link href="/library?tab=not_watched" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
-                  <p className="text-2xl font-mono font-bold text-text-primary">{notWatchedCount}</p>
-                  <p className="text-xs font-mono text-text-muted">🙈 İzlemedim</p>
+                <Link href="/library?mediaType=FILM&tab=not_watched" className="p-4 rounded-2xl bg-surface-2 border border-border hover:border-accent transition-all space-y-1">
+                  <p className="text-2xl font-bold text-text-primary">{notWatchedCount}</p>
+                  <p className="text-xs text-text-secondary">🙈 İzlemedim</p>
                 </Link>
-                <Link href="/library?tab=unsure" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
-                  <p className="text-2xl font-mono font-bold text-text-primary">{unsureCount}</p>
-                  <p className="text-xs font-mono text-text-muted">🤔 Emin Değilim</p>
+                <Link href="/library?mediaType=FILM&tab=unsure" className="p-4 rounded-2xl bg-surface-2 border border-border hover:border-accent transition-all space-y-1">
+                  <p className="text-2xl font-bold text-text-primary">{unsureCount}</p>
+                  <p className="text-xs text-text-secondary">🤔 Emin Değilim</p>
                 </Link>
-                <Link href="/library?tab=watch_later" className="p-3.5 rounded-2xl bg-surface-elevated border border-border/60 hover:border-accent/50 transition-all space-y-1">
-                  <p className="text-2xl font-mono font-bold text-text-primary">{watchLaterCount}</p>
-                  <p className="text-xs font-mono text-text-muted">🔖 Daha Sonra</p>
+                <Link href="/library?mediaType=FILM&tab=watch_later" className="p-4 rounded-2xl bg-surface-2 border border-border hover:border-accent transition-all space-y-1">
+                  <p className="text-2xl font-bold text-text-primary">{watchLaterCount}</p>
+                  <p className="text-xs text-text-secondary">🔖 Daha Sonra</p>
                 </Link>
               </div>
             </div>

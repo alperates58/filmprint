@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
 import { RatingStatus, TvInteractionStatus } from "@prisma/client";
+import { ScoreBadge } from "@/components/ui/ScoreBadge";
 
 export interface FullTvDetails {
   id: string;
@@ -47,7 +48,6 @@ const RATING_LABELS: Record<string, { label: string; emoji: string }> = {
   LIKE: { label: "Beğendim", emoji: "👍" },
   NEUTRAL: { label: "Ortalama", emoji: "😐" },
   DISLIKE: { label: "Sevmedim", emoji: "👎" },
-  PARTIALLY_WATCHED: { label: "Kısmen İzledim", emoji: "🎬" },
 };
 
 export function TvDetailsModal({
@@ -65,33 +65,38 @@ export function TvDetailsModal({
   const [currentRating, setCurrentRating] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
 
-  const modalRef = useRef<HTMLDivElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  // Touch swipe-to-dismiss states for mobile bottom sheet
+  const touchStartY = useRef<number>(0);
+  const [dragOffset, setDragOffset] = useState<number>(0);
 
-  // Lock body scroll when modal is open
+  // Lock body scroll and handle Android hardware back button
   useEffect(() => {
-    if (tvShowId) {
-      document.body.style.overflow = "hidden";
-      closeButtonRef.current?.focus();
-    } else {
-      document.body.style.overflow = "";
-    }
+    if (!tvShowId) return;
 
-    return () => {
-      document.body.style.overflow = "";
+    document.body.style.overflow = "hidden";
+
+    // Push history state to intercept Android/Browser back navigation
+    window.history.pushState({ modalOpen: true }, "");
+
+    const handlePopState = () => {
+      onClose();
     };
-  }, [tvShowId]);
 
-  // Handle ESC key press
-  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose();
       }
     };
+
+    window.addEventListener("popstate", handlePopState);
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [tvShowId, onClose]);
 
   // Fetch full details
   const fetchDetails = useCallback(async () => {
@@ -104,9 +109,8 @@ export function TvDetailsModal({
     try {
       const [res, libRes] = await Promise.all([
         fetch(`/api/tv/${tvShowId}`),
-        fetch(`/api/library?mediaType=TV&contentId=${tvShowId}`).catch(() => null),
+        fetch(`/api/library?contentId=${tvShowId}`).catch(() => null),
       ]);
-
       if (!res.ok) throw new Error("Dizi detayları yüklenemedi.");
       const data: FullTvDetails = await res.json();
       setDetails(data);
@@ -115,10 +119,11 @@ export function TvDetailsModal({
 
       if (libRes && libRes.ok) {
         const libData = await libRes.json();
-        const found = libData.items?.find((i: any) => i.contentId === tvShowId);
-        if (found) {
-          setIsFavorite(Boolean(found.isFavorite));
-          if (found.state) setCurrentStatus(found.state);
+        if (libData.items && libData.items.length > 0) {
+          setIsFavorite(!!libData.items[0].isFavorite);
+          if (libData.items[0].state) {
+            setCurrentStatus(libData.items[0].state);
+          }
         }
       }
     } catch (err) {
@@ -132,59 +137,27 @@ export function TvDetailsModal({
     fetchDetails();
   }, [fetchDetails]);
 
-  // Handle Mark Watched with Rating
-  const handleMarkWatched = async (targetRating: RatingStatus) => {
+  // Interaction handlers
+  const handleSetStatus = async (status: string, rating: string | null = null) => {
     if (!tvShowId) return;
-    setCurrentStatus("WATCHED");
-    setCurrentRating(targetRating);
+    setCurrentStatus(status);
+    setCurrentRating(rating);
     setActiveRatingMode(false);
 
     try {
-      await fetch("/api/library", {
+      await fetch(`/api/tv/${tvShowId}/interactions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mediaType: "TV",
-          tvShowId,
-          action: "MARK_WATCHED",
-          rating: targetRating,
-        }),
+        body: JSON.stringify({ status, rating }),
       });
-
       if (onInteractionUpdate) {
-        onInteractionUpdate(tvShowId, "WATCHED", targetRating);
+        onInteractionUpdate(tvShowId, status, rating as any);
       }
     } catch (e) {
-      console.error("[TV Mark Watched Error]:", e);
+      console.error("Status update error:", e);
     }
   };
 
-  // Handle Toggle Watchlist
-  const handleToggleWatchlist = async () => {
-    if (!tvShowId) return;
-    const isCurrentlyWatchlist = currentStatus === "WATCH_LATER" || currentStatus === "WATCHLIST";
-    const nextAction = isCurrentlyWatchlist ? "CLEAR_STATE" : "ADD_WATCHLIST";
-    setCurrentStatus(isCurrentlyWatchlist ? null : "WATCHLIST");
-
-    try {
-      await fetch("/api/library", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mediaType: "TV",
-          tvShowId,
-          action: nextAction,
-        }),
-      });
-      if (onInteractionUpdate) {
-        onInteractionUpdate(tvShowId, nextAction, null);
-      }
-    } catch (e) {
-      console.error("[TV Watchlist Toggle Error]:", e);
-    }
-  };
-
-  // Handle Toggle Favorite
   const handleToggleFavorite = async () => {
     if (!tvShowId) return;
     const nextFav = !isFavorite;
@@ -196,327 +169,281 @@ export function TvDetailsModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mediaType: "TV",
-          tvShowId,
+          contentId: tvShowId,
           action: nextFav ? "ADD_FAVORITE" : "REMOVE_FAVORITE",
         }),
       });
     } catch (e) {
-      console.error("[TV Favorite Toggle Error]:", e);
+      console.error("Favorite toggle error:", e);
     }
   };
 
-  // Handle Mark Dropped
-  const handleMarkDropped = async () => {
-    if (!tvShowId) return;
-    setCurrentStatus("DROPPED");
-    try {
-      await fetch("/api/library", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mediaType: "TV",
-          tvShowId,
-          action: "MARK_DROPPED",
-        }),
-      });
-      if (onInteractionUpdate) {
-        onInteractionUpdate(tvShowId, "DROPPED", null);
-      }
-    } catch (e) {
-      console.error("[TV Mark Dropped Error]:", e);
+  // Mobile BottomSheet Touch Handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const currentY = e.touches[0].clientY;
+    const deltaY = currentY - touchStartY.current;
+    if (deltaY > 0) {
+      setDragOffset(deltaY);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (dragOffset > 100) {
+      onClose();
+    } else {
+      setDragOffset(0);
     }
   };
 
   if (!tvShowId) return null;
 
-  const posterUrl = details?.posterUrl || getTmdbImageUrl(initialData?.posterPath, "w500");
-  const backdropUrl = details?.backdropUrl || getTmdbImageUrl(initialData?.backdropPath, "w1280");
-  const airYear = details?.firstAirDate ? details.firstAirDate.slice(0, 4) : null;
+  const displayTitle = details?.name || initialData?.title || initialData?.name || "Dizi Detayı";
+  const displayPoster = details?.posterUrl || (initialData?.posterPath ? getTmdbImageUrl(initialData.posterPath, "w500") : null);
+  const displayBackdrop = details?.backdropUrl || (initialData?.backdropPath ? getTmdbImageUrl(initialData.backdropPath, "w1280") : null);
+  const displayYear = details?.firstAirDate ? details.firstAirDate.slice(0, 4) : initialData?.firstAirDate ? initialData.firstAirDate.slice(0, 4) : null;
+  const displayGenres: string[] = details?.genres || (initialData?.genres as string[]) || [];
+  const displayScore = initialData?.matchScore;
+  const displayHeadline = initialData?.headline;
 
   return (
     <div
-      className="fixed inset-0 bg-background/85 backdrop-blur-md z-50 flex items-center justify-center p-0 md:p-6 overflow-hidden animate-fadeIn"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="tv-modal-title"
+      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4 overflow-y-auto animate-fadeIn"
       onClick={onClose}
     >
+      {/* Mobile Bottom Sheet & Desktop Dialog Container */}
       <div
-        ref={modalRef}
+        className="w-full md:max-w-3xl lg:max-w-4xl bg-surface-1 border-t md:border border-border/80 rounded-t-[28px] md:rounded-3xl shadow-2xl overflow-hidden text-text-primary max-h-[92vh] md:max-h-[85vh] flex flex-col transition-transform duration-150 relative pb-[env(safe-area-inset-bottom)]"
+        style={{ transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full h-full md:h-auto md:max-h-[90vh] max-w-4xl bg-surface border border-border/80 md:rounded-3xl shadow-cinematic flex flex-col overflow-hidden relative"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        {/* Close Button */}
+        {/* Mobile Drag Indicator Bar */}
+        <div className="w-full pt-3 pb-1 md:hidden flex justify-center cursor-grab active:cursor-grabbing">
+          <div className="w-12 h-1.5 rounded-full bg-border-strong" />
+        </div>
+
+        {/* Close Button Desktop */}
         <button
-          ref={closeButtonRef}
           onClick={onClose}
-          className="absolute top-4 right-4 z-40 w-11 h-11 rounded-full bg-background/80 backdrop-blur-md border border-border/80 text-text-primary hover:text-accent hover:border-accent flex items-center justify-center font-mono text-lg font-bold shadow-lg transition-all active:scale-95"
-          aria-label="Kapat"
+          className="absolute top-4 right-4 z-30 w-9 h-9 rounded-full bg-surface-1/80 hover:bg-surface-2 border border-border flex items-center justify-center text-text-muted hover:text-text-primary text-xs transition-colors shadow-sm"
         >
           ✕
         </button>
 
-        {/* Scrollable Modal Content */}
-        <div className="flex-1 overflow-y-auto space-y-6 pb-8">
-          {/* Hero Backdrop Banner */}
-          <div className="relative w-full h-64 md:h-80 bg-surface-elevated overflow-hidden">
-            {isPlayingTrailer && details?.trailer?.youtubeKey ? (
-              <div className="relative w-full h-full">
-                <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${details.trailer.youtubeKey}?autoplay=1&rel=0`}
-                  title={details?.trailer?.name || "Fragman"}
-                  className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-                <button
-                  onClick={() => setIsPlayingTrailer(false)}
-                  className="absolute top-4 left-4 z-30 px-3 py-1.5 rounded-full bg-background/90 text-text-primary text-xs font-mono border border-border/80 hover:bg-background"
-                >
-                  ✕ Fragmanı Kapat
-                </button>
-              </div>
+        {/* Scrollable Content Container */}
+        <div className="overflow-y-auto flex-1 scrollbar-none">
+          {/* Backdrop Header Media */}
+          <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-surface-2 overflow-hidden flex-shrink-0">
+            {isPlayingTrailer && details?.trailer ? (
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${details.trailer.youtubeKey}?autoplay=1&rel=0`}
+                title={displayTitle}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full border-0"
+              />
             ) : (
               <>
-                {backdropUrl ? (
+                {displayBackdrop ? (
                   <Image
-                    src={backdropUrl}
-                    alt={details?.name || initialData?.name || "Dizi Görseli"}
+                    src={displayBackdrop}
+                    alt={displayTitle}
                     fill
+                    className="object-cover object-center filter brightness-90"
                     priority
-                    className="object-cover object-center brightness-75"
-                    sizes="(max-width: 768px) 100vw, 896px"
                   />
                 ) : (
-                  <div className="w-full h-full bg-surface-elevated flex items-center justify-center font-mono text-xs text-text-muted">
-                    Arka Plan Görseli Yok
-                  </div>
+                  <div className="w-full h-full flex items-center justify-center text-4xl">📺</div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/60 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-surface-1 via-surface-1/40 to-transparent" />
 
-                {details?.trailer?.youtubeKey && (
+                {details?.trailer && (
                   <button
                     onClick={() => setIsPlayingTrailer(true)}
-                    className="absolute bottom-6 right-6 px-4 py-2 rounded-xl bg-accent text-white font-mono text-xs font-bold hover:bg-accent-hover transition-all flex items-center gap-2 shadow-lg z-20 group"
+                    className="absolute inset-0 m-auto w-14 h-14 rounded-full bg-accent/90 hover:bg-accent text-white flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 z-10"
                   >
-                    <span>▶</span>
-                    <span>Fragmanı İzle</span>
+                    <span className="text-xl ml-0.5">▶</span>
                   </button>
                 )}
               </>
             )}
+          </div>
 
-            {/* Poster and Title Info Over Banner */}
-            <div className="absolute bottom-4 left-4 md:left-8 flex items-end gap-4 md:gap-6 z-10">
-              <div className="relative w-24 h-36 md:w-32 md:h-48 rounded-xl overflow-hidden bg-surface-elevated border-2 border-border/80 shadow-2xl flex-shrink-0">
-                {posterUrl ? (
-                  <Image
-                    src={posterUrl}
-                    alt={details?.name || "Poster"}
-                    fill
-                    className="object-cover"
-                    sizes="128px"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[10px] text-text-muted font-mono text-center p-1">
-                    Görsel Yok
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-1 pb-1">
-                <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
-                  <span className="px-2 py-0.5 rounded-md bg-accent/20 text-accent font-bold">
-                    DİZİ
-                  </span>
-                  {airYear && <span>{airYear}</span>}
+          {/* Body Content */}
+          <div className="p-5 sm:p-6 md:p-8 space-y-6">
+            {/* Title & Metadata Strip */}
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-sans">
+                  {displayYear && (
+                    <span className="px-2.5 py-0.5 rounded-lg bg-surface-2 border border-border font-semibold text-text-secondary">
+                      {displayYear}
+                    </span>
+                  )}
                   {details?.numberOfSeasons && (
-                    <span>• {details.numberOfSeasons} Sezon</span>
+                    <span className="text-text-muted font-medium">
+                      {details.numberOfSeasons} Sezon
+                    </span>
                   )}
                   {details?.voteAverage ? (
-                    <span className="text-amber-400 font-bold">
-                      ⭐ {details.voteAverage.toFixed(1)}
+                    <span className="text-amber-400 font-bold flex items-center gap-1">
+                      ★ {details.voteAverage.toFixed(1)}
                     </span>
                   ) : null}
                 </div>
 
-                <h2
-                  id="tv-modal-title"
-                  className="font-display text-2xl md:text-4xl font-bold text-text-primary tracking-tight"
-                >
-                  {details?.name || initialData?.name || "Yükleniyor..."}
+                <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
+                  {displayTitle}
                 </h2>
 
-                {details?.originalName && details.originalName !== details.name && (
-                  <p className="text-xs font-mono text-text-muted italic">
-                    {details.originalName}
-                  </p>
+                {details?.originalName && details.originalName !== displayTitle && (
+                  <p className="text-xs text-text-muted italic font-sans">{details.originalName}</p>
                 )}
 
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {(details?.genres || initialData?.genres || []).map((g: string, idx: number) => (
-                    <span
-                      key={idx}
-                      className="px-2.5 py-0.5 rounded-full bg-surface-elevated/80 border border-border/60 text-[10px] font-mono text-text-secondary"
-                    >
-                      {g}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Bar & Body */}
-          <div className="px-4 md:px-8 space-y-6">
-            {/* Interaction Action Bar */}
-            <div className="p-4 rounded-2xl bg-surface-elevated border border-border/80 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleToggleFavorite}
-                    className={`px-3 py-1.5 rounded-xl border text-xs font-mono flex items-center gap-1.5 transition-all ${
-                      isFavorite
-                        ? "bg-amber-500/20 border-amber-500/50 text-amber-400 font-bold"
-                        : "bg-surface border-border/80 text-text-muted hover:text-amber-400"
-                    }`}
-                    title={isFavorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
-                  >
-                    <span>★</span>
-                    <span>{isFavorite ? "Favorilerimde" : "Favoriye Ekle"}</span>
-                  </button>
-
-                  <span className="text-xs font-mono text-text-muted">
-                    DURUM:{" "}
-                    <strong className="text-text-primary uppercase">
-                      {currentStatus === "WATCHED"
-                        ? `İzlendi (${RATING_LABELS[currentRating || ""]?.label || "Puanlandı"})`
-                        : currentStatus === "WATCHLIST"
-                        ? "İzleme Listende"
-                        : currentStatus === "DROPPED"
-                        ? "Bırakıldı"
-                        : currentStatus === "PARTIALLY_WATCHED"
-                        ? "Kısmen İzlendi"
-                        : currentStatus === "NOT_WATCHED"
-                        ? "İzlemedin"
-                        : currentStatus === "UNSURE"
-                        ? "Emin Değilsin"
-                        : "Listelenmedi"}
-                    </strong>
-                  </span>
-                </div>
-
-                {activeRatingMode && (
-                  <button
-                    onClick={() => setActiveRatingMode(false)}
-                    className="text-xs font-mono text-text-muted hover:text-text-primary"
-                  >
-                    İptal
-                  </button>
+                {displayGenres.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {displayGenres.map((g) => (
+                      <span
+                        key={g}
+                        className="px-2.5 py-0.5 rounded-lg bg-surface-2/70 border border-border/60 text-text-muted text-xs font-sans"
+                      >
+                        {g}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              {/* Inline Rating Mode */}
-              {activeRatingMode ? (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                  <button
-                    onClick={() => handleMarkWatched("LOVE")}
-                    className="py-2.5 rounded-xl bg-accent/20 border border-accent/40 text-text-primary font-mono text-xs font-semibold hover:bg-accent/30 transition-all"
-                  >
-                    ❤️ Çok Sevdim
-                  </button>
-                  <button
-                    onClick={() => handleMarkWatched("LIKE")}
-                    className="py-2.5 rounded-xl bg-surface border border-border text-text-primary font-mono text-xs font-semibold hover:bg-border/60 transition-all"
-                  >
-                    👍 Beğendim
-                  </button>
-                  <button
-                    onClick={() => handleMarkWatched("NEUTRAL")}
-                    className="py-2.5 rounded-xl bg-surface border border-border text-text-secondary font-mono text-xs hover:bg-border/60 transition-all"
-                  >
-                    😐 Ortalama
-                  </button>
-                  <button
-                    onClick={() => handleMarkWatched("DISLIKE")}
-                    className="py-2.5 rounded-xl bg-surface border border-border text-text-muted font-mono text-xs hover:bg-border/60 transition-all"
-                  >
-                    👎 Sevmedim
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <button
-                    onClick={() => setActiveRatingMode(true)}
-                    className="px-5 py-2.5 rounded-xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all shadow-sm flex items-center gap-1.5"
-                  >
-                    <span>👁️</span>
-                    <span>{currentStatus === "WATCHED" ? "Puanı Değiştir" : "Artık İzledim (Puanla) ➔"}</span>
-                  </button>
-
-                  <button
-                    onClick={handleToggleWatchlist}
-                    className={`px-4 py-2.5 rounded-xl border font-mono text-xs transition-all flex items-center gap-1.5 ${
-                      currentStatus === "WATCHLIST"
-                        ? "bg-accent/15 border-accent/40 text-accent font-bold"
-                        : "bg-surface border-border/80 hover:border-accent text-text-primary"
-                    }`}
-                  >
-                    <span>🔖</span>
-                    <span>{currentStatus === "WATCHLIST" ? "Listede ✓" : "İzleme Listeme Ekle"}</span>
-                  </button>
-
-                  {currentStatus !== "DROPPED" && (
-                    <button
-                      onClick={handleMarkDropped}
-                      className="px-3.5 py-2.5 rounded-xl bg-surface border border-border/80 text-text-muted hover:text-red-400 hover:border-red-400/40 font-mono text-xs transition-all flex items-center gap-1"
-                      title="İzlemeyi yarıda bıraktım"
-                    >
-                      <span>🚫</span>
-                      <span>Bıraktım</span>
-                    </button>
-                  )}
+              {/* Match Score Badge */}
+              {displayScore !== undefined && (
+                <div className="self-start sm:self-auto flex-shrink-0">
+                  <ScoreBadge score={displayScore} />
                 </div>
               )}
             </div>
 
-            {/* Overview / Summary */}
-            <div className="space-y-2">
-              <h3 className="font-display text-sm font-bold text-text-primary">
-                Dizi Hakkında
-              </h3>
-              <p className="text-xs md:text-sm text-text-secondary leading-relaxed font-sans">
-                {details?.overview || "Bu dizi için henüz bir özet bulunmuyor."}
-              </p>
+            {/* Quick Action Buttons (48dp Touch Targets) */}
+            <div className="flex flex-wrap items-center gap-2.5 pt-1 font-sans text-xs">
+              {/* Watched / Rating Button */}
+              {currentStatus === "WATCHED" ? (
+                <button
+                  onClick={() => setActiveRatingMode((prev) => !prev)}
+                  className="min-h-[48px] px-4 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold flex items-center gap-2 hover:bg-emerald-500/20 transition-all"
+                >
+                  <span>{currentRating ? RATING_LABELS[currentRating]?.emoji || "✓" : "✓"}</span>
+                  <span>{currentRating ? RATING_LABELS[currentRating]?.label || "İzlendi" : "İzlendi"}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setActiveRatingMode(true)}
+                  className="min-h-[48px] px-4 py-2.5 rounded-xl bg-surface-2 border border-border hover:border-emerald-500/40 text-text-primary font-semibold flex items-center gap-2 hover:bg-surface-3 transition-all"
+                >
+                  <span>👁️</span>
+                  <span>İzledim</span>
+                </button>
+              )}
+
+              {/* Watchlist Button */}
+              <button
+                onClick={() =>
+                  handleSetStatus(currentStatus === "WATCH_LATER" ? "CLEAR" : "WATCH_LATER")
+                }
+                className={`min-h-[48px] px-4 py-2.5 rounded-xl border font-semibold flex items-center gap-2 transition-all ${
+                  currentStatus === "WATCH_LATER"
+                    ? "bg-accent-subtle border-accent/40 text-accent"
+                    : "bg-surface-2 border-border text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                <span>🔖</span>
+                <span>{currentStatus === "WATCH_LATER" ? "Listemde" : "İzleme Listesi"}</span>
+              </button>
+
+              {/* Favorite Star */}
+              <button
+                onClick={handleToggleFavorite}
+                className={`min-h-[48px] px-4 py-2.5 rounded-xl border font-semibold flex items-center gap-2 transition-all ${
+                  isFavorite
+                    ? "bg-amber-500/15 border-amber-500/30 text-amber-400"
+                    : "bg-surface-2 border-border text-text-muted hover:text-amber-400"
+                }`}
+              >
+                <span>⭐</span>
+                <span>Favori</span>
+              </button>
             </div>
 
-            {/* Creators & Cast */}
-            {details?.creators && details.creators.length > 0 && (
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider">
-                  YARATICILAR:
-                </span>
-                <p className="text-xs font-mono text-text-primary">
-                  {details.creators.join(", ")}
+            {/* Rating Selector Drawer */}
+            {activeRatingMode && (
+              <div className="p-4 rounded-2xl bg-surface-2 border border-border space-y-2.5 animate-fadeIn">
+                <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  DİZİ DEĞERLENDİRMENİZ
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {Object.entries(RATING_LABELS).map(([ratingKey, ratingVal]) => (
+                    <button
+                      key={ratingKey}
+                      onClick={() => handleSetStatus("WATCHED", ratingKey)}
+                      className={`min-h-[44px] p-2 rounded-xl border font-semibold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                        currentRating === ratingKey
+                          ? "bg-accent text-white border-accent shadow-sm"
+                          : "bg-surface-1 border-border text-text-primary hover:border-border-strong"
+                      }`}
+                    >
+                      <span>{ratingVal.emoji}</span>
+                      <span>{ratingVal.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* AI Recommendation Insights Box */}
+            {displayHeadline && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-accent-subtle/50 border border-accent/25 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-accent text-base">✨</span>
+                  <h4 className="font-sans font-bold text-xs sm:text-sm text-accent">
+                    {displayHeadline}
+                  </h4>
+                </div>
+              </div>
+            )}
+
+            {/* Overview / Synopsis */}
+            {details?.overview && (
+              <div className="space-y-1.5 font-sans">
+                <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                  ÖZET
+                </h4>
+                <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
+                  {details.overview}
                 </p>
               </div>
             )}
 
-            {details?.cast && details.cast.length > 0 && (
-              <div className="space-y-2">
-                <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider">
-                  OYUNCULAR:
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {details.cast.slice(0, 8).map((c, i) => (
-                    <span
-                      key={i}
-                      className="px-2.5 py-1 rounded-lg bg-surface border border-border/60 text-xs font-mono text-text-secondary"
-                    >
-                      {c.name} {c.character ? `(${c.character})` : ""}
+            {/* Creators & Cast Strip */}
+            {details && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/60 font-sans text-xs">
+                {details.creators && details.creators.length > 0 && (
+                  <div>
+                    <span className="text-text-muted block text-[11px]">YARATICI / YAPIMCI</span>
+                    <span className="font-semibold text-text-primary">{details.creators.join(", ")}</span>
+                  </div>
+                )}
+                {details.cast && details.cast.length > 0 && (
+                  <div>
+                    <span className="text-text-muted block text-[11px]">BAŞROL OYUNCULARI</span>
+                    <span className="font-semibold text-text-primary">
+                      {details.cast.slice(0, 3).map((c) => c.name).join(", ")}
                     </span>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

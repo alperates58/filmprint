@@ -11,7 +11,7 @@ import type { CandidateTvShow } from "@/lib/tv/recommendation/types";
 
 export interface LibraryFilterOptions {
   mediaType?: "FILM" | "TV" | "ALL";
-  state?: "WATCHLIST" | "WATCHED" | "DROPPED" | "ALL";
+  state?: "WATCHLIST" | "WATCHED" | "NOT_WATCHED" | "DROPPED" | "ALL";
   isFavorite?: boolean;
   search?: string;
   rating?: string;
@@ -33,7 +33,7 @@ export interface LibraryItemDto {
   genres: string[];
   voteAverage: number;
   overview: string;
-  state: "WATCHLIST" | "WATCHED" | "DROPPED";
+  state: "WATCHLIST" | "WATCHED" | "NOT_WATCHED" | "DROPPED";
   isFavorite: boolean;
   userRating: "LOVE" | "LIKE" | "NEUTRAL" | "DISLIKE" | null;
   addedAt: Date;
@@ -55,12 +55,14 @@ export interface UserLibraryResponse {
     total: number;
     watchlist: number;
     watched: number;
+    notWatched: number;
     dropped: number;
     favorites: number;
     films: {
       total: number;
       watchlist: number;
       watched: number;
+      notWatched: number;
       dropped: number;
       favorites: number;
     };
@@ -68,6 +70,7 @@ export interface UserLibraryResponse {
       total: number;
       watchlist: number;
       watched: number;
+      notWatched: number;
       dropped: number;
       favorites: number;
     };
@@ -76,6 +79,7 @@ export interface UserLibraryResponse {
 
 /**
  * Retrieves user library data with server-side filtering, searching, sorting, and pagination.
+ * Performs on-demand idempotent sync for historical interactions so existing users see their full library immediately.
  */
 export async function getUserLibraryData(
   userId: string,
@@ -96,11 +100,13 @@ export async function getUserLibraryData(
   const skip = Math.max(0, (page - 1) * safeLimit);
   const searchTrim = search.trim();
 
-  // Aggregate counts in parallel
+  // 1. Fetch existing library entries, interactions, and feedbacks in parallel
   const [
     allEntries,
     filmInteractions,
     tvInteractions,
+    movieWatchlistFeedbacks,
+    tvWatchlistFeedbacks,
   ] = await Promise.all([
     db.userContentLibrary.findMany({
       where: { userId },
@@ -115,28 +121,161 @@ export async function getUserLibraryData(
     }),
     db.movieInteraction.findMany({
       where: { userId },
-      select: { movieId: true, rating: true, status: true },
+      select: { movieId: true, rating: true, status: true, answeredAt: true, updatedAt: true },
     }),
     db.tvInteraction.findMany({
       where: { userId },
-      select: { tvShowId: true, rating: true, status: true },
+      select: { tvShowId: true, rating: true, status: true, answeredAt: true, updatedAt: true },
+    }),
+    db.recommendationFeedback.findMany({
+      where: { userId, action: { in: ["WATCHLIST", "WATCH_LATER"] } },
+      select: { movieId: true, createdAt: true },
+    }),
+    db.tvRecommendationFeedback.findMany({
+      where: { userId, action: { in: ["WATCHLIST", "WATCH_LATER"] } },
+      select: { tvShowId: true, createdAt: true },
     }),
   ]);
+
+  // 2. Perform idempotent on-demand backfill if interactions exist but are missing in userContentLibrary
+  const existingMovieEntryIds = new Set(allEntries.filter((e) => e.mediaType === "FILM" && e.movieId).map((e) => e.movieId!));
+  const existingTvEntryIds = new Set(allEntries.filter((e) => e.mediaType === "TV" && e.tvShowId).map((e) => e.tvShowId!));
+
+  const syncPromises: Promise<any>[] = [];
+
+  // Sync Movie Watched
+  for (const fi of filmInteractions) {
+    if (fi.status === "WATCHED" && !existingMovieEntryIds.has(fi.movieId)) {
+      syncPromises.push(
+        db.userContentLibrary.upsert({
+          where: { userId_movieId: { userId, movieId: fi.movieId } },
+          update: { state: LibraryState.WATCHED, watchedAt: fi.answeredAt },
+          create: {
+            userId,
+            mediaType: MediaType.FILM,
+            movieId: fi.movieId,
+            state: LibraryState.WATCHED,
+            isFavorite: fi.rating === "LOVE",
+            addedAt: fi.answeredAt,
+            watchedAt: fi.answeredAt,
+          },
+        }).catch(() => null)
+      );
+      existingMovieEntryIds.add(fi.movieId);
+    }
+  }
+
+  // Sync TV Watched & Dropped
+  for (const ti of tvInteractions) {
+    if (ti.status === "WATCHED" && !existingTvEntryIds.has(ti.tvShowId)) {
+      syncPromises.push(
+        db.userContentLibrary.upsert({
+          where: { userId_tvShowId: { userId, tvShowId: ti.tvShowId } },
+          update: { state: LibraryState.WATCHED, watchedAt: ti.answeredAt },
+          create: {
+            userId,
+            mediaType: MediaType.TV,
+            tvShowId: ti.tvShowId,
+            state: LibraryState.WATCHED,
+            isFavorite: ti.rating === "LOVE",
+            addedAt: ti.answeredAt,
+            watchedAt: ti.answeredAt,
+          },
+        }).catch(() => null)
+      );
+      existingTvEntryIds.add(ti.tvShowId);
+    } else if (ti.status === "PARTIALLY_WATCHED" && !existingTvEntryIds.has(ti.tvShowId)) {
+      syncPromises.push(
+        db.userContentLibrary.upsert({
+          where: { userId_tvShowId: { userId, tvShowId: ti.tvShowId } },
+          update: { state: LibraryState.DROPPED, droppedAt: ti.answeredAt },
+          create: {
+            userId,
+            mediaType: MediaType.TV,
+            tvShowId: ti.tvShowId,
+            state: LibraryState.DROPPED,
+            addedAt: ti.answeredAt,
+            droppedAt: ti.answeredAt,
+          },
+        }).catch(() => null)
+      );
+      existingTvEntryIds.add(ti.tvShowId);
+    }
+  }
+
+  // Sync Movie & TV Watchlist Feedbacks
+  for (const mw of movieWatchlistFeedbacks) {
+    if (mw.movieId && !existingMovieEntryIds.has(mw.movieId)) {
+      syncPromises.push(
+        db.userContentLibrary.upsert({
+          where: { userId_movieId: { userId, movieId: mw.movieId } },
+          update: { state: LibraryState.WATCHLIST },
+          create: {
+            userId,
+            mediaType: MediaType.FILM,
+            movieId: mw.movieId,
+            state: LibraryState.WATCHLIST,
+            addedAt: mw.createdAt,
+          },
+        }).catch(() => null)
+      );
+      existingMovieEntryIds.add(mw.movieId);
+    }
+  }
+
+  for (const tw of tvWatchlistFeedbacks) {
+    if (tw.tvShowId && !existingTvEntryIds.has(tw.tvShowId)) {
+      syncPromises.push(
+        db.userContentLibrary.upsert({
+          where: { userId_tvShowId: { userId, tvShowId: tw.tvShowId } },
+          update: { state: LibraryState.WATCHLIST },
+          create: {
+            userId,
+            mediaType: MediaType.TV,
+            tvShowId: tw.tvShowId,
+            state: LibraryState.WATCHLIST,
+            addedAt: tw.createdAt,
+          },
+        }).catch(() => null)
+      );
+      existingTvEntryIds.add(tw.tvShowId);
+    }
+  }
+
+  if (syncPromises.length > 0) {
+    await Promise.all(syncPromises);
+  }
+
+  // Re-fetch all entries after sync for accurate counts
+  const currentLibraryEntries = syncPromises.length > 0
+    ? await db.userContentLibrary.findMany({
+        where: { userId },
+        select: {
+          id: true,
+          mediaType: true,
+          movieId: true,
+          tvShowId: true,
+          state: true,
+          isFavorite: true,
+        },
+      })
+    : allEntries;
 
   const movieRatingMap = new Map(filmInteractions.map((i) => [i.movieId, i.rating]));
   const tvRatingMap = new Map(tvInteractions.map((i) => [i.tvShowId, i.rating]));
 
   // Compute breakdown counts
-  let totalCount = allEntries.length;
+  let totalCount = currentLibraryEntries.length;
   let watchlistCount = 0;
   let watchedCount = 0;
+  let notWatchedCount = 0;
   let droppedCount = 0;
   let favoritesCount = 0;
 
-  const filmCounts = { total: 0, watchlist: 0, watched: 0, dropped: 0, favorites: 0 };
-  const tvCounts = { total: 0, watchlist: 0, watched: 0, dropped: 0, favorites: 0 };
+  const filmCounts = { total: 0, watchlist: 0, watched: 0, notWatched: 0, dropped: 0, favorites: 0 };
+  const tvCounts = { total: 0, watchlist: 0, watched: 0, notWatched: 0, dropped: 0, favorites: 0 };
 
-  for (const entry of allEntries) {
+  for (const entry of currentLibraryEntries) {
     if (entry.state === "WATCHLIST") {
       watchlistCount++;
       if (entry.mediaType === "FILM") filmCounts.watchlist++;
@@ -159,6 +298,139 @@ export async function getUserLibraryData(
 
     if (entry.mediaType === "FILM") filmCounts.total++;
     else tvCounts.total++;
+  }
+
+  // Calculate not-watched counts from interactions
+  for (const fi of filmInteractions) {
+    if (fi.status === "NOT_WATCHED") {
+      notWatchedCount++;
+      filmCounts.notWatched++;
+    }
+  }
+  for (const ti of tvInteractions) {
+    if (ti.status === "NOT_WATCHED") {
+      notWatchedCount++;
+      tvCounts.notWatched++;
+    }
+  }
+
+  // Handle NOT_WATCHED special query tab
+  if (state === "NOT_WATCHED") {
+    const movieNotWatched = mediaType !== "TV"
+      ? await db.movieInteraction.findMany({
+          where: {
+            userId,
+            status: "NOT_WATCHED",
+            ...(searchTrim
+              ? {
+                  movie: {
+                    OR: [
+                      { title: { contains: searchTrim, mode: "insensitive" } },
+                      { originalTitle: { contains: searchTrim, mode: "insensitive" } },
+                    ],
+                  },
+                }
+              : {}),
+          },
+          include: { movie: true },
+          orderBy: sort === "oldest" ? { updatedAt: "asc" } : { updatedAt: "desc" },
+        })
+      : [];
+
+    const tvNotWatched = mediaType !== "FILM"
+      ? await db.tvInteraction.findMany({
+          where: {
+            userId,
+            status: "NOT_WATCHED",
+            ...(searchTrim
+              ? {
+                  tvShow: {
+                    OR: [
+                      { name: { contains: searchTrim, mode: "insensitive" } },
+                      { originalName: { contains: searchTrim, mode: "insensitive" } },
+                    ],
+                  },
+                }
+              : {}),
+          },
+          include: { tvShow: true },
+          orderBy: sort === "oldest" ? { updatedAt: "asc" } : { updatedAt: "desc" },
+        })
+      : [];
+
+    const allNotWatched: LibraryItemDto[] = [
+      ...movieNotWatched.map((m) => {
+        const meta = (m.movie.metadata as Record<string, unknown>) || {};
+        return {
+          id: m.id,
+          mediaType: "FILM" as const,
+          contentId: m.movie.id,
+          tmdbId: m.movie.tmdbId,
+          title: m.movie.title,
+          originalTitle: m.movie.originalTitle,
+          releaseYear: m.movie.releaseYear,
+          posterPath: m.movie.posterPath,
+          backdropPath: m.movie.backdropPath,
+          genres: (meta.genres as string[]) || [],
+          voteAverage: m.movie.voteAverage,
+          overview: (meta.overview as string) || "",
+          state: "NOT_WATCHED" as const,
+          isFavorite: false,
+          userRating: null,
+          addedAt: m.answeredAt,
+          updatedAt: m.updatedAt,
+          watchedAt: null,
+          droppedAt: null,
+        };
+      }),
+      ...tvNotWatched.map((t) => {
+        const meta = (t.tvShow.metadata as Record<string, unknown>) || {};
+        const rawGenres = (meta.genres as any[]) || [];
+        const genres = rawGenres.map((g) => (typeof g === "string" ? g : g.name || "")).filter(Boolean);
+        const firstAirYear = t.tvShow.firstAirDate ? parseInt(t.tvShow.firstAirDate.slice(0, 4), 10) : null;
+        return {
+          id: t.id,
+          mediaType: "TV" as const,
+          contentId: t.tvShow.id,
+          tmdbId: t.tvShow.tmdbId,
+          title: t.tvShow.name,
+          originalTitle: t.tvShow.originalName || t.tvShow.name,
+          releaseYear: isNaN(firstAirYear as number) ? null : firstAirYear,
+          posterPath: t.tvShow.posterPath,
+          backdropPath: t.tvShow.backdropPath,
+          genres,
+          voteAverage: t.tvShow.voteAverage,
+          overview: t.tvShow.overview || "",
+          state: "NOT_WATCHED" as const,
+          isFavorite: false,
+          userRating: null,
+          addedAt: t.answeredAt,
+          updatedAt: t.updatedAt,
+          watchedAt: null,
+          droppedAt: null,
+        };
+      }),
+    ];
+
+    const totalNotWatched = allNotWatched.length;
+    const paginatedNotWatched = allNotWatched.slice(skip, skip + safeLimit);
+
+    return {
+      items: paginatedNotWatched,
+      totalCount: totalNotWatched,
+      totalPages: Math.ceil(totalNotWatched / safeLimit) || 1,
+      currentPage: page,
+      counts: {
+        total: totalCount + notWatchedCount,
+        watchlist: watchlistCount,
+        watched: watchedCount,
+        notWatched: notWatchedCount,
+        dropped: droppedCount,
+        favorites: favoritesCount,
+        films: filmCounts,
+        tv: tvCounts,
+      },
+    };
   }
 
   // Build Prisma Where Clause for target page items
@@ -305,6 +577,7 @@ export async function getUserLibraryData(
       total: totalCount,
       watchlist: watchlistCount,
       watched: watchedCount,
+      notWatched: notWatchedCount,
       dropped: droppedCount,
       favorites: favoritesCount,
       films: filmCounts,

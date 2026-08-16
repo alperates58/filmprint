@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Header } from "@/components/ui/Header";
+import { Footer } from "@/components/ui/Footer";
 import { TvCard } from "@/components/tv/TvCard";
 import { TvCardSkeleton } from "@/components/tv/TvCardSkeleton";
 import { TvShowItem, TvInteractionStatusType, TvRatingStatusType } from "@/components/tv/types";
@@ -226,8 +227,8 @@ export function TvCalibrationEngine({
           <TvCardSkeleton />
         ) : showMilestoneScreen ? (
           /* Milestone Reached State View (15 Shows Milestone) */
-          <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface border border-border/80 rounded-3xl p-8 md:p-12 shadow-cinematic animate-fadeIn">
-            <div className="w-16 h-16 rounded-full bg-success/15 border border-success/30 text-success flex items-center justify-center mx-auto text-2xl font-bold">
+          <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface-1 border border-border/80 rounded-3xl p-8 md:p-12 shadow-md animate-fadeIn">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto text-2xl font-bold">
               ✓
             </div>
 
@@ -235,19 +236,19 @@ export function TvCalibrationEngine({
               <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
                 İlk Dizi DNA Profilin Hazır {userName ? `, ${userName}` : ""}
               </h2>
-              <p className="text-text-secondary text-sm md:text-base leading-relaxed">
-                Tebrikler! <strong className="text-text-primary">{answeredCount} diziyi</strong> başarıyla sınıflandırdınız.
+              <p className="text-text-secondary text-sm md:text-base leading-relaxed font-sans">
+                Tebrikler! <strong className="text-text-primary">{answeredCount} diziyi</strong> başarıyla değerlendirdiniz.
               </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-surface-elevated border border-border/60 text-xs font-mono text-text-muted">
-              Kişisel Dizi DNA profiliniz hazırlandı. Profil sayfasını inceleyebilir veya zevk profilinizi daha da netleştirmek için sınırsız değerlendirmeye devam edebilirsiniz.
+            <div className="p-4 rounded-2xl bg-surface-2 border border-border text-xs font-sans text-text-secondary">
+              Kişisel Dizi DNA profiliniz hazırlandı. Profilinizi inceleyebilir veya önerilerinizi daha da keskinleştirmek için değerlendirmeye devam edebilirsiniz.
             </div>
 
             <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
               <Link
                 href="/tv/profile"
-                className="px-6 py-3.5 rounded-xl bg-accent text-white font-medium text-sm hover:bg-accent-hover active:scale-[0.98] transition-all shadow-md text-center"
+                className="px-6 py-3.5 rounded-xl bg-accent text-white font-semibold text-sm hover:bg-accent-hover active:scale-95 transition-all shadow-sm text-center"
               >
                 Dizi DNA Profilini Gör →
               </Link>
@@ -257,7 +258,7 @@ export function TvCalibrationEngine({
                   setShowMilestoneScreen(false);
                   if (queue.length <= 2) fetchQueue(5);
                 }}
-                className="px-6 py-3.5 rounded-xl bg-surface-elevated border border-border text-text-primary font-medium text-sm hover:bg-border/60 active:scale-[0.98] transition-all shadow-sm"
+                className="px-6 py-3.5 rounded-xl bg-surface-2 border border-border text-text-primary font-medium text-sm hover:bg-surface-3 active:scale-95 transition-all shadow-sm"
               >
                 Değerlendirmeye Devam Et
               </button>
@@ -265,27 +266,33 @@ export function TvCalibrationEngine({
           </div>
         ) : activeShow ? (
           /* Active Interactive TV Card */
-          <div ref={cardRef} className="w-full space-y-2">
+          <div ref={cardRef} className="w-full space-y-3">
             {(() => {
               const progression = getTvProgressionForCount(answeredCount);
-              return progression.nextRank ? (
-                <div className="text-[11px] font-mono text-text-muted flex items-center justify-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                  <span>
-                    {answeredCount} / {progression.nextRank.minimum} • <strong className="text-text-secondary">{progression.nextRank.label} yolunda</strong> ({progression.remaining} dizi kaldı)
-                  </span>
-                </div>
-              ) : (
-                <div className="text-[11px] font-mono text-text-muted flex items-center justify-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                  <span>
-                    <strong className="text-text-secondary">{progression.currentRank.label}</strong> ({answeredCount}+ dizi değerlendirildi)
-                  </span>
+              return (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 max-w-4xl mx-auto px-1 text-xs font-sans">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-lg bg-accent-subtle border border-accent/30 text-accent font-semibold text-[11px]">
+                      {progression.currentRank.badgeIcon} {progression.currentRank.label}
+                    </span>
+                    <span className="text-text-muted">
+                      {answeredCount} Dizi Oylandı
+                    </span>
+                  </div>
+
+                  {progression.nextRank ? (
+                    <span className="text-text-secondary text-[11px]">
+                      Sıradaki: <strong className="text-text-primary">{progression.nextRank.label}</strong> ({progression.remaining} dizi kaldı)
+                    </span>
+                  ) : (
+                    <span className="text-text-secondary text-[11px]">
+                      <strong className="text-text-primary">{progression.currentRank.label}</strong>
+                    </span>
+                  )}
                 </div>
               );
             })()}
             <TvCard
-
               tvShow={activeShow}
               onAnswer={handleAnswer}
               isTransitioning={isTransitioning}
@@ -293,8 +300,8 @@ export function TvCalibrationEngine({
           </div>
         ) : (
           /* Queue Empty / Retry Fallback State */
-          <div className="w-full max-w-lg mx-auto text-center space-y-5 bg-surface border border-border/80 rounded-3xl p-8 shadow-cinematic">
-            <div className="w-12 h-12 rounded-full bg-warning/15 border border-warning/30 text-warning flex items-center justify-center mx-auto text-xl font-bold">
+          <div className="w-full max-w-lg mx-auto text-center space-y-5 bg-surface-1 border border-border/80 rounded-3xl p-8 shadow-md">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto text-xl font-bold">
               !
             </div>
 
@@ -302,14 +309,14 @@ export function TvCalibrationEngine({
               <h3 className="font-display text-xl font-bold text-text-primary">
                 Dizi Sırası Yenileniyor
               </h3>
-              <p className="text-text-secondary text-sm">
+              <p className="text-text-secondary text-sm font-sans">
                 {errorMessage || "Yeni diziler hazırlanıyor, lütfen tekrar deneyin."}
               </p>
             </div>
 
             <button
               onClick={() => fetchQueue(5, true)}
-              className="px-5 py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 mx-auto"
+              className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2 mx-auto"
             >
               <span>Dizileri Yenile</span>
             </button>
@@ -317,9 +324,7 @@ export function TvCalibrationEngine({
         )}
       </main>
 
-      <footer className="border-t border-border/60 py-6 text-center text-xs text-text-muted font-mono">
-        SINEAI &copy; {new Date().getFullYear()} — SineAI TV Engine
-      </footer>
+      <Footer />
     </div>
   );
 }

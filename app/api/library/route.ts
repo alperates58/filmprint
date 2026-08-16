@@ -20,7 +20,7 @@ export async function GET(request: Request) {
       : "ALL") as LibraryFilterOptions["mediaType"];
 
     const rawState = (searchParams.get("state") || searchParams.get("status") || "ALL").toUpperCase();
-    const state = (["WATCHLIST", "WATCHED", "DROPPED", "ALL"].includes(rawState)
+    const state = (["WATCHLIST", "WATCHED", "NOT_WATCHED", "DROPPED", "ALL"].includes(rawState)
       ? rawState
       : "ALL") as LibraryFilterOptions["state"];
 

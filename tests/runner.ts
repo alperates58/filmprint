@@ -32,6 +32,7 @@ import { runHomeVisualContractTests } from "./home_visual_contract.test";
 import { runTitleScriptEligibilityTests } from "./title_script_eligibility.test";
 import { runTmdbTvLocalizationTests } from "./tmdb_tv_localization.test";
 import { runTmdbSharedLocalizationTests } from "./tmdb_shared_localization.test";
+import { runTvProgressionTests } from "./tv_progression.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -52,6 +53,7 @@ async function runAllUnitAndRegressionTests() {
     { name: "Phase 7B.2 Grounded Evidence Tests", fn: runPhase7b2Tests },
     { name: "Progression & Rank Tests", fn: runProgressionTests },
     { name: "Rank Integrity & Boundary Tests", fn: runRankIntegrityTests },
+    { name: "TV Rank / Progression Tests", fn: runTvProgressionTests },
     { name: "Recommendation Feedback Tests", fn: runRecommendationFeedbackTests },
     { name: "Recommendation Matcher Tests", fn: runRecommendationMatcherTests },
     { name: "Recommendation Upgrade Tests", fn: runRecommendationUpgradeTests },

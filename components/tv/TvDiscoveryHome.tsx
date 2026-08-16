@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
+import { getTvProgressionForCount } from "@/lib/progression/service";
 import type { TvHomeModuleItem, PersonalizedTvRecommendationItem } from "@/lib/tv/recommendation/types";
 
 interface TvDiscoveryHomeProps {
@@ -30,6 +31,7 @@ export function TvDiscoveryHome({
   topHeroMatch,
   maturityLabel = "Dizi Kaşifi",
 }: TvDiscoveryHomeProps) {
+  const progression = getTvProgressionForCount(answeredCount);
   const scrollToModule = (moduleId: string) => {
     const el = document.getElementById(`module-${moduleId}`);
     if (el) {
@@ -65,12 +67,13 @@ export function TvDiscoveryHome({
             <div className="space-y-3 max-w-2xl">
               <div className="flex items-center gap-3">
                 <span className="px-3 py-1 rounded-full bg-accent/15 border border-accent/30 text-accent font-mono text-xs font-bold uppercase tracking-wider">
-                  📺 {maturityLabel}
+                  {progression.currentRank.badgeIcon} {progression.currentRank.label}
                 </span>
                 <span className="text-xs font-mono text-text-muted">
                   • {answeredCount} Dizi Değerlendirildi
                 </span>
               </div>
+
 
               <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight text-text-primary">
                 Hoş Geldin{userName ? `, ${userName}` : ""}.

@@ -1,4 +1,5 @@
-import type { RankDefinition } from "./types";
+import type { RankDefinition, TvRankKey } from "./types";
+
 
 export const RANK_DEFINITIONS: RankDefinition[] = [
   {
@@ -135,3 +136,119 @@ export const RANK_DEFINITIONS: RankDefinition[] = [
     badgeIcon: "👑",
   },
 ];
+
+export const TV_RANK_DEFINITIONS: RankDefinition<TvRankKey>[] = [
+  {
+    key: "TV_PASSENGER",
+    label: "Dizi Yolcusu",
+    minimum: 0,
+    description: "Dizi zevkinin ilk sinyalleri toplanıyor.",
+    badgeIcon: "🌱",
+  },
+  {
+    key: "TV_EXPLORER",
+    label: "Dizi Kaşifi",
+    minimum: 15,
+    description: "İlk Dizi DNA profilin oluştu.",
+    badgeIcon: "🔍",
+  },
+  {
+    key: "TV_ENTHUSIAST",
+    label: "Dizi Meraklısı",
+    minimum: 30,
+    description: "Dizi format ve tür tercihlerin belirginleşti.",
+    badgeIcon: "🍿",
+  },
+  {
+    key: "TV_PASSIONATE",
+    label: "Dizi Tutkunu",
+    minimum: 50,
+    description: "Dizi izleme zevkin belirginleşiyor.",
+    badgeIcon: "🎬",
+  },
+  {
+    key: "TV_HUNTER",
+    label: "Dizi Avcısı",
+    minimum: 100,
+    description: "Sezon ve bölüm alışkanlıkların derinleşti.",
+    badgeIcon: "🎯",
+  },
+  {
+    key: "TV_CURATOR",
+    label: "Dizi Küratörü",
+    minimum: 150,
+    description: "Zevk profilin daha ince dizi ayrımlarını yakalıyor.",
+    badgeIcon: "🏛️",
+  },
+  {
+    key: "TV_EXPERT",
+    label: "Dizi Uzmanı",
+    minimum: 250,
+    description: "Geniş bir dizi kataloğu üzerinden güçlü sinyaller oluştu.",
+    badgeIcon: "🎖️",
+  },
+  {
+    key: "TV_ARCHIVIST",
+    label: "Dizi Arşivcisi",
+    minimum: 400,
+    description: "Kapsamlı bir dizi izleme hafızası oluşturdun.",
+    badgeIcon: "📜",
+  },
+  {
+    key: "TV_CRITIC",
+    label: "Dizi Eleştirmeni",
+    minimum: 600,
+    description: "Farklı tür ve formatlarda seçkin bir dizi zevkin var.",
+    badgeIcon: "🧠",
+  },
+  {
+    key: "TV_MASTER",
+    label: "Dizi Ustası",
+    minimum: 1000,
+    description: "Dizi DNA'n son derece detaylı ve güçlü.",
+    badgeIcon: "👑",
+  },
+  {
+    key: "TV_ARCHAEOLOGIST",
+    label: "Dizi Arkeoloğu",
+    minimum: 1500,
+    description: "Popüler dizilerin ötesinde derin keşif birikimi.",
+    badgeIcon: "🔎",
+  },
+  {
+    key: "TV_ENCYCLOPEDIA",
+    label: "Dizi Ansiklopedisi",
+    minimum: 2000,
+    description: "Dizi dünyasının tüm dönem ve formatlarına hakim birikim.",
+    badgeIcon: "📖",
+  },
+  {
+    key: "GRAND_TV_ARCHIVIST",
+    label: "Büyük Dizi Arşivcisi",
+    minimum: 3000,
+    description: "Binlerce bölümü kapsayan devasa bir dizi arşivi.",
+    badgeIcon: "🗃️",
+  },
+  {
+    key: "TV_VIRTUOSO",
+    label: "Dizi Üstadı",
+    minimum: 5000,
+    description: "Kült yapımlardan niş mini dizilere uzanan üstat seviyesi dizi zevki.",
+    badgeIcon: "🎭",
+  },
+  {
+    key: "TV_LEGEND",
+    label: "Dizi Efsanesi",
+    minimum: 7500,
+    description: "Dizi dünyasında eşine az rastlanır ikonik bir yolculuk.",
+    badgeIcon: "💎",
+  },
+  {
+    key: "LIVING_TV_ARCHIVE",
+    label: "Yaşayan Dizi Arşivi",
+    minimum: 10000,
+    description: "Televizyon ve dizi dünyasının yaşayan ve nefes alan en görkemli canlı arşivi.",
+    badgeIcon: "🌌",
+  },
+];
+

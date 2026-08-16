@@ -1,4 +1,4 @@
-export type RankKey =
+export type FilmRankKey =
   | "BEGINNER"
   | "VIEWER"
   | "CINEPHILE"
@@ -19,21 +19,44 @@ export type RankKey =
   | "GRAND_CINEPHILE"
   | "LIVING_FILM_ARCHIVE";
 
-export interface RankDefinition {
-  key: RankKey;
+export type RankKey = FilmRankKey;
+
+export type TvRankKey =
+  | "TV_PASSENGER"
+  | "TV_EXPLORER"
+  | "TV_ENTHUSIAST"
+  | "TV_PASSIONATE"
+  | "TV_HUNTER"
+  | "TV_CURATOR"
+  | "TV_EXPERT"
+  | "TV_ARCHIVIST"
+  | "TV_CRITIC"
+  | "TV_MASTER"
+  | "TV_ARCHAEOLOGIST"
+  | "TV_ENCYCLOPEDIA"
+  | "GRAND_TV_ARCHIVIST"
+  | "TV_VIRTUOSO"
+  | "TV_LEGEND"
+  | "LIVING_TV_ARCHIVE";
+
+export type AnyRankKey = FilmRankKey | TvRankKey;
+
+export interface RankDefinition<K extends string = string> {
+  key: K;
   label: string;
   minimum: number;
   description: string;
   badgeIcon: string;
 }
 
-export interface UserProgression {
-  currentRank: RankDefinition;
-  nextRank: RankDefinition | null;
-  previousRank: RankDefinition | null;
-  upcomingRanks: RankDefinition[];
+export interface UserProgression<K extends string = string> {
+  currentRank: RankDefinition<K>;
+  nextRank: RankDefinition<K> | null;
+  previousRank: RankDefinition<K> | null;
+  upcomingRanks: RankDefinition<K>[];
   evaluatedCount: number;
   remaining: number;
   progress: number;
   isMaxRank: boolean;
 }
+

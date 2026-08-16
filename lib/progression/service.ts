@@ -1,16 +1,19 @@
-import { RANK_DEFINITIONS } from "./constants";
-import type { RankDefinition, UserProgression } from "./types";
+import { RANK_DEFINITIONS, TV_RANK_DEFINITIONS } from "./constants";
+import type { RankDefinition, TvRankKey, UserProgression } from "./types";
 
 /**
- * Deterministically returns the current rank definition for a given evaluated movie count.
+ * Deterministically returns the current rank definition for a given evaluated count and rank ladder.
  */
-export function getRankForCount(evaluatedCount: number): RankDefinition {
+export function resolveRankFromLadder<K extends string = string>(
+  evaluatedCount: number,
+  ranks: RankDefinition<K>[]
+): RankDefinition<K> {
   const count = Math.max(0, evaluatedCount);
-  let currentRank = RANK_DEFINITIONS[0];
+  let currentRank = ranks[0];
 
-  for (let i = 0; i < RANK_DEFINITIONS.length; i++) {
-    if (count >= RANK_DEFINITIONS[i].minimum) {
-      currentRank = RANK_DEFINITIONS[i];
+  for (let i = 0; i < ranks.length; i++) {
+    if (count >= ranks[i].minimum) {
+      currentRank = ranks[i];
     } else {
       break;
     }
@@ -20,17 +23,19 @@ export function getRankForCount(evaluatedCount: number): RankDefinition {
 }
 
 /**
- * Deterministically calculates full user progression for a given evaluated movie count.
- * Never crashes on arbitrarily large interaction counts (e.g. 30,000, 100,000+).
+ * Generic progression calculator for any rank ladder.
  */
-export function getProgressionForCount(evaluatedCount: number): UserProgression {
+export function getProgressionState<K extends string = string>(
+  evaluatedCount: number,
+  ranks: RankDefinition<K>[]
+): UserProgression<K> {
   const count = Math.max(0, evaluatedCount);
-  const currentRank = getRankForCount(count);
-  const currentIndex = RANK_DEFINITIONS.findIndex((r) => r.key === currentRank.key);
+  const currentRank = resolveRankFromLadder(count, ranks);
+  const currentIndex = ranks.findIndex((r) => r.key === currentRank.key);
 
-  const previousRank = currentIndex > 0 ? RANK_DEFINITIONS[currentIndex - 1] : null;
-  const nextRank = currentIndex < RANK_DEFINITIONS.length - 1 ? RANK_DEFINITIONS[currentIndex + 1] : null;
-  const upcomingRanks = nextRank ? RANK_DEFINITIONS.slice(currentIndex + 1, currentIndex + 4) : [];
+  const previousRank = currentIndex > 0 ? ranks[currentIndex - 1] : null;
+  const nextRank = currentIndex < ranks.length - 1 ? ranks[currentIndex + 1] : null;
+  const upcomingRanks = nextRank ? ranks.slice(currentIndex + 1, currentIndex + 4) : [];
 
   if (!nextRank) {
     return {
@@ -62,3 +67,34 @@ export function getProgressionForCount(evaluatedCount: number): UserProgression 
     isMaxRank: false,
   };
 }
+
+/**
+ * Deterministically returns the current rank definition for a given evaluated movie count.
+ */
+export function getRankForCount(evaluatedCount: number): RankDefinition {
+  return resolveRankFromLadder(evaluatedCount, RANK_DEFINITIONS);
+}
+
+/**
+ * Deterministically calculates full user progression for a given evaluated movie count.
+ * Never crashes on arbitrarily large interaction counts (e.g. 30,000, 100,000+).
+ */
+export function getProgressionForCount(evaluatedCount: number): UserProgression {
+  return getProgressionState(evaluatedCount, RANK_DEFINITIONS);
+}
+
+/**
+ * Deterministically returns the current rank definition for a given evaluated TV show count.
+ */
+export function getTvRankForCount(evaluatedCount: number): RankDefinition<TvRankKey> {
+  return resolveRankFromLadder(evaluatedCount, TV_RANK_DEFINITIONS);
+}
+
+/**
+ * Deterministically calculates full user progression for a given evaluated TV show count.
+ * Never crashes on arbitrarily large interaction counts (e.g. 10,000, 100,000+).
+ */
+export function getTvProgressionForCount(evaluatedCount: number): UserProgression<TvRankKey> {
+  return getProgressionState(evaluatedCount, TV_RANK_DEFINITIONS);
+}
+

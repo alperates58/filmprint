@@ -7,6 +7,8 @@ import { TvCard } from "@/components/tv/TvCard";
 import { TvCardSkeleton } from "@/components/tv/TvCardSkeleton";
 import { TvShowItem, TvInteractionStatusType, TvRatingStatusType } from "@/components/tv/types";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
+import { getTvProgressionForCount } from "@/lib/progression/service";
+
 
 interface TvCalibrationEngineProps {
   initialTvShows?: TvShowItem[];
@@ -264,21 +266,26 @@ export function TvCalibrationEngine({
         ) : activeShow ? (
           /* Active Interactive TV Card */
           <div ref={cardRef} className="w-full space-y-2">
-            <div className="text-[11px] font-mono text-text-muted flex items-center justify-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-              <span>
-                {answeredCount < milestoneTarget ? (
-                  <>
-                    {answeredCount} / {milestoneTarget} • <strong className="text-text-secondary">Dizi DNA yolunda</strong> ({milestoneTarget - answeredCount} dizi kaldı)
-                  </>
-                ) : (
-                  <>
-                    <strong className="text-text-secondary">{answeredCount} dizi</strong> değerlendirildi
-                  </>
-                )}
-              </span>
-            </div>
+            {(() => {
+              const progression = getTvProgressionForCount(answeredCount);
+              return progression.nextRank ? (
+                <div className="text-[11px] font-mono text-text-muted flex items-center justify-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                  <span>
+                    {answeredCount} / {progression.nextRank.minimum} • <strong className="text-text-secondary">{progression.nextRank.label} yolunda</strong> ({progression.remaining} dizi kaldı)
+                  </span>
+                </div>
+              ) : (
+                <div className="text-[11px] font-mono text-text-muted flex items-center justify-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                  <span>
+                    <strong className="text-text-secondary">{progression.currentRank.label}</strong> ({answeredCount}+ dizi değerlendirildi)
+                  </span>
+                </div>
+              );
+            })()}
             <TvCard
+
               tvShow={activeShow}
               onAnswer={handleAnswer}
               isTransitioning={isTransitioning}

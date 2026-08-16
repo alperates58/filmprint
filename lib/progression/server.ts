@@ -1,5 +1,5 @@
 import { db } from "@/lib/db/client";
-import { getProgressionForCount } from "./service";
+import { getProgressionForCount, getTvProgressionForCount } from "./service";
 import { UserProgression } from "./types";
 
 /**
@@ -9,10 +9,11 @@ export async function getUserProgression(
   userId: string,
   mediaType: "FILM" | "TV" = "FILM"
 ): Promise<UserProgression> {
-  const count =
-    mediaType === "TV"
-      ? await db.tvInteraction.count({ where: { userId } })
-      : await db.movieInteraction.count({ where: { userId } });
+  if (mediaType === "TV") {
+    const count = await db.tvInteraction.count({ where: { userId } });
+    return getTvProgressionForCount(count);
+  }
 
+  const count = await db.movieInteraction.count({ where: { userId } });
   return getProgressionForCount(count);
 }

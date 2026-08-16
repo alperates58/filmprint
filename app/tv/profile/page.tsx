@@ -6,6 +6,8 @@ import { Footer } from "@/components/ui/Footer";
 import { getCurrentUser } from "@/lib/auth/service";
 import { getOrRecalculateTvTasteProfile } from "@/lib/tv/profile/service";
 import { db } from "@/lib/db/client";
+import { TvJourney } from "@/components/profile/TvJourney";
+
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +62,8 @@ export default async function TvProfilePage() {
 
         {/* Low Evidence / Forming State */}
         {isLowEvidence || !profile ? (
-          <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface border border-border/80 rounded-3xl p-8 md:p-12 shadow-cinematic">
+          <div className="space-y-8">
+            <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface border border-border/80 rounded-3xl p-8 md:p-12 shadow-cinematic">
             <div className="w-16 h-16 rounded-2xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center mx-auto text-2xl font-bold font-mono">
               📺
             </div>
@@ -101,6 +104,8 @@ export default async function TvProfilePage() {
               </Link>
             </div>
           </div>
+          <TvJourney evaluatedCount={evaluatedCount} />
+        </div>
         ) : (
           /* Full Dizi DNA Profile Screen */
           <div className="space-y-8">
@@ -397,6 +402,9 @@ export default async function TvProfilePage() {
                 </div>
               </div>
             </div>
+
+            {/* TV Journey & Rank Progression Section */}
+            <TvJourney evaluatedCount={evaluatedCount} />
 
             {/* TV LIBRARY STATS SUMMARY */}
             <div className="p-6 rounded-3xl bg-surface border border-border/80 space-y-4">

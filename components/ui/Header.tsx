@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { getProgressionForCount } from "@/lib/progression/service";
+import { getProgressionForCount, getTvProgressionForCount } from "@/lib/progression/service";
 
 interface HeaderProps {
   progressCount?: number;
@@ -58,7 +58,11 @@ export function Header({
       ? progressCount
       : fetchedCount ?? (typeof progressCount === "number" ? progressCount : 0);
 
-  const progression = getProgressionForCount(activeCount);  return (
+  const progression = isTvMode
+    ? getTvProgressionForCount(activeCount)
+    : getProgressionForCount(activeCount);
+
+  return (
     <header className="w-full border-b border-border/60 bg-background/90 backdrop-blur-md sticky top-0 z-50 transition-all duration-300">
       <div className="max-w-7xl w-full mx-auto px-3 sm:px-4 md:px-6 h-14 md:h-16 flex items-center justify-between gap-2 lg:gap-4">
         {/* Brand Logo & Mode Switcher */}
@@ -238,17 +242,11 @@ export function Header({
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated border border-border text-xs font-mono font-medium text-text-primary whitespace-nowrap flex-shrink-0">
                 <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
                 <span className="text-text-secondary whitespace-nowrap">
-                  {isTvMode ? (
-                    `${activeCount} dizi değerlendirildi`
-                  ) : (
-                    <>
-                      <span className="hidden xl:inline">{progression.currentRank.label} • </span>
-                      <span>
-                        {activeCount}
-                        {progression.nextRank ? `/${progression.nextRank.minimum}` : ""}
-                      </span>
-                    </>
-                  )}
+                  <span className="hidden xl:inline">{progression.currentRank.label} • </span>
+                  <span>
+                    {activeCount}
+                    {progression.nextRank ? `/${progression.nextRank.minimum}` : "+"}
+                  </span>
                 </span>
               </div>
             )}
@@ -312,9 +310,7 @@ export function Header({
         {/* Mobile Navigation Toggle Button */}
         <div className="flex items-center gap-2 md:hidden">
           <div className="px-2.5 py-1 rounded-full bg-surface-elevated border border-border text-[10px] font-mono text-text-secondary whitespace-nowrap max-w-[200px] truncate">
-            {isTvMode
-              ? `${activeCount} dizi`
-              : `${progression.currentRank.label} • ${activeCount}${progression.nextRank ? `/${progression.nextRank.minimum}` : ""}`}
+            {`${progression.currentRank.label} • ${activeCount}${progression.nextRank ? `/${progression.nextRank.minimum}` : "+"}`}
           </div>
 
           <button

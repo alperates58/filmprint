@@ -8,8 +8,18 @@ import {
 } from "./types";
 import { COMPREHENSIVE_FALLBACK_TV_SHOWS } from "./fallback-catalog";
 import { isValidTmdbImagePath } from "@/lib/tmdb/image";
+import {
+  fetchTmdbTvJson,
+  normalizeTmdbTvCursor,
+  runTmdbTvSourceRotation,
+  TmdbTvRequestError,
+  type TmdbTvReplenishmentCursor,
+  type TmdbTvRequestMetrics,
+  type TmdbTvSourceRequest,
+} from "./replenishment";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
+const TMDB_TV_CURSOR_SETTING_KEY = "tmdb_tv_calibration_cursor_v1";
 
 export const FALLBACK_TV_SHOWS: TMDBTvShow[] = COMPREHENSIVE_FALLBACK_TV_SHOWS;
 
@@ -18,6 +28,10 @@ export const FALLBACK_TV_SHOWS: TMDBTvShow[] = COMPREHENSIVE_FALLBACK_TV_SHOWS;
  * Fully isolated from the Movie client.
  */
 export class TMDBTvClient {
+  private createRequestMetrics(): TmdbTvRequestMetrics {
+    return { httpAttempts: 0, retries: 0, rateLimited: 0, failures: 0 };
+  }
+
   private async resolveApiKey(): Promise<string> {
     try {
       const dbKey = await getTMDBApiKey();
@@ -154,20 +168,13 @@ export class TMDBTvClient {
     }
 
     try {
-      const response = await fetch(
-        `${TMDB_API_BASE}/tv/popular?api_key=${apiKey}&language=tr-TR&page=${page}&include_adult=false`,
-        { next: { revalidate: 3600 } }
+      const data = await fetchTmdbTvJson<{ results?: TMDBTvShow[] }>(
+        `${TMDB_API_BASE}/tv/popular?api_key=${apiKey}&language=tr-TR&page=${page}&include_adult=false`
       );
-
-      if (!response.ok) {
-        throw new Error(`TMDB TV API response failed with status ${response.status}`);
-      }
-
-      const data = await response.json();
       return data.results || [];
     } catch (error) {
       console.error("[TMDB TV Server Client] Error fetching popular TV shows:", error);
-      return FALLBACK_TV_SHOWS;
+      return [];
     }
   }
 
@@ -181,18 +188,13 @@ export class TMDBTvClient {
     }
 
     try {
-      const response = await fetch(
-        `${TMDB_API_BASE}/tv/top_rated?api_key=${apiKey}&language=tr-TR&page=${page}&include_adult=false`,
-        { next: { revalidate: 3600 } }
+      const data = await fetchTmdbTvJson<{ results?: TMDBTvShow[] }>(
+        `${TMDB_API_BASE}/tv/top_rated?api_key=${apiKey}&language=tr-TR&page=${page}&include_adult=false`
       );
-
-      if (!response.ok) return FALLBACK_TV_SHOWS;
-
-      const data = await response.json();
       return data.results || [];
     } catch (error) {
       console.error("[TMDB TV Server Client] Error fetching top rated TV shows:", error);
-      return FALLBACK_TV_SHOWS;
+      return [];
     }
   }
 
@@ -217,18 +219,13 @@ export class TMDBTvClient {
         ),
       });
 
-      const response = await fetch(
-        `${TMDB_API_BASE}/discover/tv?${queryParams.toString()}`,
-        { next: { revalidate: 3600 } }
+      const data = await fetchTmdbTvJson<{ results?: TMDBTvShow[] }>(
+        `${TMDB_API_BASE}/discover/tv?${queryParams.toString()}`
       );
-
-      if (!response.ok) return FALLBACK_TV_SHOWS;
-
-      const data = await response.json();
       return data.results || [];
     } catch (error) {
       console.error("[TMDB TV Server Client] Error discovering TV shows:", error);
-      return FALLBACK_TV_SHOWS;
+      return [];
     }
   }
 
@@ -397,76 +394,157 @@ export class TMDBTvClient {
     }
   }
 
+  private async loadReplenishmentCursor(): Promise<TmdbTvReplenishmentCursor> {
+    const setting = await db.systemSetting.findUnique({
+      where: { key: TMDB_TV_CURSOR_SETTING_KEY },
+      select: { value: true },
+    });
+
+    if (!setting) return normalizeTmdbTvCursor(null);
+
+    try {
+      return normalizeTmdbTvCursor(JSON.parse(setting.value));
+    } catch {
+      return normalizeTmdbTvCursor(null);
+    }
+  }
+
+  private async saveReplenishmentCursor(
+    cursor: TmdbTvReplenishmentCursor
+  ): Promise<void> {
+    await db.systemSetting.upsert({
+      where: { key: TMDB_TV_CURSOR_SETTING_KEY },
+      update: { value: JSON.stringify(cursor) },
+      create: {
+        key: TMDB_TV_CURSOR_SETTING_KEY,
+        value: JSON.stringify(cursor),
+        metadata: { purpose: "TV calibration TMDB source/page rotation" },
+      },
+    });
+  }
+
+  private async fetchReplenishmentSource(
+    apiKey: string,
+    request: TmdbTvSourceRequest,
+    metrics: TmdbTvRequestMetrics
+  ): Promise<TMDBTvShow[]> {
+    let path: string;
+    if (request.source === "popular") {
+      path = `/tv/popular?api_key=${apiKey}&language=tr-TR&page=${request.page}&include_adult=false`;
+    } else if (request.source === "top_rated") {
+      path = `/tv/top_rated?api_key=${apiKey}&language=tr-TR&page=${request.page}&include_adult=false`;
+    } else {
+      const query = new URLSearchParams({
+        api_key: apiKey,
+        language: "tr-TR",
+        include_adult: "false",
+        with_genres: request.genreId || "",
+        sort_by: "popularity.desc",
+        "vote_count.gte": "30",
+        page: String(request.page),
+      });
+      path = `/discover/tv?${query.toString()}`;
+    }
+
+    try {
+      const data = await fetchTmdbTvJson<{ results?: TMDBTvShow[] }>(
+        `${TMDB_API_BASE}${path}`,
+        { metrics }
+      );
+      return data.results || [];
+    } catch (error) {
+      metrics.failures++;
+      const structuredError =
+        error instanceof TmdbTvRequestError
+          ? {
+              source: request.source,
+              page: request.page,
+              status: error.status,
+              attempts: error.attempts,
+              message: error.message,
+            }
+          : { source: request.source, page: request.page, message: String(error) };
+      console.error("[TMDB TV Replenishment Request Failed]", structuredError);
+      throw error;
+    }
+  }
+
+  private async syncSourceShows(shows: TMDBTvShow[]): Promise<{
+    synced: CachedTvShowData[];
+    newUniqueIds: number;
+  }> {
+    const uniqueShows = Array.from(new Map(shows.map((show) => [show.id, show])).values());
+    const existing = await db.tvShow.findMany({
+      where: { tmdbId: { in: uniqueShows.map((show) => show.id) } },
+      select: { tmdbId: true },
+    });
+    const existingIds = new Set(existing.map((show) => show.tmdbId));
+    const newUniqueIds = uniqueShows.filter((show) => !existingIds.has(show.id)).length;
+    const synced: CachedTvShowData[] = [];
+
+    for (const show of uniqueShows) {
+      synced.push(await this.syncTvShowToDatabase(show));
+    }
+
+    return { synced, newUniqueIds };
+  }
+
+  private async syncEmergencyFallback(): Promise<CachedTvShowData[]> {
+    const synced: CachedTvShowData[] = [];
+    for (const fallback of COMPREHENSIVE_FALLBACK_TV_SHOWS) {
+      synced.push(await this.syncTvShowToDatabase(fallback));
+    }
+    return synced;
+  }
+
   /**
-   * Synchronizes candidate pool dynamically using multi-stream discovery and page rotation.
-   * Fetches diverse, high-quality TV shows across popular, top-rated, and key genre discovery streams.
-   * Guarantees idempotency and deduplication.
+   * Synchronizes candidate supply with a persistent source/page cursor. The
+   * emergency catalog contains 69 shows and is not sufficient for power users;
+   * it is used only when TMDB is unavailable or every live source fails.
    */
   public async seedAndFetchTvShows(options?: {
     forceFullSeed?: boolean;
     targetCount?: number;
   }): Promise<CachedTvShowData[]> {
     const apiKey = await this.resolveApiKey();
-    const syncedShows: CachedTvShowData[] = [];
-    const processedIds = new Set<number>();
-
-    // 1. Always ensure all 105+ iconic fallback shows are synced in local DB
-    for (const fallback of COMPREHENSIVE_FALLBACK_TV_SHOWS) {
-      if (!processedIds.has(fallback.id)) {
-        processedIds.add(fallback.id);
-        const synced = await this.syncTvShowToDatabase(fallback);
-        syncedShows.push(synced);
-      }
+    if (!apiKey) {
+      console.warn("[TMDB TV Replenishment] API key unavailable; using 69-show emergency catalog");
+      return this.syncEmergencyFallback();
     }
 
-    // 2. If TMDB API key is available, fetch live dynamic multi-stream pool
-    if (apiKey) {
-      try {
-        const existingCount = await db.tvShow.count();
-        // Dynamic page rotation: cycles across pages 1..10 to constantly bring varied quality titles
-        const basePage = ((Math.floor(existingCount / 20)) % 10) + 1;
-        const nextPage = (basePage % 10) + 1;
+    const initialCursor = await this.loadReplenishmentCursor();
+    const metrics = this.createRequestMetrics();
+    const rotation = await runTmdbTvSourceRotation<TMDBTvShow, CachedTvShowData>({
+      initialCursor,
+      targetNewIds: options?.targetCount || 30,
+      fetchSource: (request) => this.fetchReplenishmentSource(apiKey, request, metrics),
+      syncShows: (shows) => this.syncSourceShows(shows),
+    });
 
-        const [popA, popB, topA, topB, drama, crime, mystery, scifi, comedy, animation] =
-          await Promise.all([
-            this.getPopularTv(basePage),
-            this.getPopularTv(nextPage),
-            this.getTopRatedTv(basePage),
-            this.getTopRatedTv(nextPage),
-            this.discoverTv({ with_genres: "18", sort_by: "popularity.desc", "vote_count.gte": 30, page: basePage }),
-            this.discoverTv({ with_genres: "80", sort_by: "popularity.desc", "vote_count.gte": 30, page: basePage }),
-            this.discoverTv({ with_genres: "9648", sort_by: "popularity.desc", "vote_count.gte": 30, page: basePage }),
-            this.discoverTv({ with_genres: "10765", sort_by: "popularity.desc", "vote_count.gte": 30, page: basePage }),
-            this.discoverTv({ with_genres: "35", sort_by: "popularity.desc", "vote_count.gte": 30, page: basePage }),
-            this.discoverTv({ with_genres: "16", sort_by: "popularity.desc", "vote_count.gte": 30, page: basePage }),
-          ]);
+    // Persist advancement even when every response contained duplicates or failed.
+    await this.saveReplenishmentCursor(rotation.cursor);
 
-        const combined = [
-          ...popA,
-          ...popB,
-          ...topA,
-          ...topB,
-          ...drama,
-          ...crime,
-          ...mystery,
-          ...scifi,
-          ...comedy,
-          ...animation,
-        ];
+    console.info("[TMDB TV Replenishment]", {
+      cursorBefore: initialCursor,
+      cursorAfter: rotation.cursor,
+      sourceRequests: rotation.requests,
+      httpAttempts: metrics.httpAttempts,
+      retries: metrics.retries,
+      rateLimited: metrics.rateLimited,
+      failedSources: rotation.failedSources,
+      newUniqueIds: rotation.newUniqueIds,
+      syncedCount: rotation.synced.length,
+    });
 
-        for (const s of combined) {
-          if (!processedIds.has(s.id)) {
-            processedIds.add(s.id);
-            const synced = await this.syncTvShowToDatabase(s);
-            syncedShows.push(synced);
-          }
-        }
-      } catch (err) {
-        console.error("[TMDB TV Client] Error during multi-stream replenishment:", err);
-      }
+    if (
+      rotation.synced.length === 0 &&
+      rotation.failedSources === rotation.requests.length
+    ) {
+      console.warn("[TMDB TV Replenishment] All live sources failed; using emergency catalog");
+      return this.syncEmergencyFallback();
     }
 
-    return syncedShows;
+    return rotation.synced;
   }
 }
 

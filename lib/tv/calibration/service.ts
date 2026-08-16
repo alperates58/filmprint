@@ -8,6 +8,7 @@ import {
   TvSelectorUserState,
 } from "./types";
 import { TV_CALIBRATION_TARGET } from "./constants";
+import { resolveTvCandidateSupply } from "./supply";
 
 export interface QueueTvShowResponseItem {
   id: string; // Database UUID
@@ -118,8 +119,14 @@ export async function getTvCalibrationQueue(
       };
     });
 
-  // 3. Helper to query raw un-interacted TV show candidate pool from DB
-  async function fetchRawCandidatePool(): Promise<CandidateTvShow[]> {
+  // 3. Query a deterministic page of un-interacted TV shows from DB.
+  async function fetchRawCandidatePage({
+    skip,
+    take,
+  }: {
+    skip: number;
+    take: number;
+  }): Promise<CandidateTvShow[]> {
     const raw = await db.tvShow.findMany({
       where: {
         interactions: {
@@ -128,8 +135,13 @@ export async function getTvCalibrationQueue(
         id: { notIn: Array.from(answeredTvShowIds) },
         posterPath: { not: null },
       },
-      orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
-      take: 1000,
+      orderBy: [
+        { popularity: "desc" },
+        { voteAverage: "desc" },
+        { id: "asc" },
+      ],
+      skip,
+      take,
     });
 
     return raw.map((s: any) => {
@@ -158,17 +170,25 @@ export async function getTvCalibrationQueue(
     });
   }
 
-  // 4. Resolve candidate pool & calculate true eligible unanswered count
-  let rawCandidates = await fetchRawCandidatePool();
-  let eligibleCandidates = filterEligibleTvShows(rawCandidates, "CALIBRATION");
-  let eligibleUnansweredCount = eligibleCandidates.length;
+  // 4. Resolve a bounded, eligibility-aware reserve. Replenishment is skipped
+  // entirely while the paged DB supply is healthy.
+  const supply = await resolveTvCandidateSupply<CandidateTvShow>({
+    fetchPage: fetchRawCandidatePage,
+    forceReplenish: options?.forceReplenish,
+    replenish: () => tmdbTvClient.seedAndFetchTvShows(),
+  });
+  const rawCandidates = supply.rawCandidates;
+  const eligibleCandidates = supply.eligibleCandidates;
 
-  // Replenish from TMDB ONLY if true reserve is low (< 30) or forced by manual refresh
-  if (eligibleUnansweredCount < 30 || options?.forceReplenish) {
-    await tmdbTvClient.seedAndFetchTvShows();
-    rawCandidates = await fetchRawCandidatePool();
-    eligibleCandidates = filterEligibleTvShows(rawCandidates, "CALIBRATION");
-    eligibleUnansweredCount = eligibleCandidates.length;
+  if (supply.replenishTriggered) {
+    console.info("[TV Calibration Supply]", {
+      userId,
+      rawScanned: supply.rawScanned,
+      pagesScanned: supply.pagesScanned,
+      eligibleFound: eligibleCandidates.length,
+      selectedLimit: limit,
+      exhausted: supply.exhausted,
+    });
   }
 
   // 5. Deterministic Selection with Multi-Level Relaxation Ladder

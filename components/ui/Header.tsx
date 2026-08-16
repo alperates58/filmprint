@@ -37,7 +37,7 @@ export function Header({
   }, [userName, userAvatar, userEmail]);
 
   useEffect(() => {
-    fetch("/api/auth/me")
+    fetch(`/api/auth/me?mode=${isTvMode ? "tv" : "film"}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.user) {
@@ -51,7 +51,7 @@ export function Header({
       })
       .catch(() => {})
       .finally(() => setIsLoadingUser(false));
-  }, []);
+  }, [isTvMode]);
 
   const activeCount =
     typeof progressCount === "number" && progressCount > 0

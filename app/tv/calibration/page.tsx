@@ -36,7 +36,6 @@ export default async function TvCalibrationPage() {
     <TvCalibrationEngine
       initialTvShows={initialTvShows}
       initialAnsweredCount={queueResult.answeredCount}
-      initialCompleted={queueResult.completed}
     />
   );
 }

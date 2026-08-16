@@ -11,17 +11,17 @@ import { getTmdbImageUrl } from "@/lib/tmdb/image";
 interface TvCalibrationEngineProps {
   initialTvShows?: TvShowItem[];
   initialAnsweredCount?: number;
-  initialCompleted?: boolean;
 }
 
 export function TvCalibrationEngine({
   initialTvShows = [],
   initialAnsweredCount = 0,
-  initialCompleted = false,
 }: TvCalibrationEngineProps) {
   const [queue, setQueue] = useState<TvShowItem[]>(initialTvShows);
   const [answeredCount, setAnsweredCount] = useState<number>(initialAnsweredCount);
-  const [showMilestoneScreen, setShowMilestoneScreen] = useState<boolean>(initialCompleted);
+  // A mature user must not see the first milestone again on every page load.
+  // It is shown only when this client session crosses the threshold.
+  const [showMilestoneScreen, setShowMilestoneScreen] = useState<boolean>(false);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(initialAnsweredCount === 0);
   const [userName, setUserName] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(initialTvShows.length === 0);
@@ -65,23 +65,31 @@ export function TvCalibrationEngine({
       setIsLoading(true);
 
       try {
-        const url = forceRefresh
-          ? `/api/tv/calibration?limit=${limit}&refresh=true`
-          : `/api/tv/calibration?limit=${limit}`;
+        const requestQueue = async (refresh: boolean) => {
+          const url = refresh
+            ? `/api/tv/calibration?limit=${limit}&refresh=true`
+            : `/api/tv/calibration?limit=${limit}`;
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error("Failed to load TV calibration queue");
+          }
+          return response.json();
+        };
 
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Failed to load TV calibration queue");
-
-        const data = await res.json();
-        const newShows: TvShowItem[] = data.tvShows || [];
-
-        setAnsweredCount(data.answeredCount || 0);
+        let data = await requestQueue(forceRefresh);
+        let newShows: TvShowItem[] = data.tvShows || [];
 
         if (newShows.length === 0 && !forceRefresh && !hasAutoRecoveredRef.current) {
-          // Automatic 1-time recovery attempt before showing fallback screen
+          // Keep one loading lifecycle across normal fetch + forced recovery.
           hasAutoRecoveredRef.current = true;
-          isFetchingRef.current = false;
-          return fetchQueue(limit, true);
+          data = await requestQueue(true);
+          newShows = data.tvShows || [];
+        }
+
+        setAnsweredCount(data.answeredCount ?? 0);
+
+        if (newShows.length > 0) {
+          hasAutoRecoveredRef.current = false;
         }
 
         setQueue((prev) => {
@@ -132,7 +140,7 @@ export function TvCalibrationEngine({
     setAnsweredCount(newAnsweredCount);
 
     // Trigger milestone screen right when hitting 15 interactions for the first time in session
-    if (newAnsweredCount === milestoneTarget) {
+    if (answeredCount < milestoneTarget && newAnsweredCount >= milestoneTarget) {
       setShowMilestoneScreen(true);
     }
 

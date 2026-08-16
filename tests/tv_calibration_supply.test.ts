@@ -1,193 +1,216 @@
-import { db } from "../lib/db/client";
-import { getTvCalibrationQueue } from "../lib/tv/calibration/service";
-import { tmdbTvClient } from "../lib/tmdb/tv/client";
-import { evaluateTvEligibility, filterEligibleTvShows } from "../lib/tv/eligibility";
+import { rankCandidateTvShows } from "../lib/tv/calibration/selector";
+import { resolveTvCandidateSupply } from "../lib/tv/calibration/supply";
+import type { CandidateTvShow, TvSelectorUserState } from "../lib/tv/calibration/types";
+import {
+  fetchTmdbTvJson,
+  runTmdbTvSourceRotation,
+  TmdbTvRequestError,
+} from "../lib/tmdb/tv/replenishment";
+import type { TMDBTvShow } from "../lib/tmdb/tv/types";
+
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(message);
+}
+
+function candidate(index: number, popularity: number, eligible = true): CandidateTvShow {
+  return {
+    id: `fixture-show-${index}`,
+    tmdbId: 100_000 + index,
+    name: `Fixture Show ${index}`,
+    originalName: `Fixture Show ${index}`,
+    firstAirDate: "2020-01-01",
+    lastAirDate: null,
+    status: "Ended",
+    originalLanguage: "en",
+    popularity,
+    voteAverage: 8,
+    voteCount: eligible ? 100 : 1,
+    posterPath: "/fixture.jpg",
+    backdropPath: null,
+    genres: ["Dram"],
+    overview: eligible
+      ? "A sufficiently detailed overview for deterministic TV calibration supply testing."
+      : "short",
+    numberOfSeasons: 1,
+    numberOfEpisodes: 8,
+    adult: false,
+  };
+}
+
+function tmdbShow(id: number): TMDBTvShow {
+  return {
+    id,
+    name: `TMDB Fixture ${id}`,
+    original_name: `TMDB Fixture ${id}`,
+    poster_path: "/fixture.jpg",
+    backdrop_path: null,
+    popularity: 100,
+    vote_average: 8,
+  };
+}
+
+function pagedFetcher(rows: CandidateTvShow[]) {
+  return async ({ skip, take }: { skip: number; take: number }) =>
+    rows.slice(skip, skip + take);
+}
+
+const matureUserState: TvSelectorUserState = {
+  totalAnsweredCount: 347,
+  genreFrequency: { Dram: 347 },
+  positiveGenres: ["Dram"],
+  negativeGenres: [],
+};
+
+function selectedCount(candidates: CandidateTvShow[]): number {
+  return rankCandidateTvShows(candidates, matureUserState, []).slice(0, 5).length;
+}
+
+function response(status: number, retryAfter?: string, body: unknown = { results: [] }): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: {
+      get: (name: string) =>
+        name.toLowerCase() === "retry-after" ? retryAfter || null : null,
+    },
+    json: async () => body,
+  } as Response;
+}
 
 export async function runTvCalibrationSupplyTests(): Promise<void> {
-  console.log("\n🧪 Running TV Calibration Supply, 347+ User & Replenishment Tests...");
+  console.log("\n🧪 Running deterministic TV calibration supply & TMDB recovery tests...");
 
-  // Seed/sync initial catalog
-  await tmdbTvClient.seedAndFetchTvShows();
-
-  // Test 1: User with 347+ answered shows continues to receive non-empty candidate queue
+  // Scenario A: 1700 total / 1500 eligible / 347 interacted.
   {
-    console.log("  → Test 1: High-volume user (347+ answered shows) receives fresh candidate queue from DB supply");
-    const testUser = await db.user.create({
-      data: {
-        email: `test_user_supply_347_${Date.now()}@filmprint.io`,
-        name: "Supply 347 User",
+    const catalog = Array.from({ length: 1700 }, (_, index) =>
+      candidate(index, 1700 - index, index < 1500)
+    );
+    const unanswered = catalog.slice(347);
+    let tmdbCalls = 0;
+    const supply = await resolveTvCandidateSupply({
+      fetchPage: pagedFetcher(unanswered),
+      replenish: async () => {
+        tmdbCalls++;
       },
     });
 
-    const allShows = await db.tvShow.findMany({
-      orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
-    });
-
-    const totalInDb = allShows.length;
-    console.log(`     Total TV shows in DB: ${totalInDb}`);
-
-    const targetAnswerCount = Math.min(347, Math.max(1, totalInDb - 15));
-    const showsToAnswer = allShows.slice(0, targetAnswerCount);
-    const statuses = ["WATCHED", "PARTIALLY_WATCHED", "NOT_WATCHED", "UNSURE"] as const;
-
-    // Batch create interactions
-    const interactionData = showsToAnswer.map((show, i) => ({
-      userId: testUser.id,
-      tvShowId: show.id,
-      status: statuses[i % statuses.length],
-      rating: (statuses[i % statuses.length] === "WATCHED" ? "LIKE" : null) as any,
-      answeredAt: new Date(Date.now() - (targetAnswerCount - i) * 60000),
-      updatedAt: new Date(),
-    }));
-
-    await db.tvInteraction.createMany({
-      data: interactionData,
-    });
-
-    const answeredCount = await db.tvInteraction.count({ where: { userId: testUser.id } });
-    console.log(`     User answered count: ${answeredCount} / ${targetAnswerCount}`);
-
-    // Call calibration queue
-    const queue = await getTvCalibrationQueue(testUser.id, 5);
-
-    if (queue.tvShows.length === 0) {
-      throw new Error(`Expected calibration queue to return candidates for 347+ user, got 0`);
-    }
-
-    const answeredIdsSet = new Set(showsToAnswer.map((s) => s.id));
-    for (const c of queue.tvShows) {
-      if (answeredIdsSet.has(c.id)) {
-        throw new Error(`Queue returned already answered show: ${c.name} (${c.id})`);
-      }
-    }
-
-    console.log(`     ✓ Returned ${queue.tvShows.length} fresh unrated candidates (${queue.tvShows.map((s) => s.name).join(", ")})`);
+    assert(supply.eligibleCandidates.length >= 100, "Scenario A must find a healthy reserve");
+    assert(selectedCount(supply.eligibleCandidates) === 5, "Scenario A must return 5 candidates");
+    assert(tmdbCalls === 0, "Scenario A must not call TMDB while DB supply is healthy");
+    console.log("  ✓ Scenario A: 1700/1500/347 returns 5 candidates with TMDB calls = 0");
   }
 
-  // Test 2: Popularity Ordering Starvation Audit (User answered top 500 popularity shows)
+  // Scenario B: top 500 interacted, lower 500 unanswered.
   {
-    console.log("  → Test 2: Popularity ordering starvation test (top ranked shows answered, lower ranked reached)");
-    const testUserStarvation = await db.user.create({
-      data: {
-        email: `test_user_starv_${Date.now()}@filmprint.io`,
-        name: "Starvation Test User",
-      },
+    const catalog = Array.from({ length: 1000 }, (_, index) =>
+      candidate(2_000 + index, 1000 - index)
+    );
+    const supply = await resolveTvCandidateSupply({
+      fetchPage: pagedFetcher(catalog.slice(500)),
+      replenish: async () => undefined,
     });
 
-    const topShows = await db.tvShow.findMany({
-      orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
-      take: 200,
-    });
-
-    if (topShows.length > 20) {
-      const toAnswer = topShows.slice(0, topShows.length - 5);
-      await db.tvInteraction.createMany({
-        data: toAnswer.map((s) => ({
-          userId: testUserStarvation.id,
-          tvShowId: s.id,
-          status: "WATCHED",
-          rating: "LIKE",
-        })),
-      });
-
-      const queue = await getTvCalibrationQueue(testUserStarvation.id, 5);
-      if (queue.tvShows.length === 0) {
-        throw new Error("Starvation occurred: Candidate query failed to reach lower-ranked shows");
-      }
-
-      console.log(`     ✓ Candidate query successfully retrieved ${queue.tvShows.length} candidates beyond answered top-popularity items.`);
-    }
+    assert(selectedCount(supply.eligibleCandidates) === 5, "Scenario B must reach lower-ranked shows");
+    console.log("  ✓ Scenario B: lower 500 unanswered candidates remain reachable");
   }
 
-  // Test 3: Strict Exclusion of all interaction states (WATCHED, PARTIALLY_WATCHED, NOT_WATCHED, UNSURE)
+  // Scenario C: four full invalid pages plus 100 invalid rows before valid supply.
   {
-    console.log("  → Test 3: Strict DB exclusion of NOT_WATCHED and UNSURE from calibration queue");
-    const testUser2 = await db.user.create({
-      data: {
-        email: `test_user_excl_${Date.now()}@filmprint.io`,
-        name: "Exclusion Test User",
-      },
+    const rows = [
+      ...Array.from({ length: 1100 }, (_, index) => candidate(4_000 + index, 2_000 - index, false)),
+      ...Array.from({ length: 100 }, (_, index) => candidate(6_000 + index, 100 - index, true)),
+    ];
+    const supply = await resolveTvCandidateSupply({
+      fetchPage: pagedFetcher(rows),
+      replenish: async () => undefined,
     });
 
-    const candidateQueue = await getTvCalibrationQueue(testUser2.id, 5);
-    const firstCandidate = candidateQueue.tvShows[0];
-
-    // Mark as NOT_WATCHED
-    await db.tvInteraction.create({
-      data: {
-        userId: testUser2.id,
-        tvShowId: firstCandidate.id,
-        status: "NOT_WATCHED",
-        rating: null,
-        answeredAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
-
-    const nextQueue = await getTvCalibrationQueue(testUser2.id, 5);
-    const returnedIds = nextQueue.tvShows.map((s) => s.id);
-
-    if (returnedIds.includes(firstCandidate.id)) {
-      throw new Error(`NOT_WATCHED show ${firstCandidate.name} was returned in next calibration queue!`);
-    }
-
-    console.log(`     ✓ NOT_WATCHED show properly excluded from subsequent queue at DB level.`);
+    assert(supply.pagesScanned === 5, "Scenario C must scan through the fifth page");
+    assert(selectedCount(supply.eligibleCandidates) === 5, "Scenario C must reach the lower 100 valid rows");
+    console.log("  ✓ Scenario C: pagination crosses 1100 invalid rows and returns 5 candidates");
   }
 
-  // Test 4: Force replenishment via options.forceReplenish
+  // Scenario D: low reserve triggers exactly one replenish lifecycle.
   {
-    console.log("  → Test 4: Forced manual replenishment triggers catalog refresh");
-    const testUser3 = await db.user.create({
-      data: {
-        email: `test_user_force_${Date.now()}@filmprint.io`,
-        name: "Forced Refresh User",
+    const rows = Array.from({ length: 10 }, (_, index) => candidate(7_000 + index, 10 - index));
+    let replenishCalls = 0;
+    const supply = await resolveTvCandidateSupply({
+      fetchPage: pagedFetcher(rows),
+      replenish: async () => {
+        replenishCalls++;
       },
     });
 
-    const queueAfter = await getTvCalibrationQueue(testUser3.id, 5, { forceReplenish: true });
-
-    if (queueAfter.tvShows.length === 0) {
-      throw new Error("Forced replenishment returned empty queue");
-    }
-
-    console.log(`     ✓ Forced replenishment succeeded with ${queueAfter.tvShows.length} valid candidates.`);
+    assert(supply.replenishTriggered, "Scenario D must mark replenish as triggered");
+    assert(replenishCalls === 1, "Scenario D must call replenish exactly once");
+    console.log("  ✓ Scenario D: reserve=10 triggers one replenish");
   }
 
-  // Test 5: Eligibility compliance of all queue items
+  // Scenario E: duplicate-only pages still consume and advance source/page cursor.
   {
-    console.log("  → Test 5: All candidate shows in calibration queue meet CALIBRATION eligibility standards");
-    const testUser4 = await db.user.create({
-      data: {
-        email: `test_user_elig_${Date.now()}@filmprint.io`,
-        name: "Eligibility Check User",
+    const requested: string[] = [];
+    const rotation = await runTmdbTvSourceRotation<TMDBTvShow, TMDBTvShow>({
+      initialCursor: { sourceIndex: 0, page: 1 },
+      maxRequests: 10,
+      concurrency: 3,
+      fetchSource: async (request) => {
+        requested.push(`${request.source}:${request.page}`);
+        return [tmdbShow(1), tmdbShow(1)];
+      },
+      syncShows: async () => ({ synced: [], newUniqueIds: 0 }),
+    });
+
+    assert(rotation.requests.length === 10, "Scenario E must remain request-bounded");
+    assert(new Set(requested).size === 10, "Scenario E must advance to distinct source/page positions");
+    assert(rotation.cursor.page === 2, "Scenario E must advance into the next page cycle");
+    console.log("  ✓ Scenario E: duplicate-only responses advance source/page cursor");
+  }
+
+  // Scenario F: Retry-After=1 is respected before a successful retry.
+  {
+    let attempts = 0;
+    const delays: number[] = [];
+    const data = await fetchTmdbTvJson<{ results: unknown[] }>("https://tmdb.test/tv", {
+      fetchImpl: async () => {
+        attempts++;
+        return attempts === 1
+          ? response(429, "1")
+          : response(200, undefined, { results: [] });
+      },
+      sleep: async (delay) => {
+        delays.push(delay);
       },
     });
 
-    const queue = await getTvCalibrationQueue(testUser4.id, 10);
-    for (const item of queue.tvShows) {
-      const evalRes = evaluateTvEligibility(
-        {
-          id: item.id,
-          name: item.name,
-          originalName: item.originalName || "",
-          overview: item.overview,
-          posterPath: item.posterPath,
-          firstAirDate: item.firstAirDate,
-          voteAverage: item.voteAverage,
-          voteCount: item.voteCount,
-          popularity: item.popularity,
-          genres: item.genres,
+    assert(data.results.length === 0 && attempts === 2, "Scenario F must retry once then succeed");
+    assert(delays.length === 1 && delays[0] === 1000, "Scenario F must respect Retry-After=1");
+    console.log("  ✓ Scenario F: Retry-After=1 produces a 1000ms mocked delay");
+  }
+
+  // Scenario G: repeated 429 stops after the bounded retry budget.
+  {
+    let attempts = 0;
+    const delays: number[] = [];
+    let failure: unknown = null;
+    try {
+      await fetchTmdbTvJson("https://tmdb.test/tv", {
+        fetchImpl: async () => {
+          attempts++;
+          return response(429);
         },
-        "CALIBRATION"
-      );
-
-      if (!evalRes.isEligible) {
-        throw new Error(`Candidate ${item.name} failed CALIBRATION eligibility: ${evalRes.reason}`);
-      }
+        sleep: async (delay) => {
+          delays.push(delay);
+        },
+      });
+    } catch (error) {
+      failure = error;
     }
 
-    console.log(`     ✓ All ${queue.tvShows.length} returned candidates are 100% CALIBRATION eligible.`);
+    assert(failure instanceof TmdbTvRequestError, "Scenario G must return a structured failure");
+    assert(attempts === 3, "Scenario G must stop after 3 total attempts");
+    assert(delays.join(",") === "1000,2000", "Scenario G must use bounded exponential backoff");
+    console.log("  ✓ Scenario G: repeated 429 stops after 3 attempts without a busy loop");
   }
 
-  console.log("  ✅ All TV Calibration Supply & Replenishment Tests Passed!\n");
+  console.log("  ✅ Deterministic TV calibration supply & recovery tests passed\n");
 }

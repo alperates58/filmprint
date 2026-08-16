@@ -1,56 +1,57 @@
 import { db } from "../lib/db/client";
 import { getTvCalibrationQueue } from "../lib/tv/calibration/service";
 import { tmdbTvClient } from "../lib/tmdb/tv/client";
-import { evaluateTvEligibility } from "../lib/tv/eligibility";
+import { evaluateTvEligibility, filterEligibleTvShows } from "../lib/tv/eligibility";
 
 export async function runTvCalibrationSupplyTests(): Promise<void> {
-  console.log("\n🧪 Running TV Calibration Supply & Replenishment Tests...");
+  console.log("\n🧪 Running TV Calibration Supply, 347+ User & Replenishment Tests...");
 
-  // Test 1: User with 108+ answered shows can continue without running out of supply
+  // Seed/sync initial catalog
+  await tmdbTvClient.seedAndFetchTvShows();
+
+  // Test 1: User with 347+ answered shows continues to receive non-empty candidate queue
   {
-    console.log("  → Test 1: High-volume user (108+ answered shows) receives fresh candidate queue");
+    console.log("  → Test 1: High-volume user (347+ answered shows) receives fresh candidate queue from DB supply");
     const testUser = await db.user.create({
       data: {
-        email: `test_user_supply_${Date.now()}@filmprint.io`,
-        name: "Supply Test User",
+        email: `test_user_supply_347_${Date.now()}@filmprint.io`,
+        name: "Supply 347 User",
       },
     });
 
-    // Seed/sync initial catalog
-    await tmdbTvClient.seedAndFetchTvShows();
+    const allShows = await db.tvShow.findMany({
+      orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
+    });
 
-    // Fetch all existing shows
-    const allShows = await db.tvShow.findMany();
+    const totalInDb = allShows.length;
+    console.log(`     Total TV shows in DB: ${totalInDb}`);
 
-    // Answer first 108 shows with mixed interaction types
-    const showsToAnswer = allShows.slice(0, Math.min(108, allShows.length - 10));
+    const targetAnswerCount = Math.min(347, Math.max(1, totalInDb - 15));
+    const showsToAnswer = allShows.slice(0, targetAnswerCount);
     const statuses = ["WATCHED", "PARTIALLY_WATCHED", "NOT_WATCHED", "UNSURE"] as const;
 
-    for (let i = 0; i < showsToAnswer.length; i++) {
-      const show = showsToAnswer[i];
-      const status = statuses[i % statuses.length];
-      const rating = status === "WATCHED" || status === "PARTIALLY_WATCHED" ? "LIKE" : null;
+    // Batch create interactions
+    const interactionData = showsToAnswer.map((show, i) => ({
+      userId: testUser.id,
+      tvShowId: show.id,
+      status: statuses[i % statuses.length],
+      rating: (statuses[i % statuses.length] === "WATCHED" ? "LIKE" : null) as any,
+      answeredAt: new Date(Date.now() - (targetAnswerCount - i) * 60000),
+      updatedAt: new Date(),
+    }));
 
-      await db.tvInteraction.create({
-        data: {
-          userId: testUser.id,
-          tvShowId: show.id,
-          status,
-          rating,
-          answeredAt: new Date(Date.now() - (108 - i) * 60000),
-          updatedAt: new Date(),
-        },
-      });
-    }
+    await db.tvInteraction.createMany({
+      data: interactionData,
+    });
 
     const answeredCount = await db.tvInteraction.count({ where: { userId: testUser.id } });
-    console.log(`     User answered count: ${answeredCount}`);
+    console.log(`     User answered count: ${answeredCount} / ${targetAnswerCount}`);
 
     // Call calibration queue
     const queue = await getTvCalibrationQueue(testUser.id, 5);
 
     if (queue.tvShows.length === 0) {
-      throw new Error(`Expected calibration queue to return candidates for 108+ user, got 0`);
+      throw new Error(`Expected calibration queue to return candidates for 347+ user, got 0`);
     }
 
     const answeredIdsSet = new Set(showsToAnswer.map((s) => s.id));
@@ -63,9 +64,44 @@ export async function runTvCalibrationSupplyTests(): Promise<void> {
     console.log(`     ✓ Returned ${queue.tvShows.length} fresh unrated candidates (${queue.tvShows.map((s) => s.name).join(", ")})`);
   }
 
-  // Test 2: Strict Exclusion of all interaction states (WATCHED, PARTIALLY_WATCHED, NOT_WATCHED, UNSURE)
+  // Test 2: Popularity Ordering Starvation Audit (User answered top 500 popularity shows)
   {
-    console.log("  → Test 2: Strict exclusion of NOT_WATCHED and UNSURE from calibration queue");
+    console.log("  → Test 2: Popularity ordering starvation test (top ranked shows answered, lower ranked reached)");
+    const testUserStarvation = await db.user.create({
+      data: {
+        email: `test_user_starv_${Date.now()}@filmprint.io`,
+        name: "Starvation Test User",
+      },
+    });
+
+    const topShows = await db.tvShow.findMany({
+      orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
+      take: 200,
+    });
+
+    if (topShows.length > 20) {
+      const toAnswer = topShows.slice(0, topShows.length - 5);
+      await db.tvInteraction.createMany({
+        data: toAnswer.map((s) => ({
+          userId: testUserStarvation.id,
+          tvShowId: s.id,
+          status: "WATCHED",
+          rating: "LIKE",
+        })),
+      });
+
+      const queue = await getTvCalibrationQueue(testUserStarvation.id, 5);
+      if (queue.tvShows.length === 0) {
+        throw new Error("Starvation occurred: Candidate query failed to reach lower-ranked shows");
+      }
+
+      console.log(`     ✓ Candidate query successfully retrieved ${queue.tvShows.length} candidates beyond answered top-popularity items.`);
+    }
+  }
+
+  // Test 3: Strict Exclusion of all interaction states (WATCHED, PARTIALLY_WATCHED, NOT_WATCHED, UNSURE)
+  {
+    console.log("  → Test 3: Strict DB exclusion of NOT_WATCHED and UNSURE from calibration queue");
     const testUser2 = await db.user.create({
       data: {
         email: `test_user_excl_${Date.now()}@filmprint.io`,
@@ -95,12 +131,12 @@ export async function runTvCalibrationSupplyTests(): Promise<void> {
       throw new Error(`NOT_WATCHED show ${firstCandidate.name} was returned in next calibration queue!`);
     }
 
-    console.log(`     ✓ NOT_WATCHED show properly excluded from subsequent queue.`);
+    console.log(`     ✓ NOT_WATCHED show properly excluded from subsequent queue at DB level.`);
   }
 
-  // Test 3: Force replenishment via options.forceReplenish
+  // Test 4: Force replenishment via options.forceReplenish
   {
-    console.log("  → Test 3: Forced manual replenishment triggers catalog refresh");
+    console.log("  → Test 4: Forced manual replenishment triggers catalog refresh");
     const testUser3 = await db.user.create({
       data: {
         email: `test_user_force_${Date.now()}@filmprint.io`,
@@ -108,7 +144,6 @@ export async function runTvCalibrationSupplyTests(): Promise<void> {
       },
     });
 
-    const queueBefore = await getTvCalibrationQueue(testUser3.id, 5);
     const queueAfter = await getTvCalibrationQueue(testUser3.id, 5, { forceReplenish: true });
 
     if (queueAfter.tvShows.length === 0) {
@@ -118,9 +153,9 @@ export async function runTvCalibrationSupplyTests(): Promise<void> {
     console.log(`     ✓ Forced replenishment succeeded with ${queueAfter.tvShows.length} valid candidates.`);
   }
 
-  // Test 4: Eligibility compliance of all queue items
+  // Test 5: Eligibility compliance of all queue items
   {
-    console.log("  → Test 4: All candidate shows in calibration queue meet CALIBRATION eligibility standards");
+    console.log("  → Test 5: All candidate shows in calibration queue meet CALIBRATION eligibility standards");
     const testUser4 = await db.user.create({
       data: {
         email: `test_user_elig_${Date.now()}@filmprint.io`,

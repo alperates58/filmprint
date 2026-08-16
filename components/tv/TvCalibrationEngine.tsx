@@ -55,12 +55,14 @@ export function TvCalibrationEngine({
     });
   }, []);
 
+  const hasAutoRecoveredRef = useRef<boolean>(false);
+
   // Fetch candidate queue from API (with optional forced replenishment)
   const fetchQueue = useCallback(
     async (limit: number = 5, forceRefresh: boolean = false) => {
       if (isFetchingRef.current) return;
       isFetchingRef.current = true;
-      if (forceRefresh) setIsLoading(true);
+      setIsLoading(true);
 
       try {
         const url = forceRefresh
@@ -74,6 +76,13 @@ export function TvCalibrationEngine({
         const newShows: TvShowItem[] = data.tvShows || [];
 
         setAnsweredCount(data.answeredCount || 0);
+
+        if (newShows.length === 0 && !forceRefresh && !hasAutoRecoveredRef.current) {
+          // Automatic 1-time recovery attempt before showing fallback screen
+          hasAutoRecoveredRef.current = true;
+          isFetchingRef.current = false;
+          return fetchQueue(limit, true);
+        }
 
         setQueue((prev) => {
           const existingIds = new Set(prev.map((s) => s.id));

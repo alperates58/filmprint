@@ -74,6 +74,15 @@ export const TV_EDITORIAL_CATEGORIES: TvEditorialCategoryDef[] = [
       return (status === "Ended" || status === "Canceled") && vote >= 7.8;
     },
   },
+  {
+    id: "COMEDY",
+    title: "Kahkaha & Komedi",
+    subtitle: "Günün yorgunluğunu atan eğlenceli, zeki ve neşeli dizi seçkisi.",
+    filter: (item) => {
+      const genres = item.tvShow.metadata?.genres || [];
+      return genres.some((g) => g.toLowerCase().includes("komedi") || g.toLowerCase().includes("comedy"));
+    },
+  },
 ];
 
 /**

@@ -113,6 +113,17 @@ export function Header({
                       : "text-text-muted hover:text-text-primary"
                   }`}
                 >
+                  Ana Sayfa
+                </Link>
+
+                <Link
+                  href="/calibrate"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                    pathname === "/calibrate"
+                      ? "bg-surface-elevated text-text-primary font-semibold border border-border"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
                   Kalibrasyon
                 </Link>
 
@@ -354,6 +365,16 @@ export function Header({
                   onClick={() => setMobileMenuOpen(false)}
                   className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
                     pathname === "/" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+                  }`}
+                >
+                  Ana Sayfa
+                </Link>
+
+                <Link
+                  href="/calibrate"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
+                    pathname === "/calibrate" ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
                   }`}
                 >
                   Kalibrasyon

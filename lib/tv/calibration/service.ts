@@ -118,17 +118,21 @@ export async function getTvCalibrationQueue(
       };
     });
 
-  // 3. Helper to query & filter eligible candidate TV shows
-  async function fetchCandidatePool(): Promise<CandidateTvShow[]> {
+  // 3. Helper to query raw un-interacted TV show candidate pool from DB
+  async function fetchRawCandidatePool(): Promise<CandidateTvShow[]> {
     const raw = await db.tvShow.findMany({
       where: {
+        interactions: {
+          none: { userId },
+        },
         id: { notIn: Array.from(answeredTvShowIds) },
+        posterPath: { not: null },
       },
       orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
-      take: 250,
+      take: 1000,
     });
 
-    const candidatePoolRaw: CandidateTvShow[] = raw.map((s: any) => {
+    return raw.map((s: any) => {
       const meta = (s.metadata as Record<string, unknown>) || {};
       return {
         id: s.id,
@@ -152,28 +156,84 @@ export async function getTvCalibrationQueue(
         metadata: meta,
       };
     });
-
-    return filterEligibleTvShows(candidatePoolRaw, "CALIBRATION");
   }
 
-  // 4. Resolve candidate pool with automated TMDB replenishment guardrail
-  let candidatePool = await fetchCandidatePool();
+  // 4. Resolve candidate pool & calculate true eligible unanswered count
+  let rawCandidates = await fetchRawCandidatePool();
+  let eligibleCandidates = filterEligibleTvShows(rawCandidates, "CALIBRATION");
+  let eligibleUnansweredCount = eligibleCandidates.length;
 
-  if (candidatePool.length < 30 || options?.forceReplenish) {
+  // Replenish from TMDB ONLY if true reserve is low (< 30) or forced by manual refresh
+  if (eligibleUnansweredCount < 30 || options?.forceReplenish) {
     await tmdbTvClient.seedAndFetchTvShows();
-    candidatePool = await fetchCandidatePool();
+    rawCandidates = await fetchRawCandidatePool();
+    eligibleCandidates = filterEligibleTvShows(rawCandidates, "CALIBRATION");
+    eligibleUnansweredCount = eligibleCandidates.length;
   }
 
-  // 5. Rank candidate shows deterministically
-  const rankedResults = rankCandidateTvShows(candidatePool, userState, recentInteractions);
+  // 5. Deterministic Selection with Multi-Level Relaxation Ladder
+  let selectedShows: QueueTvShowResponseItem[] = [];
+  let appliedStrategyLevel = 1;
 
-  const selectedShows: QueueTvShowResponseItem[] = rankedResults
-    .slice(0, limit)
-    .map((r: any) => ({
-      ...r.tvShow,
-      selectionScore: r.score,
-      reasons: r.reasons,
-    }));
+  if (eligibleCandidates.length > 0) {
+    // LEVEL 1: Full Active Learning (Uncertainty + Quality + Diversity + Recency Repetition Penalty)
+    const rankedLevel1 = rankCandidateTvShows(eligibleCandidates, userState, recentInteractions);
+    if (rankedLevel1.length > 0) {
+      selectedShows = rankedLevel1.slice(0, limit).map((r: any) => ({
+        ...r.tvShow,
+        selectionScore: r.score,
+        reasons: r.reasons,
+      }));
+      appliedStrategyLevel = 1;
+    }
+
+    // LEVEL 2: Relaxed Active Learning (ignore recency repetition penalty)
+    if (selectedShows.length === 0) {
+      const rankedLevel2 = rankCandidateTvShows(eligibleCandidates, userState, []);
+      if (rankedLevel2.length > 0) {
+        selectedShows = rankedLevel2.slice(0, limit).map((r: any) => ({
+          ...r.tvShow,
+          selectionScore: r.score,
+          reasons: [...(r.reasons || []), "relaxation_level_2_active_learning"],
+        }));
+        appliedStrategyLevel = 2;
+      }
+    }
+
+    // LEVEL 3: Deterministic Quality & Popularity Best Candidates (pure quality fallback on eligible pool)
+    if (selectedShows.length === 0) {
+      const sortedLevel3 = [...eligibleCandidates].sort((a, b) => {
+        if (b.voteAverage !== a.voteAverage) return b.voteAverage - a.voteAverage;
+        if (b.popularity !== a.popularity) return b.popularity - a.popularity;
+        return a.tmdbId - b.tmdbId;
+      });
+      selectedShows = sortedLevel3.slice(0, limit).map((show) => ({
+        ...show,
+        selectionScore: 1.0,
+        reasons: ["relaxation_level_3_quality_floor"],
+      }));
+      appliedStrategyLevel = 3;
+    }
+  }
+
+  // LEVEL 4 (Emergency Supply Fallback): If strict CALIBRATION eligibility over-constrained,
+  // evaluate against GENERAL eligibility (voteCount >= 10, overview >= 25, non-adult, valid poster)
+  if (selectedShows.length === 0 && rawCandidates.length > 0) {
+    const generalEligible = filterEligibleTvShows(rawCandidates, "RECOMMENDATION");
+    if (generalEligible.length > 0) {
+      const sortedLevel4 = [...generalEligible].sort((a, b) => {
+        if (b.voteAverage !== a.voteAverage) return b.voteAverage - a.voteAverage;
+        if (b.popularity !== a.popularity) return b.popularity - a.popularity;
+        return a.tmdbId - b.tmdbId;
+      });
+      selectedShows = sortedLevel4.slice(0, limit).map((show) => ({
+        ...show,
+        selectionScore: 0.5,
+        reasons: ["relaxation_level_4_general_eligibility_fallback"],
+      }));
+      appliedStrategyLevel = 4;
+    }
+  }
 
   return {
     tvShows: selectedShows,
@@ -181,8 +241,8 @@ export async function getTvCalibrationQueue(
     targetCount,
     completed: answeredCount >= targetCount,
     strategy: {
-      activeLearningEnabled: true,
-      selectorVersion: 1,
+      activeLearningEnabled: appliedStrategyLevel <= 2,
+      selectorVersion: appliedStrategyLevel,
     },
   };
 }

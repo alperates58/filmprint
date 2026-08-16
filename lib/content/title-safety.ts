@@ -4,44 +4,89 @@ const LETTER_REGEX = /\p{L}/u;
 const LATIN_LETTER_REGEX = /\p{Script=Latin}/u;
 const NUMBER_REGEX = /\p{N}/u;
 
-export interface DisplayTitleScriptStats {
+export interface DisplayTitleAnalysis {
+  normalized: string;
   alphabeticCount: number;
   latinAlphabeticCount: number;
+  nonLatinAlphabeticCount: number;
   latinRatio: number;
+  hasNonLatinAlphabeticScript: boolean;
+  isNumericOnlyOrNumericTitle: boolean;
   allowed: boolean;
 }
 
+export type DisplayTitleScriptStats = DisplayTitleAnalysis;
+
 /**
- * Measures only alphabetic characters. Digits, punctuation, emoji and spacing
- * are neutral, so a single decorative non-Latin character does not reject an
- * otherwise Latin display title.
+ * Central source of truth for display title script and numeric safety analysis.
+ *
+ * Rules:
+ * A) Title contains alphabetic characters:
+ *    - Valid if Latin/Turkish alphabetic ratio >= MIN_LATIN_DISPLAY_TITLE_RATIO (0.80).
+ *    - Invalid if dominated by non-Latin scripts (CJK, Cyrillic, Arabic, Hangul, etc.).
+ *
+ * B) Title contains 0 alphabetic characters:
+ *    - Valid if it contains numeric digits (e.g. "2012", "1917", "17", "9", "1408", "28", "24", "11.22.63").
+ *    - Invalid if empty or pure punctuation/symbols with no digits or letters.
  */
-export function getDisplayTitleScriptStats(title: string): DisplayTitleScriptStats {
+export function analyzeDisplayTitle(title: string): DisplayTitleAnalysis {
   const normalized = typeof title === "string" ? title.trim() : "";
   let alphabeticCount = 0;
   let latinAlphabeticCount = 0;
+  let nonLatinAlphabeticCount = 0;
+  let hasDigits = false;
 
   for (const character of normalized) {
-    if (!LETTER_REGEX.test(character)) continue;
-    alphabeticCount++;
-    if (LATIN_LETTER_REGEX.test(character)) latinAlphabeticCount++;
+    if (LETTER_REGEX.test(character)) {
+      alphabeticCount++;
+      if (LATIN_LETTER_REGEX.test(character)) {
+        latinAlphabeticCount++;
+      } else {
+        nonLatinAlphabeticCount++;
+      }
+    } else if (NUMBER_REGEX.test(character)) {
+      hasDigits = true;
+    }
   }
 
-  const latinRatio = alphabeticCount === 0 ? 0 : latinAlphabeticCount / alphabeticCount;
-  const allowed =
-    normalized.length > 0 &&
-    (alphabeticCount === 0 ? NUMBER_REGEX.test(normalized) : latinRatio >= MIN_LATIN_DISPLAY_TITLE_RATIO);
+  const hasNonLatinAlphabeticScript = nonLatinAlphabeticCount > 0;
+  const isNumericOnlyOrNumericTitle = alphabeticCount === 0 && hasDigits && normalized.length > 0;
+
+  let latinRatio = 0.0;
+  let allowed = false;
+
+  if (normalized.length > 0) {
+    if (alphabeticCount > 0) {
+      latinRatio = latinAlphabeticCount / alphabeticCount;
+      allowed = latinRatio >= MIN_LATIN_DISPLAY_TITLE_RATIO;
+    } else {
+      // 0 alphabetic characters: valid if it's a numeric title
+      latinRatio = isNumericOnlyOrNumericTitle ? 1.0 : 0.0;
+      allowed = isNumericOnlyOrNumericTitle;
+    }
+  }
 
   return {
+    normalized,
     alphabeticCount,
     latinAlphabeticCount,
+    nonLatinAlphabeticCount,
     latinRatio,
+    hasNonLatinAlphabeticScript,
+    isNumericOnlyOrNumericTitle,
     allowed,
   };
 }
 
+/**
+ * Backward-compatible wrapper returning the full DisplayTitleAnalysis.
+ */
+export function getDisplayTitleScriptStats(title: string): DisplayTitleScriptStats {
+  return analyzeDisplayTitle(title);
+}
+
 export function isDisplayTitleAllowed(title: string): boolean {
-  return getDisplayTitleScriptStats(title).allowed;
+  return analyzeDisplayTitle(title).allowed;
 }
 
 export type DisplayTitleSource = "LOCALIZED" | "ENGLISH" | "ORIGINAL";

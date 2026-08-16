@@ -249,6 +249,51 @@ export function runMovieEligibilityTests() {
     assert(res.isEligible === true, `International cinema masterwork '${im.title}' (${im.originalTitle}) is ELIGIBLE`);
   }
 
+  // 8.5 Numeric Title Eligibility Verification (2012, 1917, 17, 9, 1408)
+  const numericMovies = [
+    {
+      title: "2012",
+      originalTitle: "2012",
+      overview: "Mayalıların takvim kehanetine dayanan küresel jeolojik kıyamet ve insanlığın hayatta kalma mücadelesi.",
+      posterPath: "/2012.jpg",
+      releaseYear: 2009,
+      voteAverage: 6.5,
+      voteCount: 12000,
+      genres: ["Aksiyon", "Macera", "Bilim-Kurgu"],
+      adult: false,
+    },
+    {
+      title: "1917",
+      originalTitle: "1917",
+      overview: "Birinci Dünya Savaşı sırasında imkansız bir mesajı düşman hatlarının arkasına ulaştırmakla görevlendirilen iki askerin nefes kesen yolculuğu.",
+      posterPath: "/1917.jpg",
+      releaseYear: 2019,
+      voteAverage: 8.0,
+      voteCount: 13000,
+      genres: ["Savaş", "Dram"],
+      adult: false,
+    },
+    {
+      title: "17",
+      originalTitle: "17",
+      overview: "Gençlik yıllarının karmaşık ilişkilerini ve duygusal yol ayrımlarını anlatan sürükleyici bağımsız film.",
+      posterPath: "/17.jpg",
+      releaseYear: 2016,
+      voteAverage: 7.1,
+      voteCount: 150,
+      genres: ["Dram"],
+      adult: false,
+    },
+  ];
+
+  for (const nm of numericMovies) {
+    const res = evaluateMovieEligibility(nm, "CALIBRATION");
+    assert(res.isEligible === true, `Numeric title movie '${nm.title}' is ELIGIBLE`);
+    assert(!res.reasons.includes("NON_LATIN_DISPLAY_TITLE"), `Numeric title movie '${nm.title}' has NO NON_LATIN_DISPLAY_TITLE`);
+    assert(res.details?.titleLatinRatio === 1.0, `Numeric title movie '${nm.title}' reports titleLatinRatio = 1.0`);
+  }
+
+
   // 9. Runtime DB Cached Movie Filtering
   const cachedDbAdultMovie = {
     id: "db-movie-uuid-1",

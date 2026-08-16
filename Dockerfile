@@ -11,10 +11,15 @@ RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --no-audit --no-fund
 # Stage 3: Next.js Standalone Builder
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Generate Prisma Client in a layer that only changes with the Prisma schema.
+COPY prisma ./prisma
 RUN npx prisma generate
+
+# Application source changes no longer invalidate Prisma Client generation.
+COPY . .
 RUN --mount=type=cache,target=/app/.next/cache npm run build
 
 # Stage 4: Minimal Production Runner

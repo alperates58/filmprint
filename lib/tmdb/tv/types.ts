@@ -50,6 +50,16 @@ export interface TMDBTvDetails {
   creators: string[];
   cast: { name: string; character: string; profilePath: string | null }[];
   trailer: { provider: "youtube"; key: string } | null;
+  localization: {
+    name: string;
+    originalName: string;
+    overview: string;
+    turkishTitle: string;
+    englishTitle: string;
+    titleSource: "TR" | "EN" | "ORIGINAL" | "NONE";
+    overviewSource: "TR" | "EN" | "NONE";
+    adult: boolean;
+  } | null;
 }
 
 export const TV_GENRE_MAP: Record<number, string> = {

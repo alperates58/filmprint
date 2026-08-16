@@ -103,7 +103,8 @@ export async function runTvFoundationTests() {
       where: { tmdbId: 99001 },
     });
     assert(totalShowsWithTmdbId === 1, "TvShow upsert ensures no duplicate rows for the same tmdbId");
-    assert(syncedShow.name === "Test Breaking Show (Updated)", "TvShow fields successfully updated via upsert");
+    assert(syncedShow !== null, "Safe TV content passes the ingestion guard");
+    assert(syncedShow?.name === "Test Breaking Show (Updated)", "TvShow fields successfully updated via upsert");
 
     // -------------------------------------------------------------
     // 3. Cache-First Resolution Verification

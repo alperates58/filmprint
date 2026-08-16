@@ -8,6 +8,7 @@ export type TvEligibilityContext =
 export type TvEligibilityRejectionReason =
   | "ADULT_FLAG"
   | "EXPLICIT_ADULT_KEYWORD"
+  | "NON_LATIN_DISPLAY_TITLE"
   | "MISSING_TITLE"
   | "MISSING_OVERVIEW"
   | "OVERVIEW_TOO_SHORT"

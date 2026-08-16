@@ -29,6 +29,9 @@ import { runTmdbImageGuardTests } from "./tmdb_image_guard.test";
 import { runHeaderModeNavigationTests } from "./header_mode_navigation.test";
 import { runTvCalibrationSelectorRelaxationTests } from "./tv_calibration_selector_relaxation.test";
 import { runHomeVisualContractTests } from "./home_visual_contract.test";
+import { runTitleScriptEligibilityTests } from "./title_script_eligibility.test";
+import { runTmdbTvLocalizationTests } from "./tmdb_tv_localization.test";
+import { runTmdbSharedLocalizationTests } from "./tmdb_shared_localization.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -56,6 +59,9 @@ async function runAllUnitAndRegressionTests() {
     { name: "Recommendation Engine V3 Tests", fn: runRecommendationV3Tests },
     { name: "PWA & Safe Offline Foundation Tests", fn: runPwaTests },
     { name: "Global Movie Eligibility & Adult Content Tests", fn: runMovieEligibilityTests },
+    { name: "Display Title Script & Ingestion Safety Tests", fn: runTitleScriptEligibilityTests },
+    { name: "TMDB TV Localization Fallback Tests", fn: runTmdbTvLocalizationTests },
+    { name: "Shared TMDB Metadata & Trailer Fallback Tests", fn: runTmdbSharedLocalizationTests },
     { name: "TV Phase 0 Foundation & Regression Tests", fn: runTvFoundationTests },
     { name: "TV Phase 1 Core Flow & Calibration Engine Tests", fn: runTvCalibrationTests },
     { name: "TV Phase 1.5 Calibration Supply & Replenishment Tests", fn: runTvCalibrationSupplyTests },

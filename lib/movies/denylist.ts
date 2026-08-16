@@ -57,6 +57,21 @@ const EXPLICIT_ADULT_REGEX = new RegExp(
   "i"
 );
 
+// Unicode-script signals that cannot be detected by the Latin word-boundary
+// regex above. Exact production-like phrases stay narrow to avoid treating a
+// country/language/script itself as an adult-content signal.
+const EXPLICIT_ADULT_UNICODE_REGEXES: RegExp[] = [
+  /僧侶と交わる色欲の夜に/u,
+  /洗い屋さん[^\n]{0,40}女湯/u,
+  /成人向け/u,
+  /アダルト(?:アニメ|ビデオ|作品)/u,
+  /エロ(?:アニメ|動画)/u,
+  /ポルノ/u,
+  /色情(?:片|电影|電影|影片)/u,
+  /成人视频/u,
+  /성인\s*(?:애니메이션|비디오|영화)/u,
+];
+
 export const GENERIC_OVERVIEW_PATTERNS: string[] = [
   "film hakkında özet bilgi bulunmuyor",
   "film hakkında özet bilgisi bulunmuyor",
@@ -82,7 +97,10 @@ export const GENERIC_OVERVIEW_PATTERNS: string[] = [
  */
 export function isExplicitAdultContent(text: string): boolean {
   if (!text || typeof text !== "string") return false;
-  return EXPLICIT_ADULT_REGEX.test(text);
+  return (
+    EXPLICIT_ADULT_REGEX.test(text) ||
+    EXPLICIT_ADULT_UNICODE_REGEXES.some((pattern) => pattern.test(text))
+  );
 }
 
 /**

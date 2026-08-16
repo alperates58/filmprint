@@ -1,5 +1,13 @@
 import { db } from "@/lib/db/client";
 import { getTMDBApiKey } from "@/lib/config/service";
+import { evaluateContentIngestionSafety } from "@/lib/content/ingestion-safety";
+import { normalizeOverviewForPersistence } from "@/lib/content/overview-safety";
+import {
+  localizeTmdbMovie,
+  mergeTmdbMovieLocalization,
+  type LocalizedTmdbMovie,
+} from "@/lib/tmdb/movie-localization";
+import { resolveLocalizedTrailer } from "@/lib/tmdb/trailer";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 
@@ -40,6 +48,16 @@ export interface TMDBMovieDetails {
   director: string | null;
   cast: { name: string; character: string; profilePath: string | null }[];
   trailer: { provider: "youtube"; key: string } | null;
+  localization: {
+    title: string;
+    originalTitle: string;
+    overview: string;
+    turkishTitle: string;
+    englishTitle: string;
+    titleSource: "TR" | "EN" | "ORIGINAL" | "NONE";
+    overviewSource: "TR" | "EN" | "ORIGINAL" | "NONE";
+    adult: boolean;
+  } | null;
 }
 
 export const GENRE_MAP: Record<number, string> = {
@@ -564,6 +582,24 @@ export class TMDBClient {
     return process.env.TMDB_API_KEY || "";
   }
 
+  private async localizeMovieIfNeeded(
+    turkish: TMDBMovie,
+    apiKey: string
+  ): Promise<LocalizedTmdbMovie> {
+    return localizeTmdbMovie(
+      turkish,
+      apiKey
+        ? async () => {
+            const response = await fetch(
+              `${TMDB_API_BASE}/movie/${turkish.id}?api_key=${apiKey}&language=en-US`,
+              { next: { revalidate: 86400 } }
+            );
+            return response.ok ? ((await response.json()) as TMDBMovie) : null;
+          }
+        : undefined
+    );
+  }
+
   /**
    * Fetches full details, credits (cast & director), and trailers for a movie.
    */
@@ -576,6 +612,7 @@ export class TMDBClient {
         director: null,
         cast: [],
         trailer: null,
+        localization: null,
       };
     }
 
@@ -586,10 +623,25 @@ export class TMDBClient {
       );
 
       if (!response.ok) {
-        return { runtime: null, director: null, cast: [], trailer: null };
+        return { runtime: null, director: null, cast: [], trailer: null, localization: null };
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as TMDBMovie & {
+        credits?: { crew?: Array<Record<string, any>>; cast?: Array<Record<string, any>> };
+        videos?: { results?: Array<Record<string, any>> };
+      };
+      let englishDetail: (TMDBMovie & { videos?: { results?: Array<Record<string, any>> } }) | null = null;
+      const localized = await localizeTmdbMovie(data, async () => {
+        const englishResponse = await fetch(
+          `${TMDB_API_BASE}/movie/${tmdbId}?api_key=${apiKey}&language=en-US&append_to_response=videos`,
+          { next: { revalidate: 86400 } }
+        );
+        if (!englishResponse.ok) return null;
+        englishDetail = (await englishResponse.json()) as TMDBMovie & {
+          videos?: { results?: Array<Record<string, any>> };
+        };
+        return englishDetail;
+      });
       const runtime = data.runtime || null;
 
       // Extract director
@@ -611,52 +663,45 @@ export class TMDBClient {
         });
       }
 
-      // Extract best trailer
-      let trailer: { provider: "youtube"; key: string } | null = null;
-      if (data.videos?.results && Array.isArray(data.videos.results)) {
-        const videos = data.videos.results;
-
-        // Priority 1: YouTube Official Trailer
-        let targetVideo = videos.find(
-          (v: any) => v.site === "YouTube" && v.type === "Trailer" && v.official === true
-        );
-
-        // Priority 2: Any YouTube Trailer
-        if (!targetVideo) {
-          targetVideo = videos.find(
-            (v: any) => v.site === "YouTube" && v.type === "Trailer"
-          );
+      const trailerResolution = await resolveLocalizedTrailer(
+        data.videos?.results,
+        async () => {
+          if (!englishDetail) {
+            const englishResponse = await fetch(
+              `${TMDB_API_BASE}/movie/${tmdbId}?api_key=${apiKey}&language=en-US&append_to_response=videos`,
+              { next: { revalidate: 86400 } }
+            );
+            if (!englishResponse.ok) return [];
+            englishDetail = (await englishResponse.json()) as TMDBMovie & {
+              videos?: { results?: Array<Record<string, any>> };
+            };
+          }
+          return englishDetail.videos?.results || [];
         }
-
-        // Priority 3: Any YouTube Teaser
-        if (!targetVideo) {
-          targetVideo = videos.find(
-            (v: any) => v.site === "YouTube" && v.type === "Teaser"
-          );
-        }
-
-        // Priority 4: Any YouTube Video with key
-        if (!targetVideo) {
-          targetVideo = videos.find((v: any) => v.site === "YouTube" && v.key);
-        }
-
-        if (targetVideo && targetVideo.key) {
-          trailer = {
-            provider: "youtube",
-            key: targetVideo.key,
-          };
-        }
-      }
+      );
+      const trailer = trailerResolution.trailer
+        ? { provider: "youtube" as const, key: trailerResolution.trailer.key }
+        : null;
 
       return {
         runtime,
         director,
         cast,
         trailer,
+        localization: {
+          title: localized.movie.title,
+          originalTitle: localized.movie.original_title,
+          overview: localized.movie.overview || "",
+          turkishTitle: localized.turkishTitle,
+          englishTitle: localized.englishTitle,
+          titleSource: localized.titleSource,
+          overviewSource: localized.overviewSource,
+          adult: localized.movie.adult === true,
+        },
       };
     } catch (e) {
       console.error("[TMDB Client] Error fetching movie details:", e);
-      return { runtime: null, director: null, cast: [], trailer: null };
+      return { runtime: null, director: null, cast: [], trailer: null, localization: null };
     }
   }
 
@@ -715,7 +760,22 @@ export class TMDBClient {
   /**
    * Upserts TMDB movie metadata into local PostgreSQL `Movie` table.
    */
-  public async syncMovieToDatabase(tmdbMovie: TMDBMovie): Promise<CachedMovieData> {
+  public async syncMovieToDatabase(
+    tmdbMovie: TMDBMovie,
+    localization: LocalizedTmdbMovie = mergeTmdbMovieLocalization(tmdbMovie)
+  ): Promise<CachedMovieData | null> {
+    const safety = evaluateContentIngestionSafety({
+      localizedTitle: localization.turkishTitle || tmdbMovie.title,
+      englishTitle: localization.englishTitle,
+      originalTitle: tmdbMovie.original_title,
+      overview: tmdbMovie.overview,
+      adult: tmdbMovie.adult,
+    });
+
+    // This guard must run before the upsert so rejected content never reaches DB.
+    if (!safety.allowed || !safety.displayTitle) return null;
+
+    const displayTitle = safety.displayTitle.title;
     const releaseYear = tmdbMovie.release_date
       ? parseInt(tmdbMovie.release_date.substring(0, 4), 10)
       : null;
@@ -729,44 +789,53 @@ export class TMDBClient {
       });
     }
 
-    const overviewText = tmdbMovie.overview || "Film hakkında özet bilgi bulunmuyor.";
+    const overviewText = normalizeOverviewForPersistence(tmdbMovie.overview);
+    const existingMovie = await db.movie.findUnique({
+      where: { tmdbId: tmdbMovie.id },
+      select: { metadata: true },
+    });
+    const existingMetadata =
+      existingMovie?.metadata &&
+      typeof existingMovie.metadata === "object" &&
+      !Array.isArray(existingMovie.metadata)
+        ? (existingMovie.metadata as Record<string, unknown>)
+        : {};
+    const localizedMetadata = {
+      ...existingMetadata,
+      overview: overviewText,
+      genres: genreNames,
+      runtime: tmdbMovie.runtime || null,
+      adult: tmdbMovie.adult === true,
+      voteCount: tmdbMovie.vote_count || 0,
+      releaseDate: tmdbMovie.release_date || null,
+      titleLocalizationSource: localization.titleSource,
+      overviewLocalizationSource: localization.overviewSource,
+      turkishTitle: localization.turkishTitle,
+      englishTitle: localization.englishTitle,
+    };
 
     const movie = await db.movie.upsert({
       where: { tmdbId: tmdbMovie.id },
       update: {
-        title: tmdbMovie.title,
+        title: displayTitle,
         originalTitle: tmdbMovie.original_title,
         posterPath: tmdbMovie.poster_path,
         backdropPath: tmdbMovie.backdrop_path,
         releaseYear: releaseYear && !isNaN(releaseYear) ? releaseYear : null,
         popularity: tmdbMovie.popularity || 0.0,
         voteAverage: tmdbMovie.vote_average || 0.0,
-        metadata: {
-          overview: overviewText,
-          genres: genreNames,
-          runtime: tmdbMovie.runtime || null,
-          adult: tmdbMovie.adult === true,
-          voteCount: tmdbMovie.vote_count || 0,
-          releaseDate: tmdbMovie.release_date || null,
-        },
+        metadata: localizedMetadata,
       },
       create: {
         tmdbId: tmdbMovie.id,
-        title: tmdbMovie.title,
+        title: displayTitle,
         originalTitle: tmdbMovie.original_title,
         posterPath: tmdbMovie.poster_path,
         backdropPath: tmdbMovie.backdrop_path,
         releaseYear: releaseYear && !isNaN(releaseYear) ? releaseYear : null,
         popularity: tmdbMovie.popularity || 0.0,
         voteAverage: tmdbMovie.vote_average || 0.0,
-        metadata: {
-          overview: overviewText,
-          genres: genreNames,
-          runtime: tmdbMovie.runtime || null,
-          adult: tmdbMovie.adult === true,
-          voteCount: tmdbMovie.vote_count || 0,
-          releaseDate: tmdbMovie.release_date || null,
-        },
+        metadata: localizedMetadata,
       },
     });
 
@@ -830,8 +899,9 @@ export class TMDBClient {
     for (const m of FALLBACK_MOVIES) {
       if (!processedIds.has(m.id)) {
         processedIds.add(m.id);
-        const synced = await this.syncMovieToDatabase(m);
-        syncedMovies.push(synced);
+        const localized = await this.localizeMovieIfNeeded(m, apiKey);
+        const synced = await this.syncMovieToDatabase(localized.movie, localized);
+        if (synced) syncedMovies.push(synced);
       }
     }
 
@@ -874,8 +944,9 @@ export class TMDBClient {
         for (const m of combined) {
           if (!processedIds.has(m.id)) {
             processedIds.add(m.id);
-            const synced = await this.syncMovieToDatabase(m);
-            syncedMovies.push(synced);
+            const localized = await this.localizeMovieIfNeeded(m, apiKey);
+            const synced = await this.syncMovieToDatabase(localized.movie, localized);
+            if (synced) syncedMovies.push(synced);
           }
         }
       } catch (err) {

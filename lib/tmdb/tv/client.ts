@@ -1,5 +1,8 @@
 import { db } from "@/lib/db/client";
 import { getTMDBApiKey } from "@/lib/config/service";
+import { evaluateContentIngestionSafety } from "@/lib/content/ingestion-safety";
+import { isMeaningfulOverview, normalizeOverviewForPersistence } from "@/lib/content/overview-safety";
+import { isDisplayTitleAllowed } from "@/lib/content/title-safety";
 import {
   TMDBTvShow,
   CachedTvShowData,
@@ -17,6 +20,13 @@ import {
   type TmdbTvRequestMetrics,
   type TmdbTvSourceRequest,
 } from "./replenishment";
+import {
+  fetchLocalizedTmdbTvShow,
+  localizeTmdbTvShow,
+  mergeTmdbTvLocalization,
+  type LocalizedTmdbTvShow,
+} from "./localization";
+import { resolveLocalizedTrailer } from "@/lib/tmdb/trailer";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 const TMDB_TV_CURSOR_SETTING_KEY = "tmdb_tv_calibration_cursor_v1";
@@ -56,27 +66,25 @@ export class TMDBTvClient {
         creators: [],
         cast: [],
         trailer: null,
+        localization: null,
       };
     }
 
     try {
-      const response = await fetch(
-        `${TMDB_API_BASE}/tv/${tmdbId}?api_key=${apiKey}&language=tr-TR&append_to_response=credits,videos`,
-        { next: { revalidate: 86400 } }
-      );
-
-      if (!response.ok) {
-        return {
-          numberOfSeasons: null,
-          numberOfEpisodes: null,
-          episodeRunTime: null,
-          creators: [],
-          cast: [],
-          trailer: null,
-        };
-      }
-
-      const data = await response.json();
+      let englishDetail: (TMDBTvShow & { videos?: { results?: Array<Record<string, any>> } }) | null = null;
+      const localized = await fetchLocalizedTmdbTvShow(async (language) => {
+        const detail = await fetchTmdbTvJson<TMDBTvShow & { videos?: { results?: Array<Record<string, any>> } }>(
+          `${TMDB_API_BASE}/tv/${tmdbId}?api_key=${apiKey}&language=${language}${
+            language === "tr-TR" ? "&append_to_response=credits,videos" : "&append_to_response=videos"
+          }`
+        );
+        if (language === "en-US") englishDetail = detail;
+        return detail;
+      });
+      const data = localized.show as TMDBTvShow & {
+        credits?: { cast?: Array<Record<string, any>> };
+        videos?: { results?: Array<Record<string, any>> };
+      };
       const numberOfSeasons = data.number_of_seasons || null;
       const numberOfEpisodes = data.number_of_episodes || null;
       const episodeRunTime =
@@ -104,38 +112,20 @@ export class TMDBTvClient {
         });
       }
 
-      // Extract trailer
-      let trailer: { provider: "youtube"; key: string } | null = null;
-      if (data.videos?.results && Array.isArray(data.videos.results)) {
-        const videos = data.videos.results;
-
-        let targetVideo = videos.find(
-          (v: any) => v.site === "YouTube" && v.type === "Trailer" && v.official === true
-        );
-
-        if (!targetVideo) {
-          targetVideo = videos.find(
-            (v: any) => v.site === "YouTube" && v.type === "Trailer"
-          );
+      const trailerResolution = await resolveLocalizedTrailer(
+        data.videos?.results,
+        async () => {
+          if (!englishDetail) {
+            englishDetail = await fetchTmdbTvJson<TMDBTvShow & { videos?: { results?: Array<Record<string, any>> } }>(
+              `${TMDB_API_BASE}/tv/${tmdbId}?api_key=${apiKey}&language=en-US&append_to_response=videos`
+            );
+          }
+          return englishDetail.videos?.results || [];
         }
-
-        if (!targetVideo) {
-          targetVideo = videos.find(
-            (v: any) => v.site === "YouTube" && v.type === "Teaser"
-          );
-        }
-
-        if (!targetVideo) {
-          targetVideo = videos.find((v: any) => v.site === "YouTube" && v.key);
-        }
-
-        if (targetVideo && targetVideo.key) {
-          trailer = {
-            provider: "youtube",
-            key: targetVideo.key,
-          };
-        }
-      }
+      );
+      const trailer = trailerResolution.trailer
+        ? { provider: "youtube" as const, key: trailerResolution.trailer.key }
+        : null;
 
       return {
         numberOfSeasons,
@@ -144,6 +134,16 @@ export class TMDBTvClient {
         creators,
         cast,
         trailer,
+        localization: {
+          name: localized.show.name,
+          originalName: localized.show.original_name,
+          overview: localized.show.overview || "",
+          turkishTitle: localized.turkishTitle,
+          englishTitle: localized.englishTitle,
+          titleSource: localized.titleSource,
+          overviewSource: localized.overviewSource,
+          adult: localized.show.adult === true,
+        },
       };
     } catch (e) {
       console.error("[TMDB TV Client] Error fetching TV details:", e);
@@ -154,6 +154,7 @@ export class TMDBTvClient {
         creators: [],
         cast: [],
         trailer: null,
+        localization: null,
       };
     }
   }
@@ -232,7 +233,22 @@ export class TMDBTvClient {
   /**
    * Upserts TMDB TV show metadata into local PostgreSQL `TvShow` table.
    */
-  public async syncTvShowToDatabase(tmdbShow: TMDBTvShow): Promise<CachedTvShowData> {
+  public async syncTvShowToDatabase(
+    tmdbShow: TMDBTvShow,
+    localization: LocalizedTmdbTvShow = mergeTmdbTvLocalization(tmdbShow)
+  ): Promise<CachedTvShowData | null> {
+    const safety = evaluateContentIngestionSafety({
+      localizedTitle: localization.turkishTitle || tmdbShow.name,
+      englishTitle: localization.englishTitle,
+      originalTitle: tmdbShow.original_name,
+      overview: tmdbShow.overview,
+      adult: tmdbShow.adult,
+    });
+
+    // This guard must run before the upsert so rejected content never reaches DB.
+    if (!safety.allowed || !safety.displayTitle) return null;
+
+    const displayTitle = safety.displayTitle.title;
     const genreNames: string[] = [];
     if (tmdbShow.genres && tmdbShow.genres.length > 0) {
       tmdbShow.genres.forEach((g) => genreNames.push(g.name));
@@ -242,12 +258,37 @@ export class TMDBTvClient {
       });
     }
 
-    const overviewText = tmdbShow.overview || "Dizi hakkında özet bilgi bulunmuyor.";
+    const overviewText = normalizeOverviewForPersistence(tmdbShow.overview);
+    const existingShow = await db.tvShow.findUnique({
+      where: { tmdbId: tmdbShow.id },
+      select: { metadata: true },
+    });
+    const existingMetadata =
+      existingShow?.metadata &&
+      typeof existingShow.metadata === "object" &&
+      !Array.isArray(existingShow.metadata)
+        ? (existingShow.metadata as Record<string, unknown>)
+        : {};
+    const localizedMetadata = {
+      ...existingMetadata,
+      overview: overviewText,
+      genres: genreNames,
+      numberOfSeasons: tmdbShow.number_of_seasons || null,
+      numberOfEpisodes: tmdbShow.number_of_episodes || null,
+      episodeRunTime: tmdbShow.episode_run_time || null,
+      originCountry: tmdbShow.origin_country || [],
+      createdBy: tmdbShow.created_by || [],
+      adult: tmdbShow.adult === true,
+      titleLocalizationSource: localization.titleSource,
+      overviewLocalizationSource: localization.overviewSource,
+      turkishTitle: localization.turkishTitle,
+      englishTitle: localization.englishTitle,
+    };
 
     const show = await db.tvShow.upsert({
       where: { tmdbId: tmdbShow.id },
       update: {
-        name: tmdbShow.name,
+        name: displayTitle,
         originalName: tmdbShow.original_name || null,
         posterPath: tmdbShow.poster_path,
         backdropPath: tmdbShow.backdrop_path,
@@ -259,20 +300,11 @@ export class TMDBTvClient {
         voteAverage: tmdbShow.vote_average || 0.0,
         voteCount: tmdbShow.vote_count || null,
         overview: overviewText,
-        metadata: {
-          overview: overviewText,
-          genres: genreNames,
-          numberOfSeasons: tmdbShow.number_of_seasons || null,
-          numberOfEpisodes: tmdbShow.number_of_episodes || null,
-          episodeRunTime: tmdbShow.episode_run_time || null,
-          originCountry: tmdbShow.origin_country || [],
-          createdBy: tmdbShow.created_by || [],
-          adult: tmdbShow.adult === true,
-        },
+        metadata: localizedMetadata,
       },
       create: {
         tmdbId: tmdbShow.id,
-        name: tmdbShow.name,
+        name: displayTitle,
         originalName: tmdbShow.original_name || null,
         posterPath: tmdbShow.poster_path,
         backdropPath: tmdbShow.backdrop_path,
@@ -284,16 +316,7 @@ export class TMDBTvClient {
         voteAverage: tmdbShow.vote_average || 0.0,
         voteCount: tmdbShow.vote_count || null,
         overview: overviewText,
-        metadata: {
-          overview: overviewText,
-          genres: genreNames,
-          numberOfSeasons: tmdbShow.number_of_seasons || null,
-          numberOfEpisodes: tmdbShow.number_of_episodes || null,
-          episodeRunTime: tmdbShow.episode_run_time || null,
-          originCountry: tmdbShow.origin_country || [],
-          createdBy: tmdbShow.created_by || [],
-          adult: tmdbShow.adult === true,
-        },
+        metadata: localizedMetadata,
       },
     });
 
@@ -336,8 +359,12 @@ export class TMDBTvClient {
     const hasInvalidPoster =
       !cached ||
       !isValidTmdbImagePath(cached.posterPath);
+    const needsLocalizationRepair =
+      !cached ||
+      !isMeaningfulOverview(cached.overview) ||
+      !isDisplayTitleAllowed(cached.name);
 
-    if (cached && !hasInvalidPoster) {
+    if (cached && !hasInvalidPoster && !needsLocalizationRepair) {
       const metaObj = (cached.metadata as Record<string, unknown>) || {};
       return {
         id: cached.id,
@@ -373,19 +400,12 @@ export class TMDBTvClient {
     }
 
     try {
-      const response = await fetch(
-        `${TMDB_API_BASE}/tv/${tmdbId}?api_key=${apiKey}&language=tr-TR`,
-        { next: { revalidate: 86400 } }
+      const localized = await fetchLocalizedTmdbTvShow((language) =>
+        fetchTmdbTvJson<TMDBTvShow>(
+          `${TMDB_API_BASE}/tv/${tmdbId}?api_key=${apiKey}&language=${language}`
+        )
       );
-
-      if (!response.ok) {
-        const fallback = FALLBACK_TV_SHOWS.find((f) => f.id === tmdbId);
-        if (fallback) return this.syncTvShowToDatabase(fallback);
-        return null;
-      }
-
-      const data: TMDBTvShow = await response.json();
-      return this.syncTvShowToDatabase(data);
+      return this.syncTvShowToDatabase(localized.show, localized);
     } catch (e) {
       console.error(`[TMDB TV Client] Error fetching show ${tmdbId}:`, e);
       const fallback = FALLBACK_TV_SHOWS.find((f) => f.id === tmdbId);
@@ -469,7 +489,11 @@ export class TMDBTvClient {
     }
   }
 
-  private async syncSourceShows(shows: TMDBTvShow[]): Promise<{
+  private async syncSourceShows(
+    shows: TMDBTvShow[],
+    apiKey: string,
+    metrics: TmdbTvRequestMetrics
+  ): Promise<{
     synced: CachedTvShowData[];
     newUniqueIds: number;
   }> {
@@ -479,11 +503,26 @@ export class TMDBTvClient {
       select: { tmdbId: true },
     });
     const existingIds = new Set(existing.map((show) => show.tmdbId));
-    const newUniqueIds = uniqueShows.filter((show) => !existingIds.has(show.id)).length;
     const synced: CachedTvShowData[] = [];
+    let newUniqueIds = 0;
 
     for (const show of uniqueShows) {
-      synced.push(await this.syncTvShowToDatabase(show));
+      let localized: LocalizedTmdbTvShow;
+      try {
+        localized = await localizeTmdbTvShow(show, () =>
+          fetchTmdbTvJson<TMDBTvShow>(
+            `${TMDB_API_BASE}/tv/${show.id}?api_key=${apiKey}&language=en-US`,
+            { metrics }
+          )
+        );
+      } catch (error) {
+        // A failed optional English fallback must not discard usable Turkish/original metadata.
+        localized = mergeTmdbTvLocalization(show, null, true);
+      }
+      const syncedShow = await this.syncTvShowToDatabase(localized.show, localized);
+      if (!syncedShow) continue;
+      synced.push(syncedShow);
+      if (!existingIds.has(show.id)) newUniqueIds++;
     }
 
     return { synced, newUniqueIds };
@@ -492,7 +531,9 @@ export class TMDBTvClient {
   private async syncEmergencyFallback(): Promise<CachedTvShowData[]> {
     const synced: CachedTvShowData[] = [];
     for (const fallback of COMPREHENSIVE_FALLBACK_TV_SHOWS) {
-      synced.push(await this.syncTvShowToDatabase(fallback));
+      const localized = mergeTmdbTvLocalization(fallback);
+      const syncedShow = await this.syncTvShowToDatabase(localized.show, localized);
+      if (syncedShow) synced.push(syncedShow);
     }
     return synced;
   }
@@ -518,7 +559,7 @@ export class TMDBTvClient {
       initialCursor,
       targetNewIds: options?.targetCount || 30,
       fetchSource: (request) => this.fetchReplenishmentSource(apiKey, request, metrics),
-      syncShows: (shows) => this.syncSourceShows(shows),
+      syncShows: (shows) => this.syncSourceShows(shows, apiKey, metrics),
     });
 
     // Persist advancement even when every response contained duplicates or failed.

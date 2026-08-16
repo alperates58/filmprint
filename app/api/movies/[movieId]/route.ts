@@ -5,6 +5,8 @@ import { tmdbClient } from "@/lib/tmdb/client";
 import { InteractionStatus, RatingStatus } from "@prisma/client";
 import { getMoviePersonalMatch } from "@/lib/recommendation/universal-matcher";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
+import { evaluateContentIngestionSafety } from "@/lib/content/ingestion-safety";
+import { isMeaningfulOverview } from "@/lib/content/overview-safety";
 
 export async function GET(
   request: Request,
@@ -33,6 +35,29 @@ export async function GET(
     // 2. If runtime, director, cast, or trailer is missing in metadata, enrich via TMDB Client
     if (!meta.director || !meta.cast || meta.trailer === undefined) {
       const tmdbDetails = await tmdbClient.getMovieDetails(movie.tmdbId);
+      const localization = tmdbDetails.localization;
+      const localizationSafety = localization
+        ? evaluateContentIngestionSafety({
+            localizedTitle: localization.turkishTitle,
+            englishTitle: localization.englishTitle,
+            originalTitle: localization.originalTitle,
+            overview: localization.overview,
+            adult: localization.adult,
+          })
+        : null;
+      const canRepairLocalization =
+        localization !== null &&
+        localizationSafety?.allowed === true &&
+        localizationSafety.displayTitle !== null;
+      const repairedTitle = canRepairLocalization
+        ? localizationSafety!.displayTitle!.title
+        : movie.title;
+      const repairedOverview =
+        canRepairLocalization && isMeaningfulOverview(localization?.overview)
+          ? localization?.overview || ""
+          : isMeaningfulOverview(meta.overview)
+            ? meta.overview
+            : "";
 
       const updatedMeta = {
         ...meta,
@@ -40,12 +65,23 @@ export async function GET(
         director: tmdbDetails.director || meta.director || null,
         cast: tmdbDetails.cast || meta.cast || [],
         trailer: tmdbDetails.trailer !== undefined ? tmdbDetails.trailer : (meta.trailer || null),
+        overview: repairedOverview,
+        turkishTitle: localization?.turkishTitle || meta.turkishTitle || "",
+        englishTitle: localization?.englishTitle || meta.englishTitle || "",
+        titleLocalizationSource: localization?.titleSource || meta.titleLocalizationSource || "NONE",
+        overviewLocalizationSource: localization?.overviewSource || meta.overviewLocalizationSource || "NONE",
       };
 
       try {
         movie = await db.movie.update({
           where: { id: movie.id },
-          data: { metadata: updatedMeta },
+          data: {
+            title: repairedTitle,
+            originalTitle: canRepairLocalization
+              ? localization?.originalTitle || movie.originalTitle
+              : movie.originalTitle,
+            metadata: updatedMeta,
+          },
         });
         meta = updatedMeta;
       } catch (e) {

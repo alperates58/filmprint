@@ -25,7 +25,10 @@
     "quality:tv": "tsx tests/tv-recommendation-quality/run.ts",
     "quality:hybrid:tv": "tsx tests/tv-recommendation-quality/run-hybrid-experiment.ts",
     "phase9:seed": "tsx tests/recommendation-quality/catalog-seed.ts",
-    "tv:refresh-images": "tsx scripts/refresh-tv-images.ts"
+    "tv:refresh-images": "tsx scripts/refresh-tv-images.ts",
+    "audit:content-safety": "tsx scripts/audit-content-safety.ts",
+    "backfill:tv-localization": "tsx scripts/backfill-tv-localization.ts",
+    "backfill:movie-localization": "tsx scripts/backfill-movie-localization.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.3.0",

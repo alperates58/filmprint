@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/lib/auth/service";
 import { tmdbTvClient } from "@/lib/tmdb/tv/client";
 import { TvInteractionStatus, RatingStatus } from "@prisma/client";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
+import { evaluateContentIngestionSafety } from "@/lib/content/ingestion-safety";
+import { isMeaningfulOverview } from "@/lib/content/overview-safety";
 
 export async function GET(
   request: Request,
@@ -61,6 +63,29 @@ export async function GET(
     // 2. Enrich missing creators, cast, or trailer via TMDB Client if needed
     if (!meta.creators || !meta.cast || meta.trailer === undefined) {
       const tmdbDetails = await tmdbTvClient.getTvDetails(show.tmdbId);
+      const localization = tmdbDetails.localization;
+      const localizationSafety = localization
+        ? evaluateContentIngestionSafety({
+            localizedTitle: localization.turkishTitle,
+            englishTitle: localization.englishTitle,
+            originalTitle: localization.originalName,
+            overview: localization.overview,
+            adult: localization.adult,
+          })
+        : null;
+      const canRepairLocalization =
+        localization !== null &&
+        localizationSafety?.allowed === true &&
+        localizationSafety.displayTitle !== null;
+      const repairedName = canRepairLocalization
+        ? localizationSafety!.displayTitle!.title
+        : show.name;
+      const repairedOverview =
+        canRepairLocalization && isMeaningfulOverview(localization?.overview)
+          ? localization?.overview || show.overview
+          : isMeaningfulOverview(show.overview)
+            ? show.overview
+            : "";
 
       const updatedMeta = {
         ...meta,
@@ -70,14 +95,30 @@ export async function GET(
         creators: tmdbDetails.creators || meta.creators || [],
         cast: tmdbDetails.cast || meta.cast || [],
         trailer: tmdbDetails.trailer !== undefined ? tmdbDetails.trailer : (meta.trailer || null),
+        overview: repairedOverview,
+        turkishTitle: localization?.turkishTitle || meta.turkishTitle || "",
+        englishTitle: localization?.englishTitle || meta.englishTitle || "",
+        titleLocalizationSource: localization?.titleSource || meta.titleLocalizationSource || "NONE",
+        overviewLocalizationSource: localization?.overviewSource || meta.overviewLocalizationSource || "NONE",
       };
 
       try {
         await db.tvShow.update({
           where: { id: show.id },
-          data: { metadata: updatedMeta },
+          data: {
+            name: repairedName,
+            originalName: canRepairLocalization ? localization?.originalName || show.originalName : show.originalName,
+            overview: repairedOverview,
+            metadata: updatedMeta,
+          },
         });
         meta = updatedMeta;
+        show = {
+          ...show,
+          name: repairedName,
+          originalName: canRepairLocalization ? localization?.originalName || show.originalName : show.originalName,
+          overview: repairedOverview,
+        };
       } catch (e) {
         meta = updatedMeta;
       }

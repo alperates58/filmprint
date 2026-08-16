@@ -5,6 +5,7 @@ import {
   EligibilityRejectionReason,
 } from "./types";
 import { isExplicitAdultContent, isGenericOverview } from "./denylist";
+import { getDisplayTitleScriptStats, isDisplayTitleAllowed } from "@/lib/content/title-safety";
 
 /**
  * Normalizes varied movie objects (Prisma Movie, TMDBMovie, CandidateMovie, etc.)
@@ -20,6 +21,7 @@ function normalizeMovieInput(movie: EligibleMovieInput) {
     (meta.originalTitle as string) ||
     ""
   ).trim();
+  const englishTitle = ((meta.englishTitle as string) || "").trim();
 
   const overview = (
     movie.overview ||
@@ -95,6 +97,7 @@ function normalizeMovieInput(movie: EligibleMovieInput) {
   return {
     title,
     originalTitle,
+    englishTitle,
     overview,
     posterPath: posterPath ? posterPath.trim() : null,
     releaseYear,
@@ -127,14 +130,16 @@ export function evaluateMovieEligibility(
   }
 
   // 2. HARD BLOCK: Explicit Pornographic / Erotic Signals Denylist
-  const combinedTextToAudit = `${norm.title} ${norm.originalTitle} ${norm.overview} ${norm.genres.join(" ")}`;
+  const combinedTextToAudit = `${norm.title} ${norm.englishTitle} ${norm.originalTitle} ${norm.overview} ${norm.genres.join(" ")}`;
   if (isExplicitAdultContent(combinedTextToAudit)) {
     reasons.push("EXPLICIT_ADULT_KEYWORD");
   }
 
-  // 3. Title Check
-  if (norm.title.length === 0 && norm.originalTitle.length === 0) {
+  // 3. Display Title Check (the user-facing localized field, not original language)
+  if (norm.title.length === 0) {
     reasons.push("MISSING_TITLE");
+  } else if (!isDisplayTitleAllowed(norm.title)) {
+    reasons.push("NON_LATIN_DISPLAY_TITLE");
   }
 
   // 4. Poster Requirement (Critical for Calibration & Visual Quality)
@@ -206,6 +211,7 @@ export function evaluateMovieEligibility(
   }
 
   const isEligible = reasons.length === 0;
+  const titleScript = getDisplayTitleScriptStats(norm.title);
 
   return {
     isEligible,
@@ -214,6 +220,7 @@ export function evaluateMovieEligibility(
     context,
     details: {
       title: norm.title,
+      titleLatinRatio: titleScript.latinRatio,
       releaseYear: norm.releaseYear,
       hasPoster: hasValidPoster,
       overviewLength: norm.overview.length,

@@ -9,6 +9,7 @@ export type MovieEligibilityContext =
 export type EligibilityRejectionReason =
   | "ADULT_FLAG"
   | "EXPLICIT_ADULT_KEYWORD"
+  | "NON_LATIN_DISPLAY_TITLE"
   | "MISSING_TITLE"
   | "MISSING_OVERVIEW"
   | "OVERVIEW_TOO_SHORT"

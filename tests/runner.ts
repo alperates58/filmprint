@@ -33,6 +33,7 @@ import { runTitleScriptEligibilityTests } from "./title_script_eligibility.test"
 import { runTmdbTvLocalizationTests } from "./tmdb_tv_localization.test";
 import { runTmdbSharedLocalizationTests } from "./tmdb_shared_localization.test";
 import { runTvProgressionTests } from "./tv_progression.test";
+import { runCatalogIngestionTests } from "./catalog_ingestion.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -76,6 +77,7 @@ async function runAllUnitAndRegressionTests() {
     { name: "TV Phase 3.5 Shared Hybrid AI Recommendation & Controls Tests", fn: runTvHybridRecommendationTests },
     { name: "Hybrid AI Runtime Integration & Real Order Permutation Tests", fn: runHybridIntegrationRuntimeTests },
     { name: "TMDB Image Guard & Poster Path Validation Tests", fn: runTmdbImageGuardTests },
+    { name: "TMDB Catalog Ingestion Engine Tests", fn: runCatalogIngestionTests },
   ];
 
   let passedSuites = 0;

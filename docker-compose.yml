@@ -33,6 +33,21 @@ services:
       start_period: 15s
     restart: unless-stopped
 
+  catalog-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["node", "dist/catalog-worker.js"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-filmprint}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-filmprint}?schema=public
+      TMDB_API_KEY: ${TMDB_API_KEY:-}
+      MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY:-}
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     container_name: filmprint-postgres

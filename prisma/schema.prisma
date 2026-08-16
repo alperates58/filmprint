@@ -408,3 +408,71 @@ model TvRecommendationExplanation {
   @@index([tvShowId])
 }
 
+enum CatalogIngestionMode {
+  INITIAL_FILL
+  MAINTENANCE
+  PAUSED
+}
+
+enum CatalogCandidateStatus {
+  IMPORTED
+  REJECTED
+  NOT_FOUND
+  ADULT
+  UNSAFE
+  NO_USABLE_TITLE
+  NO_OVERVIEW
+  FAILED_RETRYABLE
+}
+
+model CatalogIngestionState {
+  id                   String               @id @default(uuid())
+  mediaType            MediaType            @unique
+  enabled              Boolean              @default(true)
+  mode                 CatalogIngestionMode @default(INITIAL_FILL)
+  sourceDate           String?
+  sourceCursor         Int                  @default(0)
+  targetDailyItems     Int                  @default(10000)
+  requestsPerSecond    Float                @default(1.0)
+  concurrency          Int                  @default(2)
+  initialTarget        Int                  @default(100000)
+  processedToday       Int                  @default(0)
+  insertedToday        Int                  @default(0)
+  updatedToday         Int                  @default(0)
+  rejectedToday        Int                  @default(0)
+  rateLimitedToday     Int                  @default(0)
+  failedToday          Int                  @default(0)
+  lastCounterResetDate String?
+  lastRunAt            DateTime?
+  lastSuccessAt        DateTime?
+  lastErrorAt          DateTime?
+  lastError            String?
+  lockedAt             DateTime?
+  lockedBy             String?
+  circuitOpenUntil     DateTime?
+  consecutiveFailures  Int                  @default(0)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@index([mediaType])
+}
+
+model CatalogCandidateState {
+  id            String                 @id @default(uuid())
+  mediaType     MediaType
+  tmdbId        Int
+  status        CatalogCandidateStatus
+  reason        String?
+  popularity    Float                  @default(0.0)
+  attemptCount  Int                    @default(1)
+  retryAfter    DateTime?
+  lastCheckedAt DateTime               @default(now())
+  metadata      Json                   @default("{}")
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@unique([mediaType, tmdbId])
+  @@index([mediaType, status])
+  @@index([retryAfter])
+}
+

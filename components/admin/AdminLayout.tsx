@@ -17,6 +17,7 @@ export function AdminLayout({ children, adminEmail }: AdminLayoutProps) {
   const navItems = [
     { label: "Genel Bakış", href: "/admin", icon: "📊" },
     { label: "Kullanıcılar", href: "/admin/users", icon: "👥" },
+    { label: "Katalog Motoru", href: "/admin/catalog-ingestion", icon: "📦" },
     { label: "Entegrasyonlar", href: "/admin/integrations", icon: "🔌" },
     { label: "Sistem Ayarları", href: "/admin/settings", icon: "⚙️" },
     { label: "Sistem Durumu", href: "/admin/system", icon: "🖥️" },

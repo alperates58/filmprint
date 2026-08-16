@@ -34,14 +34,17 @@ require.extensions[".ts"] = function (module, filename) {
 };
 
 const { runCatalogIngestionTests } = require("./catalog_ingestion.test.ts");
+const { runRecommendationFeedbackTests } = require("./recommendation_feedback.test.ts");
 
 async function main() {
   console.log("===============================================================");
-  console.log("RUNNING TMDB CATALOG INGESTION ENGINE TESTS");
+  console.log("RUNNING ALL TMDB & RECOMMENDATION FEEDBACK UNIT TESTS");
   console.log("===============================================================\n");
   await runCatalogIngestionTests();
+  console.log("");
+  await runRecommendationFeedbackTests();
   console.log("\n===============================================================");
-  console.log("ALL TMDB CATALOG INGESTION ENGINE TESTS PASSED SUCCESSFULLY");
+  console.log("ALL TESTS PASSED SUCCESSFULLY");
   console.log("===============================================================\n");
 }
 

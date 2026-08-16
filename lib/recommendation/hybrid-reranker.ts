@@ -120,7 +120,8 @@ export function generateCandidateFingerprint(
  */
 export function buildAiRerankPromptPayload(
   aiTasteProfile: AiTasteProfile,
-  candidates: ScoredCandidate[]
+  candidates: ScoredCandidate[],
+  feedbackSummary?: { recentLikes: string[]; recentDislikes: string[]; recentWatchlist: string[] }
 ) {
   const formattedCandidates: AiRerankCandidateItem[] = candidates.map((sc) => {
     const meta = ((sc.movie as any).metadata as Record<string, any>) || {};
@@ -146,6 +147,15 @@ export function buildAiRerankPromptPayload(
       storyPreferences: aiTasteProfile.storyPreferences,
       preferredCharacteristics: aiTasteProfile.preferredCharacteristics,
       avoidCharacteristics: aiTasteProfile.avoidCharacteristics,
+      ...(feedbackSummary && (feedbackSummary.recentLikes.length > 0 || feedbackSummary.recentDislikes.length > 0 || feedbackSummary.recentWatchlist.length > 0)
+        ? {
+            feedbackSignals: {
+              recentLikes: feedbackSummary.recentLikes,
+              recentDislikes: feedbackSummary.recentDislikes,
+              recentWatchlist: feedbackSummary.recentWatchlist,
+            },
+          }
+        : {}),
     },
     candidates: formattedCandidates,
   };
@@ -265,6 +275,11 @@ export interface HybridRerankOptions {
   matchVersion?: number;
   frozenRankingMap?: Map<string, { affinity: number; signals: string[] }>;
   forceGenerate?: boolean;
+  feedbackSummary?: {
+    recentLikes: string[];
+    recentDislikes: string[];
+    recentWatchlist: string[];
+  };
 }
 
 /**
@@ -410,7 +425,11 @@ export async function rerankCandidatesWithAi(
     try {
       activeRerankLocks.add(lockKey);
 
-      const promptPayload = buildAiRerankPromptPayload(aiTasteProfile, shortlist);
+      const promptPayload = buildAiRerankPromptPayload(
+        aiTasteProfile,
+        shortlist,
+        options.feedbackSummary
+      );
       const aiResult = await callDeepSeekBatchReranker(promptPayload);
 
       if (aiResult && aiResult.rankings && aiResult.rankings.length > 0) {

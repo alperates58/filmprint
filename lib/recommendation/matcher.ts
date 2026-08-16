@@ -2,9 +2,8 @@ import type { CandidateMovie } from "../calibration/types";
 import type { FilmDnaResult } from "../profile/types";
 import type { MovieMatchResult, MatchComponents, CandidateEvidence } from "./types";
 import { MATCH_WEIGHTS, NEGATIVE_GENRE_PENALTY, DISPLAY_MATCH_SCORE_MAX, getMatchLabel } from "./constants";
-import { FEEDBACK_ADJUSTMENT_BOUNDS } from "./feedback-constants";
 import type { FeedbackProfile } from "./feedback-profile";
-import { EMPTY_FEEDBACK_PROFILE } from "./feedback-profile";
+import { EMPTY_FEEDBACK_PROFILE, calculateMovieFeedbackAdjustment } from "./feedback-profile";
 import { calculateQualityScore } from "./quality";
 
 /**
@@ -116,29 +115,12 @@ export function calculateMovieMatch(
   const baseMatchScore = Math.max(0, Math.min(100, rawBaseScore));
 
   // 6. Feedback Adjustment Calculation (-15 to +10)
-  let rawFeedbackAdj = 0;
-
-  if (movie.genres && movie.genres.length > 0) {
-    for (const g of movie.genres) {
-      const gSignal = feedbackProfile.genreSignals[g];
-      if (gSignal !== undefined) {
-        rawFeedbackAdj += gSignal;
-      }
-    }
-  }
-
-  if (movie.releaseYear) {
-    const eraDecade = `${Math.floor(movie.releaseYear / 10) * 10}s`;
-    const eSignal = feedbackProfile.eraSignals[eraDecade];
-    if (eSignal !== undefined) {
-      rawFeedbackAdj += eSignal;
-    }
-  }
-
-  // Strictly clamp feedback adjustment to [-15, +10]
-  const feedbackAdjustment = Math.max(
-    FEEDBACK_ADJUSTMENT_BOUNDS.MIN,
-    Math.min(FEEDBACK_ADJUSTMENT_BOUNDS.MAX, Math.round(rawFeedbackAdj))
+  const feedbackAdjustment = calculateMovieFeedbackAdjustment(
+    movie.id,
+    movie.genres,
+    movie.releaseYear,
+    (movie as any).metadata || {},
+    feedbackProfile
   );
 
   // Raw uncalibrated score

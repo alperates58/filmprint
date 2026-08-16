@@ -14,15 +14,9 @@ export async function getAdminOverviewData() {
     totalTvProfiles,
     tmdbStatus,
     deepseekStatus,
-    watchLaterCount,
-    notInterestedCount,
-    alreadyWatchedCount,
-    watchedFromRecCount,
+    movieFeedbackGroups,
     feedbacksWithMatchScore,
-    tvWatchLaterCount,
-    tvNotInterestedCount,
-    tvAlreadyWatchedCount,
-    tvWatchedFromRecCount,
+    tvFeedbackGroups,
     tvFeedbacksWithMatchScore,
     totalMovieNights,
     activeMovieNights,
@@ -37,20 +31,20 @@ export async function getAdminOverviewData() {
     db.userTvTasteProfile.count(),
     getIntegrationStatus("tmdb"),
     getIntegrationStatus("deepseek"),
-    // Movie Feedbacks
-    db.recommendationFeedback.count({ where: { action: "WATCH_LATER" } }),
-    db.recommendationFeedback.count({ where: { action: "NOT_INTERESTED" } }),
-    db.recommendationFeedback.count({ where: { action: "ALREADY_WATCHED" } }),
-    db.recommendationFeedback.count({ where: { action: "WATCHED_FROM_RECOMMENDATION" } }),
+    // Movie Feedbacks GroupBy
+    db.recommendationFeedback.groupBy({
+      by: ["action"],
+      _count: { action: true },
+    }),
     db.recommendationFeedback.findMany({
       where: { action: { in: ["WATCHED_FROM_RECOMMENDATION", "ALREADY_WATCHED"] } },
       select: { userId: true, movieId: true, matchScore: true, action: true },
     }),
-    // TV Feedbacks
-    db.tvRecommendationFeedback.count({ where: { action: "WATCH_LATER" } }),
-    db.tvRecommendationFeedback.count({ where: { action: "NOT_INTERESTED" } }),
-    db.tvRecommendationFeedback.count({ where: { action: "ALREADY_WATCHED" } }),
-    db.tvRecommendationFeedback.count({ where: { action: "WATCHED_FROM_RECOMMENDATION" } }),
+    // TV Feedbacks GroupBy
+    db.tvRecommendationFeedback.groupBy({
+      by: ["action"],
+      _count: { action: true },
+    }),
     db.tvRecommendationFeedback.findMany({
       where: { action: { in: ["WATCHED_FROM_RECOMMENDATION", "ALREADY_WATCHED"] } },
       select: { userId: true, tvShowId: true, matchScore: true, action: true },
@@ -59,6 +53,38 @@ export async function getAdminOverviewData() {
     db.movieNightSession.count({ where: { status: "LOBBY" } }),
     db.movieNightSession.count({ where: { status: "COMPLETED" } }),
   ]);
+
+  // Movie feedback breakdown
+  const movieFeedbackMap = new Map(movieFeedbackGroups.map((g: any) => [g.action, g._count.action]));
+  const likeCount = movieFeedbackMap.get("LIKE") || 0;
+  const dislikeCount = (movieFeedbackMap.get("DISLIKE") || 0) + (movieFeedbackMap.get("NOT_INTERESTED") || 0);
+  const hideCount = movieFeedbackMap.get("HIDE") || 0;
+  const watchlistCount = (movieFeedbackMap.get("WATCHLIST") || 0) + (movieFeedbackMap.get("WATCH_LATER") || 0);
+  const watchLaterCount = watchlistCount;
+  const notInterestedCount = dislikeCount;
+  const alreadyWatchedCount = movieFeedbackMap.get("ALREADY_WATCHED") || 0;
+  const watchedFromRecCount = movieFeedbackMap.get("WATCHED_FROM_RECOMMENDATION") || 0;
+  const totalRecommendationFeedbacks =
+    likeCount + dislikeCount + hideCount + watchlistCount + alreadyWatchedCount + watchedFromRecCount;
+  const conversionRate = totalRecommendationFeedbacks > 0
+    ? Math.round(((watchedFromRecCount + alreadyWatchedCount) / totalRecommendationFeedbacks) * 100)
+    : 0;
+
+  // TV feedback breakdown
+  const tvFeedbackMap = new Map(tvFeedbackGroups.map((g: any) => [g.action, g._count.action]));
+  const tvLikeCount = tvFeedbackMap.get("LIKE") || 0;
+  const tvDislikeCount = (tvFeedbackMap.get("DISLIKE") || 0) + (tvFeedbackMap.get("NOT_INTERESTED") || 0);
+  const tvHideCount = tvFeedbackMap.get("HIDE") || 0;
+  const tvWatchlistCount = (tvFeedbackMap.get("WATCHLIST") || 0) + (tvFeedbackMap.get("WATCH_LATER") || 0);
+  const tvWatchLaterCount = tvWatchlistCount;
+  const tvNotInterestedCount = tvDislikeCount;
+  const tvAlreadyWatchedCount = tvFeedbackMap.get("ALREADY_WATCHED") || 0;
+  const tvWatchedFromRecCount = tvFeedbackMap.get("WATCHED_FROM_RECOMMENDATION") || 0;
+  const totalTvRecommendationFeedbacks =
+    tvLikeCount + tvDislikeCount + tvHideCount + tvWatchlistCount + tvAlreadyWatchedCount + tvWatchedFromRecCount;
+  const tvConversionRate = totalTvRecommendationFeedbacks > 0
+    ? Math.round(((tvWatchedFromRecCount + tvAlreadyWatchedCount) / totalTvRecommendationFeedbacks) * 100)
+    : 0;
 
   // Movie interaction status counts
   const watched = await db.movieInteraction.count({ where: { status: "WATCHED" } });
@@ -99,17 +125,6 @@ export async function getAdminOverviewData() {
     },
   });
 
-  // Movie Recommendation Feedback metrics
-  const totalRecommendationFeedbacks = watchLaterCount + notInterestedCount + alreadyWatchedCount + watchedFromRecCount;
-  const conversionRate = totalRecommendationFeedbacks > 0
-    ? Math.round(((watchedFromRecCount + alreadyWatchedCount) / totalRecommendationFeedbacks) * 100)
-    : 0;
-
-  // TV Recommendation Feedback metrics
-  const totalTvRecommendationFeedbacks = tvWatchLaterCount + tvNotInterestedCount + tvAlreadyWatchedCount + tvWatchedFromRecCount;
-  const tvConversionRate = totalTvRecommendationFeedbacks > 0
-    ? Math.round(((tvWatchedFromRecCount + tvAlreadyWatchedCount) / totalTvRecommendationFeedbacks) * 100)
-    : 0;
 
   // Calculate Match Calibration Bucket Success Metrics for Movies
   const buckets = {
@@ -246,6 +261,10 @@ export async function getAdminOverviewData() {
       ratings: { love: tvLove, like: tvLike, neutral: tvNeutral, dislike: tvDislike },
     },
     feedbackMetrics: {
+      likeCount,
+      dislikeCount,
+      hideCount,
+      watchlistCount,
       watchLaterCount,
       notInterestedCount,
       alreadyWatchedCount,
@@ -256,6 +275,10 @@ export async function getAdminOverviewData() {
       matchBucketOutcomes,
     },
     tvFeedbackMetrics: {
+      likeCount: tvLikeCount,
+      dislikeCount: tvDislikeCount,
+      hideCount: tvHideCount,
+      watchlistCount: tvWatchlistCount,
       watchLaterCount: tvWatchLaterCount,
       notInterestedCount: tvNotInterestedCount,
       alreadyWatchedCount: tvAlreadyWatchedCount,

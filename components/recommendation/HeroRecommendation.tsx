@@ -19,7 +19,8 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
     isAiGenerated: boolean;
   } | null>(null);
   const [isLoadingExplain, setIsLoadingExplain] = useState(false);
-  const [showRatingStep, setShowRatingStep] = useState<"WATCHED" | "ALREADY_WATCHED" | null>(null);
+  const [showRatingStep, setShowRatingStep] = useState<boolean>(false);
+  const [feedbackAction, setFeedbackAction] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const headline = dynamicExplanation?.headline || item.headline;
@@ -62,22 +63,39 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
     }
   };
 
-  const handleActionClick = (actionType: "WATCHED" | "ALREADY_WATCHED" | "WATCH_LATER" | "NOT_INTERESTED") => {
-    if (actionType === "WATCHED" || actionType === "ALREADY_WATCHED") {
-      setShowRatingStep(actionType);
-    } else {
-      setIsSubmitted(true);
-      if (onFeedbackAction) {
-        onFeedbackAction(movie.id, actionType);
-      }
-    }
-  };
+  const handleFeedback = async (
+    action: "LIKE" | "DISLIKE" | "HIDE" | "WATCHLIST" | "WATCHED" | "CLEAR",
+    rating?: string
+  ) => {
+    const isClearing = feedbackAction === action && action !== "WATCHED" && action !== "HIDE";
+    const effectiveAction = isClearing ? "CLEAR" : action;
 
-  const handleRatingSelect = (rating: string) => {
-    setIsSubmitted(true);
-    const action = showRatingStep === "ALREADY_WATCHED" ? "ALREADY_WATCHED" : "WATCHED_FROM_RECOMMENDATION";
-    if (onFeedbackAction) {
-      onFeedbackAction(movie.id, action, rating);
+    if (effectiveAction === "HIDE" || effectiveAction === "WATCHED") {
+      setIsSubmitted(true);
+    } else if (effectiveAction === "CLEAR") {
+      setFeedbackAction(null);
+    } else {
+      setFeedbackAction(effectiveAction);
+    }
+
+    try {
+      if (onFeedbackAction) {
+        onFeedbackAction(movie.id, effectiveAction, rating);
+      }
+
+      await fetch("/api/recommendation-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mediaType: "FILM",
+          movieId: movie.id,
+          action: effectiveAction,
+          rating,
+          source: "HOME_HERO",
+        }),
+      });
+    } catch (e) {
+      console.error("[Hero Feedback Error]:", e);
     }
   };
 
@@ -123,7 +141,7 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
               alt={movie.title}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-500"
-              sizes="(max-width: 768px) 144px, 224px"
+              sizes="(max-width: 640px) 112px, (max-width: 768px) 144px, 224px"
               priority
             />
           ) : (
@@ -133,79 +151,78 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
           )}
         </div>
 
-        {/* Hero Content & Explanation */}
-        <div className="md:col-span-2 space-y-4">
-          <div onClick={handleOpenDetails} className="cursor-pointer group">
-            <span className="text-xs font-mono text-text-muted">
-              {movie.releaseYear || "Tarihsiz"} • {movie.genres.join(", ")}
-            </span>
-            <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary mt-1 group-hover:text-accent transition-colors">
+        {/* Info & Evidence Column */}
+        <div className="flex-1 md:col-span-2 space-y-4 w-full">
+          <div>
+            <h2
+              onClick={handleOpenDetails}
+              className="font-display text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-text-primary group-hover:text-accent transition-colors cursor-pointer"
+            >
               {movie.title}
             </h2>
-            {movie.originalTitle && movie.originalTitle !== movie.title && (
-              <p className="text-xs text-text-muted italic font-mono mt-0.5">
-                {movie.originalTitle}
-              </p>
-            )}
+            <p className="text-xs font-mono text-text-muted mt-1">
+              {movie.releaseYear || "Tarihsiz"} • {movie.genres.join(", ")}
+              {movie.voteAverage > 0 && ` • ⭐ ${movie.voteAverage.toFixed(1)}`}
+            </p>
           </div>
 
-          {/* Recommendation Explanation Card */}
-          <div className="p-5 rounded-2xl bg-surface-elevated/80 border border-border/70 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-display text-sm md:text-base font-bold text-text-primary">
-                {headline}
-              </h3>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                {!isAi && !isLoadingExplain && (
-                  <button
-                    onClick={handleFetchAiExplanation}
-                    className="text-[10px] font-mono text-accent hover:underline bg-accent/10 border border-accent/30 px-2 py-0.5 rounded-full flex items-center gap-1 transition-all"
-                    title="AI ile detaylı kişiselleştir"
-                  >
-                    ✨ AI Derinleştir
-                  </button>
-                )}
-                <span className="text-[10px] font-mono text-text-muted bg-surface border border-border/60 px-2 py-0.5 rounded-full">
-                  {isAi ? "SineAI" : "SineAI yorumu"}
-                </span>
-              </div>
-            </div>
+          <p className="text-sm text-text-secondary leading-relaxed font-medium">
+            {headline}
+          </p>
 
-            <div className="space-y-1.5 pt-1 border-t border-border/40">
-              <p className="text-[10px] font-mono font-semibold uppercase text-accent tracking-wider">
-                NEDEN SANA UYGUN?
-              </p>
-              {isLoadingExplain ? (
-                <div className="p-3 rounded-xl bg-surface/80 border border-accent/30 text-[11px] space-y-2 animate-pulse">
-                  <div className="flex items-center gap-1.5 text-accent font-mono text-[10px] font-semibold">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
-                    <span>Film DNA'nla derin analiz yapılıyor...</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="h-2 bg-surface-elevated rounded-full w-5/6 animate-pulse" />
-                    <div className="h-2 bg-surface-elevated rounded-full w-4/6 animate-pulse" />
-                  </div>
-                </div>
-              ) : (
-                <ul className="space-y-1.5 text-xs md:text-sm text-text-secondary">
-                  {reasons.map((reason, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-accent font-bold">•</span>
-                      <span>{reason.replace(/\*\*(.*?)\*\*/g, "$1")}</span>
-                    </li>
-                  ))}
-                </ul>
+          {/* AI or Deterministic Reasons */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono font-bold text-accent uppercase tracking-wider flex items-center gap-1.5">
+                <span>✦</span> NEDEN BU FİLM?
+              </span>
+
+              {!isAi && (
+                <button
+                  type="button"
+                  onClick={handleFetchAiExplanation}
+                  disabled={isLoadingExplain}
+                  className="text-[10px] font-mono text-accent hover:underline flex items-center gap-1 disabled:opacity-50"
+                >
+                  {isLoadingExplain ? (
+                    <span className="animate-pulse">AI Analiz Ediyor...</span>
+                  ) : (
+                    <span>✨ AI ile Detaylandır</span>
+                  )}
+                </button>
               )}
             </div>
+
+            {isLoadingExplain ? (
+              <div className="p-3.5 rounded-2xl bg-surface-elevated/90 border border-accent/30 space-y-2 animate-pulse">
+                <div className="h-2.5 bg-surface rounded-full w-4/5 animate-pulse" />
+                <div className="h-2.5 bg-surface rounded-full w-3/5 animate-pulse" />
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-surface-elevated/80 border border-border/70 space-y-2 text-xs text-text-secondary">
+                {reasons && reasons.length > 0 ? (
+                  reasons.map((r, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <span className="text-accent font-bold text-xs mt-0.5">•</span>
+                      <span className="leading-snug">{r.replace(/\*\*(.*?)\*\*/g, "$1")}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-[11px] text-text-muted italic">
+                    Film DNA tercihlerinle yüksek uyum sağladı.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Action Buttons / Inline Rating Step */}
           {showRatingStep ? (
-            <div className="p-4 rounded-2xl bg-surface-elevated border border-accent/40 space-y-3">
+            <div className="p-4 rounded-2xl bg-surface-elevated border border-accent/40 space-y-3 animate-fadeIn">
               <div className="flex justify-between items-center text-xs font-mono text-text-primary font-bold">
                 <span>Nasıl buldun?</span>
                 <button
-                  onClick={() => setShowRatingStep(null)}
+                  onClick={() => setShowRatingStep(false)}
                   className="text-text-muted hover:text-text-primary text-[10px]"
                 >
                   İptal
@@ -214,56 +231,93 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
-                  onClick={() => handleRatingSelect("LOVE")}
-                  className="px-3 py-2 rounded-xl bg-accent/20 hover:bg-accent/30 border border-accent/40 text-text-primary font-mono text-xs transition-all"
+                  onClick={() => handleFeedback("WATCHED", "LOVE")}
+                  className="px-3 py-2 rounded-xl bg-accent/20 hover:bg-accent/30 border border-accent/40 text-text-primary font-mono text-xs transition-all text-center"
                 >
                   ❤️ Çok Sevdim
                 </button>
                 <button
-                  onClick={() => handleRatingSelect("LIKE")}
-                  className="px-3 py-2 rounded-xl bg-surface-elevated hover:bg-border border border-border text-text-primary font-mono text-xs transition-all"
+                  onClick={() => handleFeedback("WATCHED", "LIKE")}
+                  className="px-3 py-2 rounded-xl bg-surface-elevated hover:bg-border border border-border text-text-primary font-mono text-xs transition-all text-center"
                 >
                   👍 Beğendim
                 </button>
                 <button
-                  onClick={() => handleRatingSelect("NEUTRAL")}
-                  className="px-3 py-2 rounded-xl bg-surface-elevated hover:bg-border border border-border text-text-secondary font-mono text-xs transition-all"
+                  onClick={() => handleFeedback("WATCHED", "NEUTRAL")}
+                  className="px-3 py-2 rounded-xl bg-surface-elevated hover:bg-border border border-border text-text-secondary font-mono text-xs transition-all text-center"
                 >
                   😐 Ortalama
                 </button>
                 <button
-                  onClick={() => handleRatingSelect("DISLIKE")}
-                  className="px-3 py-2 rounded-xl bg-surface-elevated hover:bg-border border border-border text-text-muted font-mono text-xs transition-all"
+                  onClick={() => handleFeedback("WATCHED", "DISLIKE")}
+                  className="px-3 py-2 rounded-xl bg-surface-elevated hover:bg-border border border-border text-text-muted font-mono text-xs transition-all text-center"
                 >
                   👎 Sevmedim
                 </button>
               </div>
             </div>
           ) : (
-            <div className="flex flex-wrap items-center gap-2 pt-1">
+            <div className="flex flex-wrap items-center gap-2 pt-1 font-mono text-xs">
               <button
-                onClick={() => handleActionClick("WATCHED")}
-                className="px-4 py-2 rounded-xl bg-accent text-white font-medium text-xs hover:bg-accent-hover transition-all shadow-sm"
+                type="button"
+                aria-pressed={feedbackAction === "LIKE"}
+                onClick={() => handleFeedback("LIKE")}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  feedbackAction === "LIKE"
+                    ? "bg-accent/20 text-accent border border-accent/50 shadow-sm"
+                    : "bg-surface-elevated hover:bg-border border border-border text-text-secondary hover:text-text-primary"
+                }`}
+                title="İlgimi Çekti"
               >
-                İzledim
+                <span>👍</span>
+                <span>İlgimi Çekti</span>
               </button>
+
               <button
-                onClick={() => handleActionClick("WATCH_LATER")}
-                className="px-4 py-2 rounded-xl bg-surface-elevated hover:bg-border border border-border text-text-primary font-mono text-xs transition-all"
+                type="button"
+                aria-pressed={feedbackAction === "DISLIKE"}
+                onClick={() => handleFeedback("DISLIKE")}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  feedbackAction === "DISLIKE"
+                    ? "bg-surface-elevated text-text-muted border border-border shadow-sm"
+                    : "bg-surface-elevated hover:bg-border border border-border text-text-secondary hover:text-text-muted"
+                }`}
+                title="İlgimi Çekmedi"
               >
-                Daha Sonra
+                <span>👎</span>
+                <span>İlgimi Çekmedi</span>
               </button>
+
               <button
-                onClick={() => handleActionClick("NOT_INTERESTED")}
-                className="px-4 py-2 rounded-xl bg-surface-elevated hover:bg-border border border-border text-text-muted hover:text-text-primary font-mono text-xs transition-all"
+                type="button"
+                aria-pressed={feedbackAction === "WATCHLIST"}
+                onClick={() => handleFeedback("WATCHLIST")}
+                className={`px-3.5 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all ${
+                  feedbackAction === "WATCHLIST"
+                    ? "bg-accent text-white font-bold shadow-sm"
+                    : "bg-surface-elevated hover:bg-border border border-border text-text-secondary hover:text-text-primary"
+                }`}
+                title="İzleme Listeme Ekle"
               >
-                İlgilenmiyorum
+                <span>🔖</span>
+                <span>Listeme Ekle</span>
               </button>
+
               <button
-                onClick={() => handleActionClick("ALREADY_WATCHED")}
-                className="px-3 py-2 text-[11px] font-mono text-text-muted hover:text-text-primary underline underline-offset-4 transition-colors"
+                type="button"
+                onClick={() => setShowRatingStep(true)}
+                className="px-3.5 py-2 rounded-xl bg-accent text-white font-medium text-xs hover:bg-accent-hover transition-all shadow-sm"
               >
-                Zaten İzlemiştim
+                👁️ İzledim
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleFeedback("HIDE")}
+                className="px-3 py-2 text-[11px] font-mono text-text-muted hover:text-red-400 transition-colors"
+                title="Bunu önerme"
+              >
+                🚫 Önerme
               </button>
             </div>
           )}

@@ -193,9 +193,8 @@ export async function getPersonalizedTvRecommendations(
     ...watchedInteractions.map((i) => i.tvShowId),
     ...partialInteractions.map((i) => i.tvShowId),
     ...unsureInteractions.map((i) => i.tvShowId),
-    ...feedbackProfile.watchLaterShowIds,
-    ...feedbackProfile.alreadyWatchedShowIds,
-    ...feedbackProfile.notInterestedShowIds,
+    ...feedbackProfile.watchedShowIds,
+    ...feedbackProfile.hiddenShowIds,
   ]);
 
   const candidateList: Array<{ candidate: CandidateTvShow; source: TvCandidateSource }> = [];
@@ -299,6 +298,7 @@ export async function getPersonalizedTvRecommendations(
         forceRefresh: options.forceAiRefresh,
         tvProfileVersion: profile.schemaVersion || 1,
         tvMatchVersion: TV_MATCH_ENGINE_VERSION,
+        feedbackSummary: feedbackProfile.feedbackSummary,
       }
     );
 

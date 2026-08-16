@@ -125,15 +125,15 @@ export async function getPersonalizedRecommendations(
   ]);
 
   // Excluded from normal recommendations:
-  // - Movies user WATCHED
-  // - Recommendation feedback actions (NOT_INTERESTED, WATCH_LATER, ALREADY_WATCHED, WATCHED_FROM_RECOMMENDATION)
+  // - Movies user WATCHED (via interactions or feedback)
+  // - Recommendation feedback action HIDE (hard exclusion)
   const watchedMovieIds = new Set(watchedInteractions.map((i: any) => i.movieId));
-  const blockedFeedbackIds = new Set(feedbacks.map((f: any) => f.movieId));
   const notWatchedMovieIds = new Set(notWatchedInteractions.map((i: any) => i.movieId));
 
   const excludedMovieIds = new Set([
     ...watchedMovieIds,
-    ...blockedFeedbackIds,
+    ...feedbackProfile.watchedMovieIds,
+    ...feedbackProfile.hiddenMovieIds,
   ]);
 
   // Scale candidate pool size based on user interaction volume
@@ -346,6 +346,7 @@ export async function getPersonalizedRecommendations(
             matchVersion: ENGINE_V3_MATCH_VERSION,
             frozenRankingMap: options?.frozenAiAffinityMap,
             forceGenerate: options?.forceAiRefresh,
+            feedbackSummary: feedbackProfile.feedbackSummary,
           }
         );
         effectiveCandidates = rerankResult.rankedCandidates;

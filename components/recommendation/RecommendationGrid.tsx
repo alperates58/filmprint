@@ -13,31 +13,98 @@ interface RecommendationGridProps {
 
 export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: RecommendationGridProps) {
   const [activeRatingMovieId, setActiveRatingMovieId] = useState<string | null>(null);
+  const [activeMenuMovieId, setActiveMenuMovieId] = useState<string | null>(null);
   const [expandedMovieId, setExpandedMovieId] = useState<string | null>(null);
   const [loadingExplanationMovieId, setLoadingExplanationMovieId] = useState<string | null>(null);
   const [dynamicExplanations, setDynamicExplanations] = useState<
     Record<string, { headline: string; reasons: string[]; isAiGenerated: boolean }>
   >({});
-  const [submittedMovieIds, setSubmittedMovieIds] = useState<Set<string>>(new Set());
+  const [feedbackStateMap, setFeedbackStateMap] = useState<Record<string, string>>({});
+  const [hiddenMovieIds, setHiddenMovieIds] = useState<Set<string>>(new Set());
+  const [undoToast, setUndoToast] = useState<{ movieId: string; title: string } | null>(null);
 
   if (!items || items.length === 0) return null;
 
-  const handleAction = (movieId: string, actionType: "WATCHED" | "WATCH_LATER" | "NOT_INTERESTED") => {
-    if (actionType === "WATCHED") {
-      setActiveRatingMovieId(movieId);
+  const handleFeedback = async (
+    movieId: string,
+    action: "LIKE" | "DISLIKE" | "HIDE" | "WATCHLIST" | "WATCHED" | "CLEAR",
+    rating?: string,
+    movieTitle?: string
+  ) => {
+    setActiveMenuMovieId(null);
+    const previousAction = feedbackStateMap[movieId];
+    const isClearing = previousAction === action && action !== "WATCHED" && action !== "HIDE";
+    const effectiveAction = isClearing ? "CLEAR" : action;
+
+    // Optimistic UI updates
+    if (effectiveAction === "HIDE") {
+      setHiddenMovieIds((prev) => new Set([...prev, movieId]));
+      setUndoToast({ movieId, title: movieTitle || "Film" });
+      setTimeout(() => {
+        setUndoToast((current) => (current?.movieId === movieId ? null : current));
+      }, 6000);
+    } else if (effectiveAction === "WATCHED") {
+      setHiddenMovieIds((prev) => new Set([...prev, movieId]));
+    } else if (effectiveAction === "CLEAR") {
+      setFeedbackStateMap((prev) => {
+        const next = { ...prev };
+        delete next[movieId];
+        return next;
+      });
     } else {
-      setSubmittedMovieIds((prev) => new Set([...prev, movieId]));
+      setFeedbackStateMap((prev) => ({ ...prev, [movieId]: effectiveAction }));
+    }
+
+    try {
       if (onFeedbackAction) {
-        onFeedbackAction(movieId, actionType);
+        onFeedbackAction(movieId, effectiveAction, rating);
+      }
+
+      await fetch("/api/recommendation-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mediaType: "FILM",
+          movieId,
+          action: effectiveAction,
+          rating,
+          source: "RECOMMENDATIONS",
+        }),
+      });
+    } catch (err) {
+      console.error("[Feedback Action Error]:", err);
+      // Rollback on network failure
+      if (effectiveAction === "HIDE") {
+        setHiddenMovieIds((prev) => {
+          const next = new Set(prev);
+          next.delete(movieId);
+          return next;
+        });
       }
     }
   };
 
-  const handleRatingSelect = (movieId: string, rating: string) => {
-    setActiveRatingMovieId(null);
-    setSubmittedMovieIds((prev) => new Set([...prev, movieId]));
-    if (onFeedbackAction) {
-      onFeedbackAction(movieId, "WATCHED_FROM_RECOMMENDATION", rating);
+  const handleUndoHide = async (movieId: string) => {
+    setHiddenMovieIds((prev) => {
+      const next = new Set(prev);
+      next.delete(movieId);
+      return next;
+    });
+    setUndoToast(null);
+
+    try {
+      await fetch("/api/recommendation-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mediaType: "FILM",
+          movieId,
+          action: "CLEAR",
+          source: "RECOMMENDATIONS",
+        }),
+      });
+    } catch (err) {
+      console.error("[Undo Hide Error]:", err);
     }
   };
 
@@ -50,13 +117,11 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
 
     setExpandedMovieId(movieId);
 
-    // If already AI generated from server or previously fetched on-demand, no API call needed
     const isAlreadyAi = item.isAiGenerated || dynamicExplanations[movieId]?.isAiGenerated;
     if (isAlreadyAi || dynamicExplanations[movieId]) {
       return;
     }
 
-    // Trigger on-demand AI explanation
     try {
       setLoadingExplanationMovieId(movieId);
       const res = await fetch("/api/recommendations/explain", {
@@ -85,10 +150,23 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
     }
   };
 
-  const visibleItems = items.filter((item) => !submittedMovieIds.has(item.movie.id));
+  const visibleItems = items.filter((item) => !hiddenMovieIds.has(item.movie.id));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative">
+      {/* Toast Banner for Undo Hide */}
+      {undoToast && (
+        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-surface-elevated/95 border border-accent/40 shadow-2xl backdrop-blur-md flex items-center gap-4 text-xs font-mono animate-fadeIn">
+          <span>🚫 <strong>{undoToast.title}</strong> önerilerden gizlendi.</span>
+          <button
+            onClick={() => handleUndoHide(undoToast.movieId)}
+            className="px-3 py-1.5 rounded-lg bg-accent text-white font-bold hover:bg-accent-hover transition-colors shadow-sm"
+          >
+            Geri Al
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h3 className="font-display text-lg font-bold tracking-tight text-text-primary">
           Kişiselleştirilmiş Seçkiler
@@ -101,12 +179,14 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
         {visibleItems.map((item) => {
           const { movie, match } = item;
+          const currentFeedback = feedbackStateMap[movie.id];
           const dynamicExp = dynamicExplanations[movie.id];
           const headline = dynamicExp?.headline || item.headline;
           const reasons = dynamicExp?.reasons || item.reasons;
           const isAi = dynamicExp?.isAiGenerated ?? item.isAiGenerated;
 
           const isRatingOpen = activeRatingMovieId === movie.id;
+          const isMenuOpen = activeMenuMovieId === movie.id;
           const isExpanded = expandedMovieId === movie.id;
           const isLoadingExplain = loadingExplanationMovieId === movie.id;
 
@@ -115,7 +195,7 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
           return (
             <div
               key={movie.id}
-              className="p-4 rounded-2xl bg-surface border border-border/70 shadow-sm flex flex-col justify-between space-y-3 group hover:border-accent/50 transition-all duration-300"
+              className="p-4 rounded-2xl bg-surface border border-border/70 shadow-sm flex flex-col justify-between space-y-3 group hover:border-accent/50 transition-all duration-300 relative"
             >
               {/* Poster & Match Badge Container */}
               <div
@@ -216,9 +296,9 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
                 </div>
               </div>
 
-              {/* Feedback Actions */}
+              {/* Feedback Actions Section */}
               {isRatingOpen ? (
-                <div className="pt-2 border-t border-border/60 space-y-2">
+                <div className="pt-2 border-t border-border/60 space-y-2 animate-fadeIn">
                   <div className="flex justify-between items-center text-[11px] font-mono text-text-primary font-bold">
                     <span>Nasıl buldun?</span>
                     <button
@@ -230,52 +310,131 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
                     <button
-                      onClick={() => handleRatingSelect(movie.id, "LOVE")}
-                      className="py-1.5 rounded-lg bg-accent/20 hover:bg-accent/30 text-text-primary font-mono text-[10px] border border-accent/40"
+                      onClick={() => {
+                        setActiveRatingMovieId(null);
+                        handleFeedback(movie.id, "WATCHED", "LOVE", movie.title);
+                      }}
+                      className="py-1.5 rounded-lg bg-accent/20 hover:bg-accent/30 text-text-primary font-mono text-[10px] border border-accent/40 text-center"
                     >
                       ❤️ Çok Sevdim
                     </button>
                     <button
-                      onClick={() => handleRatingSelect(movie.id, "LIKE")}
-                      className="py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-text-primary font-mono text-[10px] border border-border"
+                      onClick={() => {
+                        setActiveRatingMovieId(null);
+                        handleFeedback(movie.id, "WATCHED", "LIKE", movie.title);
+                      }}
+                      className="py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-text-primary font-mono text-[10px] border border-border text-center"
                     >
                       👍 Beğendim
                     </button>
                     <button
-                      onClick={() => handleRatingSelect(movie.id, "NEUTRAL")}
-                      className="py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-text-secondary font-mono text-[10px] border border-border"
+                      onClick={() => {
+                        setActiveRatingMovieId(null);
+                        handleFeedback(movie.id, "WATCHED", "NEUTRAL", movie.title);
+                      }}
+                      className="py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-text-secondary font-mono text-[10px] border border-border text-center"
                     >
                       😐 Ortalama
                     </button>
                     <button
-                      onClick={() => handleRatingSelect(movie.id, "DISLIKE")}
-                      className="py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-text-muted font-mono text-[10px] border border-border"
+                      onClick={() => {
+                        setActiveRatingMovieId(null);
+                        handleFeedback(movie.id, "WATCHED", "DISLIKE", movie.title);
+                      }}
+                      className="py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-text-muted font-mono text-[10px] border border-border text-center"
                     >
                       👎 Sevmedim
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-1 text-[11px] font-mono">
-                  <button
-                    onClick={() => handleAction(movie.id, "WATCHED")}
-                    className="px-2.5 py-1.5 rounded-lg bg-accent text-white font-medium hover:bg-accent-hover transition-colors"
-                  >
-                    İzledim
-                  </button>
-                  <button
-                    onClick={() => handleAction(movie.id, "WATCH_LATER")}
-                    className="px-2.5 py-1.5 rounded-lg bg-surface-elevated hover:bg-border border border-border text-text-primary transition-colors"
-                  >
-                    Daha Sonra
-                  </button>
-                  <button
-                    onClick={() => handleAction(movie.id, "NOT_INTERESTED")}
-                    className="px-2 py-1.5 text-text-muted hover:text-text-primary transition-colors"
-                    title="İlgilenmiyorum"
-                  >
-                    ✕
-                  </button>
+                <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-1 text-[11px] font-mono relative">
+                  {/* Quick Primary Actions: LIKE & DISLIKE */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      aria-pressed={currentFeedback === "LIKE"}
+                      onClick={() => handleFeedback(movie.id, "LIKE", undefined, movie.title)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
+                        currentFeedback === "LIKE"
+                          ? "bg-accent/20 text-accent border border-accent/50 shadow-sm"
+                          : "bg-surface-elevated hover:bg-border border border-border/70 text-text-secondary hover:text-text-primary"
+                      }`}
+                      title="İlgimi Çekti (Benzerlerini daha çok öner)"
+                    >
+                      <span>👍</span>
+                      <span className="hidden sm:inline text-[10px]">İlgimi Çekti</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      aria-pressed={currentFeedback === "DISLIKE"}
+                      onClick={() => handleFeedback(movie.id, "DISLIKE", undefined, movie.title)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
+                        currentFeedback === "DISLIKE"
+                          ? "bg-surface-elevated text-text-muted border border-border shadow-sm"
+                          : "bg-surface-elevated hover:bg-border border border-border/70 text-text-secondary hover:text-text-muted"
+                      }`}
+                      title="İlgimi Çekmedi"
+                    >
+                      <span>👎</span>
+                      <span className="hidden sm:inline text-[10px]">İlgimi Çekmedi</span>
+                    </button>
+                  </div>
+
+                  {/* Watchlist & Overflow Menu */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      aria-pressed={currentFeedback === "WATCHLIST"}
+                      onClick={() => handleFeedback(movie.id, "WATCHLIST", undefined, movie.title)}
+                      className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition-all ${
+                        currentFeedback === "WATCHLIST"
+                          ? "bg-accent text-white font-bold shadow-sm"
+                          : "bg-surface-elevated hover:bg-border border border-border/70 text-text-secondary hover:text-text-primary"
+                      }`}
+                      title="İzleme Listeme Ekle"
+                    >
+                      <span>🔖</span>
+                      <span className="hidden md:inline text-[10px]">Listem</span>
+                    </button>
+
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setActiveMenuMovieId(isMenuOpen ? null : movie.id)}
+                        className="p-1.5 rounded-lg bg-surface-elevated hover:bg-border border border-border/70 text-text-secondary hover:text-text-primary text-xs"
+                        title="Daha fazla seçenek"
+                      >
+                        ⋯
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      {isMenuOpen && (
+                        <div className="absolute bottom-full right-0 mb-1.5 w-44 rounded-xl bg-surface-elevated border border-border/80 shadow-2xl p-1.5 space-y-1 z-30 animate-fadeIn">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveMenuMovieId(null);
+                              setActiveRatingMovieId(movie.id);
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg text-left text-[11px] font-mono hover:bg-surface hover:text-accent transition-colors flex items-center gap-2"
+                          >
+                            <span>👁️</span>
+                            <span>İzledim</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleFeedback(movie.id, "HIDE", undefined, movie.title)}
+                            className="w-full px-2.5 py-1.5 rounded-lg text-left text-[11px] font-mono text-text-muted hover:bg-surface hover:text-red-400 transition-colors flex items-center gap-2"
+                          >
+                            <span>🚫</span>
+                            <span>Bunu Önerme</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

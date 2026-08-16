@@ -1,4 +1,4 @@
-import type { CandidateTvShow, TvMatchResult, TvScoreBreakdown, TvTasteEvidenceProfile, TvFeedbackProfile } from "./types";
+import type { CandidateTvShow, TvMatchResult, TvScoreBreakdown, TvTasteEvidenceProfile } from "./types";
 import type { TvDnaResult } from "../profile/types";
 import {
   TV_MATCH_WEIGHTS,
@@ -7,7 +7,7 @@ import {
   getTvMatchLabel,
 } from "./constants";
 import { calculateTvQualityScore } from "./quality";
-import { calculateTvFeedbackAdjustment, EMPTY_TV_FEEDBACK_PROFILE } from "./feedback-profile";
+import { calculateTvFeedbackAdjustment, EMPTY_TV_FEEDBACK_PROFILE, type TvFeedbackProfile } from "./feedback-profile";
 import { findGroundedTvEvidence, calculateTvDislikePenalty } from "./evidence";
 
 /**

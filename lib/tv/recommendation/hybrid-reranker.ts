@@ -127,6 +127,11 @@ export async function getOrGenerateTvRecommendationSnapshot(
     forceRefresh?: boolean;
     tvProfileVersion?: number;
     tvMatchVersion?: number;
+    feedbackSummary?: {
+      recentLikes: string[];
+      recentDislikes: string[];
+      recentWatchlist: string[];
+    };
   } = {}
 ): Promise<{ snapshot: TvAiRerankResult | null; fromCache: boolean; lockSkipped?: boolean }> {
   const shortlistSize = options.shortlistSize || TV_AI_RERANK_SHORTLIST_DEFAULT_SIZE;
@@ -248,6 +253,15 @@ STRICT RULES:
             avoidCharacteristics: aiTasteProfile.avoidCharacteristics,
           }
         : null,
+      ...(options.feedbackSummary && (options.feedbackSummary.recentLikes.length > 0 || options.feedbackSummary.recentDislikes.length > 0 || options.feedbackSummary.recentWatchlist.length > 0)
+        ? {
+            feedbackSignals: {
+              recentLikes: options.feedbackSummary.recentLikes,
+              recentDislikes: options.feedbackSummary.recentDislikes,
+              recentWatchlist: options.feedbackSummary.recentWatchlist,
+            },
+          }
+        : {}),
       candidates: compactCandidates,
     });
 

@@ -120,11 +120,30 @@ export interface TvTasteEvidenceProfile {
 }
 
 export interface TvFeedbackProfile {
+  userId: string;
+  likedShowIds: Set<string>;
+  dislikedShowIds: Set<string>;
+  hiddenShowIds: Set<string>;
+  watchlistShowIds: Set<string>;
+  watchedShowIds: Set<string>;
   notInterestedShowIds: Set<string>;
-  notInterestedGenres: Map<string, number>;
   watchLaterShowIds: Set<string>;
   alreadyWatchedShowIds: Set<string>;
+  notInterestedGenres: Map<string, number>;
+  genreSignals: Record<string, number>;
+  creatorSignals: Record<string, number>;
+  networkSignals: Record<string, number>;
+  eraSignals: Record<string, number>;
+  positiveCount: number;
+  negativeCount: number;
+  watchlistCount: number;
+  totalFeedbacks: number;
   recentFeedbackWeight: number;
+  feedbackSummary: {
+    recentLikes: string[];
+    recentDislikes: string[];
+    recentWatchlist: string[];
+  };
 }
 
 export interface TvHomeModuleItem {

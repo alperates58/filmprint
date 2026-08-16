@@ -16,6 +16,10 @@ export function TvRecommendationGrid({ items, onFeedbackAction, hybridPending }:
   const router = useRouter();
   const refreshedRef = useRef(false);
   const [activeRatingShowId, setActiveRatingShowId] = useState<string | null>(null);
+  const [activeMenuShowId, setActiveMenuShowId] = useState<string | null>(null);
+  const [feedbackStateMap, setFeedbackStateMap] = useState<Record<string, string>>({});
+  const [hiddenShowIds, setHiddenShowIds] = useState<Set<string>>(new Set());
+  const [undoToast, setUndoToast] = useState<{ showId: string; title: string } | null>(null);
 
   useEffect(() => {
     if (hybridPending && !refreshedRef.current) {
@@ -32,11 +36,93 @@ export function TvRecommendationGrid({ items, onFeedbackAction, hybridPending }:
         .catch((e) => console.error("[TV Hybrid Auto-Refresh Error]:", e));
     }
   }, [hybridPending, router]);
-  const [submittedShowIds, setSubmittedShowIds] = useState<Set<string>>(new Set());
+
   const [expandedShowId, setExpandedShowId] = useState<string | null>(null);
   const [explanations, setExplanations] = useState<
     Record<string, { headline: string; explanation: string; loading: boolean; open: boolean }>
   >({});
+
+  const handleFeedback = async (
+    tvShowId: string,
+    action: "LIKE" | "DISLIKE" | "HIDE" | "WATCHLIST" | "WATCHED" | "CLEAR",
+    rating?: string,
+    showTitle?: string
+  ) => {
+    setActiveMenuShowId(null);
+    const previousAction = feedbackStateMap[tvShowId];
+    const isClearing = previousAction === action && action !== "WATCHED" && action !== "HIDE";
+    const effectiveAction = isClearing ? "CLEAR" : action;
+
+    // Optimistic UI updates
+    if (effectiveAction === "HIDE") {
+      setHiddenShowIds((prev) => new Set([...prev, tvShowId]));
+      setUndoToast({ showId: tvShowId, title: showTitle || "Dizi" });
+      setTimeout(() => {
+        setUndoToast((current) => (current?.showId === tvShowId ? null : current));
+      }, 6000);
+    } else if (effectiveAction === "WATCHED") {
+      setHiddenShowIds((prev) => new Set([...prev, tvShowId]));
+    } else if (effectiveAction === "CLEAR") {
+      setFeedbackStateMap((prev) => {
+        const next = { ...prev };
+        delete next[tvShowId];
+        return next;
+      });
+    } else {
+      setFeedbackStateMap((prev) => ({ ...prev, [tvShowId]: effectiveAction }));
+    }
+
+    try {
+      if (onFeedbackAction) {
+        onFeedbackAction(tvShowId, effectiveAction, rating);
+      }
+
+      await fetch("/api/recommendation-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mediaType: "TV",
+          tvShowId,
+          action: effectiveAction,
+          rating,
+          source: "TV_RECOMMENDATIONS",
+        }),
+      });
+    } catch (err) {
+      console.error("[TV Feedback Action Error]:", err);
+      if (effectiveAction === "HIDE") {
+        setHiddenShowIds((prev) => {
+          const next = new Set(prev);
+          next.delete(tvShowId);
+          return next;
+        });
+      }
+    }
+  };
+
+  const handleUndoHide = async (tvShowId: string) => {
+    setHiddenShowIds((prev) => {
+      const next = new Set(prev);
+      next.delete(tvShowId);
+      return next;
+    });
+    setUndoToast(null);
+
+    try {
+      await fetch("/api/recommendation-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mediaType: "TV",
+          tvShowId,
+          action: "CLEAR",
+          source: "TV_RECOMMENDATIONS",
+        }),
+      });
+    } catch (err) {
+      console.error("[Undo TV Hide Error]:", err);
+    }
+  };
 
   const handleToggleExplanation = async (tvShowId: string) => {
     const cur = explanations[tvShowId];
@@ -99,174 +185,87 @@ export function TvRecommendationGrid({ items, onFeedbackAction, hybridPending }:
 
   if (!items || items.length === 0) return null;
 
-  const handleAction = async (tvShowId: string, actionType: "WATCHED" | "WATCH_LATER" | "NOT_INTERESTED") => {
-    if (actionType === "WATCHED") {
-      setActiveRatingShowId(tvShowId);
-    } else {
-      setSubmittedShowIds((prev) => new Set([...prev, tvShowId]));
-      if (onFeedbackAction) {
-        onFeedbackAction(tvShowId, actionType);
-      } else {
-        // Send interaction/feedback to API
-        try {
-          if (actionType === "WATCH_LATER") {
-            await fetch("/api/tv/interactions", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ tvShowId, status: "WATCH_LATER" }),
-            });
-          } else if (actionType === "NOT_INTERESTED") {
-            await fetch("/api/tv/interactions", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ tvShowId, status: "NOT_INTERESTED" }),
-            });
-          }
-        } catch (err) {
-          console.error("Feedback action failed:", err);
-        }
-      }
-    }
-  };
-
-  const handleRatingSelect = async (tvShowId: string, rating: string) => {
-    setActiveRatingShowId(null);
-    setSubmittedShowIds((prev) => new Set([...prev, tvShowId]));
-
-    if (onFeedbackAction) {
-      onFeedbackAction(tvShowId, "WATCHED", rating);
-    } else {
-      try {
-        await fetch("/api/tv/interactions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tvShowId, status: "WATCHED", rating }),
-        });
-      } catch (err) {
-        console.error("Watched rating submit failed:", err);
-      }
-    }
-  };
+  const visibleItems = items.filter((item) => !hiddenShowIds.has(item.tvShow.id));
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      {items.map((item) => {
-        const show = item.tvShow;
-        const isSubmitted = submittedShowIds.has(show.id);
-        const isActiveRating = activeRatingShowId === show.id;
-        const isExpanded = expandedShowId === show.id;
+    <div className="space-y-4 relative">
+      {/* Toast Banner for Undo Hide */}
+      {undoToast && (
+        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-surface-elevated/95 border border-accent/40 shadow-2xl backdrop-blur-md flex items-center gap-4 text-xs font-mono animate-fadeIn">
+          <span>🚫 <strong>{undoToast.title}</strong> önerilerden gizlendi.</span>
+          <button
+            onClick={() => handleUndoHide(undoToast.showId)}
+            className="px-3 py-1.5 rounded-lg bg-accent text-white font-bold hover:bg-accent-hover transition-colors shadow-sm"
+          >
+            Geri Al
+          </button>
+        </div>
+      )}
 
-        if (isSubmitted) {
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {visibleItems.map((item) => {
+          const show = item.tvShow;
+          const currentFeedback = feedbackStateMap[show.id];
+          const isActiveRating = activeRatingShowId === show.id;
+          const isMenuOpen = activeMenuShowId === show.id;
+
+          const posterUrl = getTmdbImageUrl(show.posterPath, "w500");
+          const firstAirYear = show.firstAirDate ? new Date(show.firstAirDate).getFullYear() : null;
+          const rawGenres = (show.metadata as any)?.genres || [];
+          const genres: string[] = Array.isArray(rawGenres)
+            ? rawGenres.map((g: any) => (typeof g === "string" ? g : g.name || "")).filter(Boolean)
+            : [];
+          const numberOfSeasons = (show.metadata as any)?.numberOfSeasons;
+
           return (
             <div
               key={show.id}
-              className="p-6 rounded-3xl bg-surface/50 border border-border/40 text-center flex flex-col items-center justify-center min-h-[380px] space-y-3 animate-fadeOut"
+              className="p-4 rounded-2xl bg-surface border border-border/80 shadow-md flex flex-col justify-between space-y-3 group hover:border-accent/40 transition-all duration-300 relative"
             >
-              <div className="text-3xl">✓</div>
-              <div className="text-sm font-semibold text-text-primary">Geri Bildirim Kaydedildi</div>
-              <p className="text-xs text-text-muted">Önerileriniz bu geri bildirime göre güncellenecektir.</p>
-            </div>
-          );
-        }
+              {/* Poster Container */}
+              <div className="w-full aspect-[2/3] rounded-xl overflow-hidden bg-surface-elevated relative shadow-sm">
+                {posterUrl ? (
+                  <Image
+                    src={posterUrl}
+                    alt={show.name}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-text-muted font-mono text-xs">
+                    Görsel Yok
+                  </div>
+                )}
 
-        const posterUrl = getTmdbImageUrl(show.posterPath, "w500");
-
-        const seasons = show.metadata?.numberOfSeasons;
-        const isMini = seasons === 1 && (show.status === "Ended" || show.status === "Canceled");
-        const seasonLabel = isMini ? "Mini Dizi" : seasons ? `${seasons} Sezon` : null;
-
-        const rawRun = show.metadata?.episodeRunTime ?? show.metadata?.episode_run_time;
-        let runtimeMin: number | null = null;
-        if (Array.isArray(rawRun) && rawRun.length > 0 && typeof rawRun[0] === "number") {
-          runtimeMin = rawRun[0];
-        } else if (typeof rawRun === "number") {
-          runtimeMin = rawRun;
-        }
-
-        const year = show.firstAirDate?.slice(0, 4);
-
-        return (
-          <div
-            key={show.id}
-            className="group relative flex flex-col rounded-3xl bg-surface border border-border/80 hover:border-accent/40 shadow-cinematic hover:shadow-glow transition-all overflow-hidden"
-          >
-            {/* Poster & Badges Container */}
-            <div className="relative aspect-[16/10] sm:aspect-[2/3] w-full bg-surface-elevated overflow-hidden">
-              {posterUrl ? (
-                <Image
-                  src={posterUrl}
-                  alt={show.name}
-                  fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-gradient-to-b from-surface-elevated via-background to-surface text-center">
-                  <span className="text-3xl mb-2">📺</span>
-                  <span className="text-xs font-display font-semibold text-text-muted line-clamp-2">{show.name}</span>
+                {/* Match Score Badge */}
+                <div className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-accent text-xs font-mono font-bold">
+                  %{item.matchScore} UYUM
                 </div>
-              )}
 
-              {/* Gradient Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/20 to-transparent" />
-
-              {/* Match Score Badge */}
-              <div className="absolute top-3 right-3 px-3 py-1 rounded-xl bg-background/85 backdrop-blur-md border border-accent/40 text-accent font-mono text-xs font-bold shadow-md flex items-center gap-1">
-                <span>⚡</span>
-                <span>%{item.matchScore}</span>
-              </div>
-
-              {/* Source Badge */}
-              <div className="absolute top-3 left-3 px-2.5 py-0.5 rounded-lg bg-surface/85 backdrop-blur-md border border-border text-[10px] font-mono text-text-muted uppercase">
-                {item.source === "KNOWN_UNWATCHED" ? "Listenden" : "Keşif"}
-              </div>
-
-              {/* Title & Metadata on Mobile/Overlay */}
-              <div className="absolute bottom-3 left-3 right-3 space-y-1">
-                <div className="flex items-center gap-1.5 text-[11px] font-mono text-text-muted">
-                  {year && <span>{year}</span>}
-                  {seasonLabel && (
-                    <>
-                      <span>•</span>
-                      <span className="text-text-secondary">{seasonLabel}</span>
-                    </>
-                  )}
-                  {runtimeMin && (
-                    <>
-                      <span>•</span>
-                      <span>{runtimeMin} dk</span>
-                    </>
-                  )}
-                </div>
-                <h3 className="font-display text-base font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors">
-                  {show.name}
-                </h3>
-              </div>
-            </div>
-
-            {/* Content Details */}
-            <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-              {/* Genres & Rating */}
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex flex-wrap gap-1">
-                  {(show.metadata?.genres || []).slice(0, 2).map((g) => (
-                    <span
-                      key={g}
-                      className="px-2 py-0.5 rounded-md bg-surface-elevated border border-border text-[10px] font-mono text-text-secondary"
-                    >
-                      {g}
-                    </span>
-                  ))}
-                </div>
-                {show.voteAverage > 0 && (
-                  <span className="font-mono text-accent text-xs font-semibold">
-                    ★ {show.voteAverage.toFixed(1)}
-                  </span>
+                {/* Status / Format Tag */}
+                {numberOfSeasons && (
+                  <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-background/80 backdrop-blur-sm text-[10px] font-mono text-text-secondary border border-border/60">
+                    {numberOfSeasons === 1 ? "Mini Dizi" : `${numberOfSeasons} Sezon`}
+                  </div>
                 )}
               </div>
 
-              {/* AI Signals if available */}
-              {item.aiSignals && item.aiSignals.length > 0 && (
+              {/* Show Metadata */}
+              <div className="space-y-1 flex-1">
+                <h3 className="font-display text-base font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors">
+                  {show.name}
+                </h3>
+                <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+                  <span>{firstAirYear || "Tarihsiz"} • {genres.slice(0, 2).join(", ")}</span>
+                  {show.voteAverage > 0 && (
+                    <span className="text-text-secondary font-bold">⭐ {show.voteAverage.toFixed(1)}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* AI Signals & Evidence */}
+              {item.isHybrid && item.aiSignals && item.aiSignals.length > 0 && (
                 <div className="flex flex-wrap gap-1 pt-0.5">
                   {item.aiSignals.map((sig, sIdx) => (
                     <span
@@ -319,32 +318,53 @@ export function TvRecommendationGrid({ items, onFeedbackAction, hybridPending }:
 
               {/* Interactive Actions / Quick Feedback */}
               {isActiveRating ? (
-                <div className="pt-2 space-y-1.5 animate-fadeIn">
-                  <div className="text-[10px] font-mono text-text-muted text-center">NASIL BULDUNUZ?</div>
+                <div className="pt-2 space-y-1.5 animate-fadeIn border-t border-border/60">
+                  <div className="flex justify-between items-center text-[10px] font-mono text-text-muted">
+                    <span>NASIL BULDUNUZ?</span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveRatingShowId(null)}
+                      className="text-text-muted hover:text-text-primary"
+                    >
+                      İptal
+                    </button>
+                  </div>
                   <div className="grid grid-cols-4 gap-1">
                     <button
-                      onClick={() => handleRatingSelect(show.id, "LOVE")}
+                      onClick={() => {
+                        setActiveRatingShowId(null);
+                        handleFeedback(show.id, "WATCHED", "LOVE", show.name);
+                      }}
                       className="p-1.5 rounded-lg bg-surface-elevated hover:bg-accent/20 text-xs font-mono border border-border text-center"
                       title="Çok Sevdim"
                     >
                       ❤️
                     </button>
                     <button
-                      onClick={() => handleRatingSelect(show.id, "LIKE")}
+                      onClick={() => {
+                        setActiveRatingShowId(null);
+                        handleFeedback(show.id, "WATCHED", "LIKE", show.name);
+                      }}
                       className="p-1.5 rounded-lg bg-surface-elevated hover:bg-accent/20 text-xs font-mono border border-border text-center"
                       title="Beğendim"
                     >
                       👍
                     </button>
                     <button
-                      onClick={() => handleRatingSelect(show.id, "NEUTRAL")}
+                      onClick={() => {
+                        setActiveRatingShowId(null);
+                        handleFeedback(show.id, "WATCHED", "NEUTRAL", show.name);
+                      }}
                       className="p-1.5 rounded-lg bg-surface-elevated hover:bg-accent/20 text-xs font-mono border border-border text-center"
                       title="Nötr"
                     >
                       😐
                     </button>
                     <button
-                      onClick={() => handleRatingSelect(show.id, "DISLIKE")}
+                      onClick={() => {
+                        setActiveRatingShowId(null);
+                        handleFeedback(show.id, "WATCHED", "DISLIKE", show.name);
+                      }}
                       className="p-1.5 rounded-lg bg-surface-elevated hover:bg-accent/20 text-xs font-mono border border-border text-center"
                       title="Beğenmedim"
                     >
@@ -353,31 +373,99 @@ export function TvRecommendationGrid({ items, onFeedbackAction, hybridPending }:
                   </div>
                 </div>
               ) : (
-                <div className="pt-2 grid grid-cols-3 gap-1.5 border-t border-border/60">
-                  <button
-                    onClick={() => handleAction(show.id, "WATCH_LATER")}
-                    className="px-2 py-1.5 rounded-xl bg-surface-elevated hover:bg-accent/15 border border-border hover:border-accent/30 text-text-secondary hover:text-accent font-mono text-[10px] font-medium transition-colors text-center"
-                  >
-                    + Liste
-                  </button>
-                  <button
-                    onClick={() => handleAction(show.id, "WATCHED")}
-                    className="px-2 py-1.5 rounded-xl bg-surface-elevated hover:bg-accent/15 border border-border hover:border-accent/30 text-text-secondary hover:text-accent font-mono text-[10px] font-medium transition-colors text-center"
-                  >
-                    ✓ İzledim
-                  </button>
-                  <button
-                    onClick={() => handleAction(show.id, "NOT_INTERESTED")}
-                    className="px-2 py-1.5 rounded-xl bg-surface-elevated hover:bg-surface-elevated/60 border border-border text-text-muted hover:text-text-secondary font-mono text-[10px] transition-colors text-center"
-                  >
-                    ✕ Pas
-                  </button>
+                <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-1 text-[11px] font-mono relative">
+                  {/* Quick Primary Actions: LIKE & DISLIKE */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      aria-pressed={currentFeedback === "LIKE"}
+                      onClick={() => handleFeedback(show.id, "LIKE", undefined, show.name)}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
+                        currentFeedback === "LIKE"
+                          ? "bg-accent/20 text-accent border border-accent/50 shadow-sm"
+                          : "bg-surface-elevated hover:bg-border border border-border/70 text-text-secondary hover:text-text-primary"
+                      }`}
+                      title="İlgimi Çekti (Benzerlerini daha çok öner)"
+                    >
+                      <span>👍</span>
+                      <span className="hidden sm:inline text-[10px]">İlgimi Çekti</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      aria-pressed={currentFeedback === "DISLIKE"}
+                      onClick={() => handleFeedback(show.id, "DISLIKE", undefined, show.name)}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
+                        currentFeedback === "DISLIKE"
+                          ? "bg-surface-elevated text-text-muted border border-border shadow-sm"
+                          : "bg-surface-elevated hover:bg-border border border-border/70 text-text-secondary hover:text-text-muted"
+                      }`}
+                      title="İlgimi Çekmedi"
+                    >
+                      <span>👎</span>
+                      <span className="hidden sm:inline text-[10px]">İlgimi Çekmedi</span>
+                    </button>
+                  </div>
+
+                  {/* Watchlist & Overflow Menu */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      aria-pressed={currentFeedback === "WATCHLIST"}
+                      onClick={() => handleFeedback(show.id, "WATCHLIST", undefined, show.name)}
+                      className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition-all ${
+                        currentFeedback === "WATCHLIST"
+                          ? "bg-accent text-white font-bold shadow-sm"
+                          : "bg-surface-elevated hover:bg-border border border-border/70 text-text-secondary hover:text-text-primary"
+                      }`}
+                      title="İzleme Listeme Ekle"
+                    >
+                      <span>🔖</span>
+                      <span className="hidden md:inline text-[10px]">Listem</span>
+                    </button>
+
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setActiveMenuShowId(isMenuOpen ? null : show.id)}
+                        className="p-1.5 rounded-lg bg-surface-elevated hover:bg-border border border-border/70 text-text-secondary hover:text-text-primary text-xs"
+                        title="Daha fazla seçenek"
+                      >
+                        ⋯
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      {isMenuOpen && (
+                        <div className="absolute bottom-full right-0 mb-1.5 w-44 rounded-xl bg-surface-elevated border border-border/80 shadow-2xl p-1.5 space-y-1 z-30 animate-fadeIn">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveMenuShowId(null);
+                              setActiveRatingShowId(show.id);
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg text-left text-[11px] font-mono hover:bg-surface hover:text-accent transition-colors flex items-center gap-2"
+                          >
+                            <span>👁️</span>
+                            <span>İzledim</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleFeedback(show.id, "HIDE", undefined, show.name)}
+                            className="w-full px-2.5 py-1.5 rounded-lg text-left text-[11px] font-mono text-text-muted hover:bg-surface hover:text-red-400 transition-colors flex items-center gap-2"
+                          >
+                            <span>🚫</span>
+                            <span>Bunu Önerme</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

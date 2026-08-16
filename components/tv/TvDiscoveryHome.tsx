@@ -6,6 +6,9 @@ import Link from "next/link";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { TvDetailsModal } from "./TvDetailsModal";
+import { MediaCard } from "@/components/ui/MediaCard";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { ScoreBadge } from "@/components/ui/ScoreBadge";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
 import { getTvProgressionForCount } from "@/lib/progression/service";
 import type { TvHomeModuleItem, PersonalizedTvRecommendationItem } from "@/lib/tv/recommendation/types";
@@ -23,6 +26,15 @@ interface TvDiscoveryHomeProps {
   maturityLabel?: string;
 }
 
+const TV_MOOD_SHORTCUTS = [
+  { id: "top-recs", label: "Günün Dizileri", icon: "✨" },
+  { id: "watchlist", label: "İzleme Listem", icon: "🔖" },
+  { id: "thriller", label: "Sürükleyici Gerilim", icon: "⚡" },
+  { id: "mini-series", label: "Mini Diziler", icon: "⏳" },
+  { id: "sci-fi", label: "Bilimkurgu & Gizem", icon: "🌀" },
+  { id: "masterpiece", label: "Ödüllü Başyapıtlar", icon: "👑" },
+];
+
 export function TvDiscoveryHome({
   userName,
   userAvatar,
@@ -30,7 +42,6 @@ export function TvDiscoveryHome({
   answeredCount,
   homeModules,
   topHeroMatch,
-  maturityLabel = "Dizi Kaşifi",
 }: TvDiscoveryHomeProps) {
   const [selectedTvModal, setSelectedTvModal] = useState<{
     tvShowId: string;
@@ -38,6 +49,7 @@ export function TvDiscoveryHome({
   } | null>(null);
 
   const progression = getTvProgressionForCount(answeredCount);
+
   const scrollToModule = (moduleId: string) => {
     const el = document.getElementById(`module-${moduleId}`);
     if (el) {
@@ -48,17 +60,12 @@ export function TvDiscoveryHome({
   const heroShow = topHeroMatch?.tvShow;
   const heroYear = heroShow?.firstAirDate ? heroShow.firstAirDate.slice(0, 4) : "";
   const heroGenres = heroShow?.metadata?.genres || [];
-  const heroSeasons = heroShow?.metadata?.numberOfSeasons;
-  const heroStatus = heroShow?.status || heroShow?.metadata?.status;
-  const statusLabel = heroStatus === "Ended" ? "Final Yaptı" : heroStatus === "Returning Series" ? "Devam Ediyor" : "";
-
   const heroHeadline = topHeroMatch
     ? topHeroMatch.matchLabel || (topHeroMatch.evidenceShows?.length ? `${topHeroMatch.evidenceShows[0].name} sevdiğiniz için` : "Dizi DNA Uyumu")
     : "";
-  const heroExplanation = topHeroMatch?.deterministicExplanation || (topHeroMatch?.aiSignals?.length ? topHeroMatch.aiSignals[0] : "");
 
   return (
-    <div className="min-h-screen bg-background text-text-primary flex flex-col font-sans selection:bg-accent/20">
+    <div className="min-h-screen bg-bg-base text-text-primary flex flex-col font-sans selection:bg-accent/20">
       <Header
         userName={userName}
         userAvatar={userAvatar}
@@ -66,265 +73,225 @@ export function TvDiscoveryHome({
         progressCount={answeredCount}
       />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 md:py-12 space-y-12">
-        {/* Welcome Hero Banner */}
-        <div className="p-8 md:p-12 rounded-3xl bg-surface border border-border/80 shadow-cinematic space-y-6 relative overflow-hidden">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-3 max-w-2xl">
-              <div className="flex items-center gap-3">
-                <span className="px-3 py-1 rounded-full bg-accent/15 border border-accent/30 text-accent font-mono text-xs font-bold uppercase tracking-wider">
-                  {progression.currentRank.badgeIcon} {progression.currentRank.label}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-10">
+        {/* ========================================================================= */}
+        {/* V2 EDITORIAL TV HERO SECTION                                              */}
+        {/* ========================================================================= */}
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-surface-1 via-surface-1 to-surface-2 border border-border/80 p-6 sm:p-8 md:p-10 shadow-md">
+          {/* Subtle Ambient Glow */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            {/* Left Column: Greeting & Stats */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-3 py-1 rounded-full bg-accent-subtle border border-accent/30 text-accent text-xs font-semibold flex items-center gap-1.5">
+                  <span>{progression.currentRank.badgeIcon}</span>
+                  <span>{progression.currentRank.label}</span>
                 </span>
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs text-text-muted">
                   • {answeredCount} Dizi Değerlendirildi
                 </span>
               </div>
 
+              <div className="space-y-2">
+                <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-text-primary">
+                  {userName ? `İyi seyirler, ${userName}.` : "Dizi zevkine özel keşif vitrini."}
+                </h1>
+                <p className="text-sm md:text-base text-text-secondary leading-relaxed max-w-xl">
+                  Dizi DNA profilinize ve izleme alışkanlıklarınıza göre hazırlanan bugünün özel dizi seçkisi.
+                </p>
+              </div>
 
-              <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight text-text-primary">
-                Hoş Geldin{userName ? `, ${userName}` : ""}.
-              </h1>
-
-              <p className="text-sm md:text-base text-text-secondary leading-relaxed">
-                Dizi DNA profilinize ve izleme alışkanlıklarınıza göre hazırlanan bugünün özel keşif seçkisi.
-              </p>
-            </div>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row md:flex-col gap-3 self-start md:self-auto">
-              <Link
-                href="/tv/recommendations"
-                className="px-6 py-3 rounded-2xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all text-center shadow-md"
-              >
-                ✨ Önerilerime Git →
-              </Link>
-              <Link
-                href="/tv/calibration"
-                className="px-6 py-3 rounded-2xl bg-surface-elevated border border-border/80 hover:border-accent text-text-primary font-mono text-xs font-medium transition-all text-center"
-              >
-                ➕ Değerlendirmeye Devam Et
-              </Link>
-            </div>
-          </div>
-
-          {/* Quick TV Mood Pills */}
-          <div className="pt-4 border-t border-border/60 space-y-2">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-text-muted">
-              BU AKŞAM SANA UYGUN DİZİ MODLARI
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { id: "FOR_YOU", label: "👀 İzlemediğin" },
-                { id: "MINISERIES", label: "⚡ Mini Dizi" },
-                { id: "MYSTERY_CRIME", label: "🔍 Gizem & Suç" },
-                { id: "GLOBAL_DISCOVERY", label: "🌍 Dünya Dizileri" },
-                { id: "SHORT_EPISODES", label: "⏱️ Kısa Bölümlükler" },
-                { id: "LONG_RUNNING", label: "🏛️ Uzun Soluklu" },
-                { id: "COMPLETED_GEMS", label: "🏁 Final Yapmış" },
-                { id: "COMEDY", label: "🍿 Komedi" },
-              ].map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => scrollToModule(m.id)}
-                  className="px-3.5 py-1.5 rounded-full bg-surface-elevated/80 border border-border/60 hover:border-accent hover:bg-accent/10 text-xs font-mono text-text-secondary transition-all"
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <Link
+                  href="/tv/recommendations"
+                  className="px-5 py-3 rounded-xl bg-accent text-white font-semibold text-xs md:text-sm hover:bg-accent-hover active:scale-95 transition-all shadow-sm flex items-center gap-2 min-h-[44px]"
                 >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+                  <span>✨</span>
+                  <span>Önerilerime Git</span>
+                </Link>
 
-        {/* Top Hero Match ("Sana Özel Bugünkü Dizi") */}
-        {topHeroMatch && heroShow && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-accent animate-pulse" />
-                SANA ÖZEL BUGÜNKÜ DİZİ (TOP MATCH)
-              </span>
-              <span className="px-3 py-1 rounded-full bg-accent/20 border border-accent/40 text-accent text-xs font-mono font-bold">
-                %{topHeroMatch.matchScore} UYUM
-              </span>
+                <Link
+                  href="/tv/calibration"
+                  className="px-5 py-3 rounded-xl bg-surface-2 border border-border hover:border-accent text-text-primary font-medium text-xs md:text-sm active:scale-95 transition-all flex items-center gap-2 min-h-[44px]"
+                >
+                  <span>🎯</span>
+                  <span>Değerlendirmeye Devam Et</span>
+                </Link>
+              </div>
             </div>
 
-            <div className="p-6 md:p-8 rounded-3xl bg-surface border border-border/80 shadow-cinematic flex flex-col md:flex-row gap-6 items-start">
-              {/* Poster */}
-              <Link
-                href="/tv/recommendations"
-                className="w-32 md:w-44 aspect-[2/3] rounded-2xl overflow-hidden bg-surface-elevated relative border border-border/80 shadow-lg cursor-pointer group flex-shrink-0"
-              >
-                {getTmdbImageUrl(heroShow.posterPath, "w500") ? (
-                  <Image
-                    src={getTmdbImageUrl(heroShow.posterPath, "w500")!}
-                    alt={heroShow.name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                    sizes="176px"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-text-muted font-mono text-xs">
-                    Görsel Yok
-                  </div>
-                )}
-              </Link>
-
-              {/* Info */}
-              <div className="space-y-4 flex-1">
-                <div>
-                  <span className="text-xs font-mono text-text-muted">
-                    {heroYear || "Tarihsiz"}
-                    {heroGenres.length > 0 ? ` • ${heroGenres.slice(0, 3).join(", ")}` : ""}
-                    {heroSeasons ? ` • ${heroSeasons} Sezon` : ""}
-                    {statusLabel ? ` • ${statusLabel}` : ""}
-                  </span>
-                  <Link href="/tv/recommendations">
-                    <h2 className="font-display text-2xl md:text-3xl font-bold text-text-primary hover:text-accent transition-colors mt-0.5">
-                      {heroShow.name}
-                    </h2>
-                  </Link>
-                </div>
-
-                {heroHeadline && (
-                  <div className="p-4 rounded-2xl bg-surface-elevated/80 border border-border/60 space-y-2">
-                    <p className="text-xs font-mono font-bold text-text-primary">
-                      {heroHeadline}
-                    </p>
-                    {heroExplanation && (
-                      <p className="text-xs text-text-secondary leading-relaxed">
-                        • {heroExplanation.replace(/\*\*(.*?)\*\*/g, "$1")}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex items-center gap-3">
+            {/* Right Column: TV Shortcuts */}
+            <div className="lg:col-span-5 bg-surface-2/60 border border-border/70 rounded-2xl p-4 sm:p-5 space-y-3">
+              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                ⚡ HIZLI DİZİ MODLARI
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {TV_MOOD_SHORTCUTS.map((mood) => (
                   <button
-                    onClick={() => heroShow && setSelectedTvModal({ tvShowId: heroShow.id })}
-                    className="px-5 py-2.5 rounded-xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all shadow-sm flex items-center gap-1.5"
+                    key={mood.id}
+                    onClick={() => scrollToModule(mood.id)}
+                    className="flex items-center gap-2 p-2.5 rounded-xl bg-surface-1 hover:bg-surface-3 border border-border/60 hover:border-accent/40 text-text-secondary hover:text-text-primary transition-all text-left group"
                   >
-                    <span>👁️</span>
-                    <span>Diziyi İncele / İzledim Olarak İşaretle ➔</span>
+                    <span className="text-base group-hover:scale-110 transition-transform">
+                      {mood.icon}
+                    </span>
+                    <span className="font-medium truncate">{mood.label}</span>
                   </button>
-                </div>
+                ))}
               </div>
             </div>
           </div>
-        )}
+        </section>
 
-        {/* Editorial Horizontal Rows Section */}
-        {homeModules.length > 0 ? (
-          <div className="space-y-12">
-            {homeModules.map((module) => (
-              <section
-                key={module.id}
-                id={`module-${module.id}`}
-                className="space-y-4 pt-2 scroll-mt-20"
-              >
-                <div className="flex items-end justify-between border-b border-border/60 pb-3">
-                  <div className="space-y-0.5">
-                    <h3 className="font-display text-xl md:text-2xl font-bold text-text-primary flex items-center gap-2">
-                      <span>{getModuleIcon(module.id)}</span>
-                      <span>{module.title}</span>
-                    </h3>
-                    <p className="text-xs text-text-secondary font-mono">
-                      {module.subtitle}
-                    </p>
-                  </div>
-                  <Link
-                    href="/tv/recommendations"
-                    className="text-xs font-mono text-accent hover:underline flex items-center gap-1 flex-shrink-0"
-                  >
-                    Tümünü Gör →
-                  </Link>
+        {/* ========================================================================= */}
+        {/* TOP MATCH TV HERO CARD (IF AVAILABLE)                                     */}
+        {/* ========================================================================= */}
+        {topHeroMatch && heroShow && (
+          <section className="space-y-4">
+            <SectionHeader
+              badge="GÜNÜN ZİRVESİ"
+              badgeIcon="⭐"
+              title="Bugünün En Yüksek Dizi Eşleşmesi"
+              subtitle="Dizi DNA profiliniz ve son beğenileriniz doğrultusunda seçildi."
+            />
+
+            <div
+              onClick={() =>
+                setSelectedTvModal({
+                  tvShowId: heroShow.id,
+                  initialData: {
+                    title: heroShow.name,
+                    posterPath: heroShow.posterPath,
+                    backdropPath: heroShow.backdropPath,
+                    firstAirDate: heroShow.firstAirDate,
+                    genres: heroGenres,
+                    matchScore: topHeroMatch.matchScore,
+                    headline: heroHeadline,
+                  },
+                })
+              }
+              className="group relative overflow-hidden rounded-3xl bg-surface-1 border border-border/80 p-5 sm:p-7 md:p-8 shadow-sm hover:border-accent/40 transition-all duration-300 cursor-pointer"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 md:gap-7 items-center">
+                {/* Poster */}
+                <div className="sm:col-span-4 md:col-span-3 aspect-[2/3] w-36 sm:w-full mx-auto sm:mx-0 rounded-2xl overflow-hidden bg-surface-2 border border-border-strong relative flex-shrink-0 shadow-md">
+                  {heroShow.posterPath ? (
+                    <Image
+                      src={getTmdbImageUrl(heroShow.posterPath, "w500")!}
+                      alt={heroShow.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      sizes="(max-width: 640px) 144px, 240px"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-text-muted text-xs">
+                      Görsel Yok
+                    </div>
+                  )}
                 </div>
 
-                {/* Horizontal Scroll TV Row */}
-                <div className="flex gap-4 overflow-x-auto no-scrollbar pb-3 pt-1">
+                {/* Details */}
+                <div className="sm:col-span-8 md:col-span-9 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <ScoreBadge score={topHeroMatch.matchScore} size="md" showLabel />
+                    <span className="text-xs text-text-muted">
+                      {heroYear} • {heroGenres.slice(0, 2).join(", ")}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <h3 className="font-display text-xl sm:text-2xl md:text-3xl font-bold text-text-primary group-hover:text-accent transition-colors">
+                      {heroShow.name}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-text-secondary line-clamp-2 sm:line-clamp-3 leading-relaxed">
+                      {heroShow.overview || "Kişiselleştirilmiş dizi seçkisi."}
+                    </p>
+                  </div>
+
+                  {heroHeadline && (
+                    <div className="p-3.5 rounded-xl bg-surface-2 border border-border/80 text-xs text-accent font-medium flex items-center gap-2">
+                      <span>✨</span>
+                      <span>{heroHeadline}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 pt-1">
+                    <button className="px-4 py-2.5 rounded-xl bg-accent text-white font-semibold text-xs hover:bg-accent-hover transition-all shadow-sm">
+                      Diziyi İncele & Fragman →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TV PERSONALIZATION MODULES                                                */}
+        {/* ========================================================================= */}
+        {homeModules && homeModules.length > 0 && (
+          homeModules.map((module) => {
+            if (!module.items || module.items.length === 0) return null;
+
+            return (
+              <section key={module.id} id={`module-${module.id}`} className="space-y-4 pt-2">
+                <SectionHeader
+                  badge={module.title}
+                  badgeIcon="📺"
+                  title={module.title}
+                  subtitle={module.subtitle}
+                  actionHref="/tv/recommendations"
+                  actionLabel="Tümünü Gör"
+                />
+
+                {/* Horizontal Scroll on Mobile, Grid on Desktop */}
+                <div className="flex sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 overflow-x-auto pb-3 sm:pb-0 scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
                   {module.items.map((item) => {
-                    const show = item.tvShow;
-                    const posterUrl = getTmdbImageUrl(show.posterPath, "w500");
-                    const year = show.firstAirDate ? show.firstAirDate.slice(0, 4) : "";
-                    const primaryGenre =
-                      (show.metadata?.genres && show.metadata.genres[0]) ||
-                      "Dizi";
+                    const { tvShow, matchScore, matchLabel } = item;
+                    const releaseYear = tvShow.firstAirDate ? tvShow.firstAirDate.slice(0, 4) : "";
+                    const genres = tvShow.metadata?.genres || [];
 
                     return (
-                      <div
-                        key={show.id}
-                        onClick={() => setSelectedTvModal({ tvShowId: show.id })}
-                        className="flex-shrink-0 w-36 sm:w-44 group cursor-pointer space-y-2"
-                      >
-                        {/* Poster Card */}
-                        <div className="w-full aspect-[2/3] rounded-2xl overflow-hidden bg-surface-elevated relative border border-border/60 shadow-sm group-hover:border-accent/60 transition-all duration-300">
-                          {posterUrl ? (
-                            <Image
-                              src={posterUrl}
-                              alt={show.name}
-                              fill
-                              className="object-cover group-hover:scale-105 transition-transform duration-500"
-                              sizes="176px"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-text-muted font-mono text-[10px] p-2 text-center">
-                              {show.name}
-                            </div>
-                          )}
-
-                          {/* Top-Right Badge: Match % */}
-                          {typeof item.matchScore === "number" && item.matchScore > 0 && (
-                            <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-accent text-[10px] font-mono font-bold z-10">
-                              ❤️ %{item.matchScore}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Info & Rating */}
-                        <div>
-                          <h4 className="font-display text-xs font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors">
-                            {show.name}
-                          </h4>
-                          <div className="flex items-center justify-between text-[10px] font-mono text-text-muted mt-0.5">
-                            <span className="line-clamp-1">
-                              {year || "Tarihsiz"} • {primaryGenre}
-                            </span>
-                            {show.voteAverage > 0 && (
-                              <span className="text-text-secondary font-bold flex-shrink-0 ml-1">
-                                ⭐ {show.voteAverage.toFixed(1)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                      <div key={tvShow.id} className="min-w-[150px] sm:min-w-0 snap-start flex-shrink-0 sm:flex-shrink">
+                        <MediaCard
+                          id={tvShow.id}
+                          mediaType="TV"
+                          title={tvShow.name}
+                          originalTitle={tvShow.originalName || undefined}
+                          posterPath={tvShow.posterPath}
+                          releaseYear={releaseYear}
+                          genres={genres}
+                          matchScore={matchScore}
+                          matchLabel={matchLabel}
+                          reasonHeadline={item.deterministicExplanation || matchLabel}
+                          onClick={() =>
+                            setSelectedTvModal({
+                              tvShowId: tvShow.id,
+                              initialData: {
+                                title: tvShow.name,
+                                posterPath: tvShow.posterPath,
+                                backdropPath: tvShow.backdropPath,
+                                firstAirDate: tvShow.firstAirDate,
+                                genres,
+                                matchScore,
+                              },
+                            })
+                          }
+                        />
                       </div>
                     );
                   })}
                 </div>
               </section>
-            ))}
-          </div>
-        ) : (
-          /* Empty / Uncalibrated Fallback State */
-          <div className="p-12 rounded-3xl bg-surface border border-border/80 text-center space-y-6 max-w-xl mx-auto shadow-cinematic">
-            <div className="w-16 h-16 rounded-2xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center mx-auto text-2xl font-bold font-mono">
-              📺
-            </div>
-            <div className="space-y-2">
-              <h2 className="font-display text-2xl font-bold text-text-primary">
-                Dizi Seçkisi Hazırlanıyor
-              </h2>
-              <p className="text-sm text-text-secondary">
-                Dizi DNA profilinize özel seçkilerin oluşması için kalibrasyona başlayın.
-              </p>
-            </div>
-            <Link
-              href="/tv/calibration"
-              className="inline-flex items-center justify-center px-6 py-3 rounded-2xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all shadow-md"
-            >
-              Dizi Kalibrasyonuna Başla →
-            </Link>
-          </div>
+            );
+          })
         )}
       </main>
+
+      <Footer />
 
       {/* TV Details Modal */}
       {selectedTvModal && (
@@ -334,31 +301,6 @@ export function TvDiscoveryHome({
           onClose={() => setSelectedTvModal(null)}
         />
       )}
-
-      <Footer />
     </div>
   );
-}
-
-function getModuleIcon(id: string): string {
-  switch (id) {
-    case "FOR_YOU":
-      return "✨";
-    case "MINISERIES":
-      return "⚡";
-    case "MYSTERY_CRIME":
-      return "🔍";
-    case "GLOBAL_DISCOVERY":
-      return "🌍";
-    case "SHORT_EPISODES":
-      return "⏱️";
-    case "LONG_RUNNING":
-      return "🏛️";
-    case "COMPLETED_GEMS":
-      return "🏁";
-    case "COMEDY":
-      return "🍿";
-    default:
-      return "📺";
-  }
 }

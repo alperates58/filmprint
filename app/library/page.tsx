@@ -23,8 +23,12 @@ function LibraryContent() {
   const router = useRouter();
 
   const tabParam = (searchParams.get("tab") || "WATCHLIST").toUpperCase();
+  const rawMediaType = (searchParams.get("mediaType") || "ALL").toUpperCase();
+  const initialMediaType: "ALL" | "FILM" | "TV" =
+    rawMediaType === "FILM" || rawMediaType === "TV" ? rawMediaType : "ALL";
+
   const [currentTab, setCurrentTab] = useState<string>(tabParam);
-  const [mediaType, setMediaType] = useState<"ALL" | "FILM" | "TV">("ALL");
+  const [mediaType, setMediaType] = useState<"ALL" | "FILM" | "TV">(initialMediaType);
 
   const [items, setItems] = useState<LibraryItemDto[]>([]);
   const [counts, setCounts] = useState({
@@ -55,6 +59,12 @@ function LibraryContent() {
   useEffect(() => {
     setCurrentTab(tabParam);
   }, [tabParam]);
+
+  useEffect(() => {
+    if (initialMediaType) {
+      setMediaType(initialMediaType);
+    }
+  }, [initialMediaType]);
 
   // Debounce search
   useEffect(() => {

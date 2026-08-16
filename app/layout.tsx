@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
+import { BottomNav } from "@/components/ui/BottomNav";
 
 export const viewport: Viewport = {
-  themeColor: "#09090b",
+  themeColor: "#0b0d14",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -44,13 +45,16 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased bg-background text-text-primary selection:bg-accent selection:text-white pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+      <body className="antialiased bg-bg-base text-text-primary selection:bg-accent selection:text-white pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
         <PwaRegister />
-        {children}
+        <div className="min-h-screen flex flex-col pb-20 md:pb-0">
+          {children}
+        </div>
+        <BottomNav />
       </body>
     </html>
   );

@@ -3,26 +3,60 @@
 @tailwind utilities;
 
 :root {
-  --background: #09090b;
-  --surface: #121216;
-  --surface-elevated: #18181f;
-  --border: #24242d;
-  --border-focused: #3b3b47;
+  /* V2 Base Canvas & Surfaces (Deep Midnight Navy & Graphite) */
+  --bg-base: #0b0d14;
+  --bg-subtle: #0f121a;
+  --surface: #121622;
+  --surface-1: #121622;
+  --surface-2: #191e2d;
+  --surface-3: #22283a;
+  --surface-elevated: #191e2d;
+  --surface-glass: rgba(18, 22, 34, 0.82);
 
-  --text-primary: #f4f4f5;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
+  /* V2 Borders & Highlights */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-focused: #7c5cfc;
 
-  --accent: #e50914;
-  --accent-hover: #f41f2a;
-  --success: #10b981;
+  /* V2 Typography */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  /* Primary Brand: Indigo / Violet (AI Identity & Primary Actions) */
+  --accent: #7c5cfc;
+  --accent-hover: #9277ff;
+  --accent-subtle: rgba(124, 92, 252, 0.14);
+  --accent-glow: 0 0 24px rgba(124, 92, 252, 0.35);
+
+  /* Secondary Warm Accent: Coral / Ember (Editorial, Warmth, Movie Night) */
+  --accent-secondary: #ff654f;
+  --accent-secondary-hover: #ff7c68;
+  --accent-secondary-subtle: rgba(255, 101, 79, 0.14);
+
+  /* Functional Status */
+  --success: #28d7a1;
   --warning: #f59e0b;
   --destructive: #ef4444;
+  --info: #38bdf8;
 
-  --radius-sm: 6px;
+  /* Backward Compatibility */
+  --background: var(--bg-base);
+
+  /* V2 Radii */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 20px;
-  --shadow-cinematic: 0 20px 50px rgba(0, 0, 0, 0.7);
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* V2 Elevation Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --shadow-cinematic: 0 20px 50px rgba(0, 0, 0, 0.55);
 }
 
 body {
@@ -41,13 +75,14 @@ body {
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: var(--background);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-focused);

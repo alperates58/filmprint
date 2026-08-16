@@ -6,6 +6,9 @@ import Link from "next/link";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { MovieDetailsModal } from "@/components/movie/MovieDetailsModal";
+import { MediaCard } from "@/components/ui/MediaCard";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { ScoreBadge } from "@/components/ui/ScoreBadge";
 import { getProgressionForCount } from "@/lib/progression/service";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
 
@@ -22,6 +25,9 @@ interface HomeMovie {
   genres: string[];
   overview: string;
   runtime: number | null;
+  matchScore?: number;
+  matchLabel?: string;
+  reasonHeadline?: string;
 }
 
 interface HomeModule {
@@ -37,6 +43,15 @@ interface DiscoveryHomeProps {
   answeredCount: number;
   initialShowMilestone?: boolean;
 }
+
+const MOOD_SHORTCUTS = [
+  { id: "top-picks", label: "Günün Önerileri", icon: "✨" },
+  { id: "watchlist", label: "İzleme Listem", icon: "🔖" },
+  { id: "mind-bending", label: "Zihin Büken", icon: "🌀" },
+  { id: "hidden-gems", label: "Gizli Kalmışlar", icon: "💎" },
+  { id: "night-watch", label: "Gece Seansı", icon: "🍿" },
+  { id: "rainy-day", label: "Yağmurlu Hava", icon: "🌧️" },
+];
 
 export function DiscoveryHome({
   userName,
@@ -82,28 +97,26 @@ export function DiscoveryHome({
   };
 
   return (
-    <div className="min-h-screen bg-background text-text-primary flex flex-col font-sans selection:bg-accent/20">
+    <div className="min-h-screen bg-bg-base text-text-primary flex flex-col font-sans selection:bg-accent/20">
       <Header userName={userName} progressCount={answeredCount} />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 md:py-12 space-y-12">
-        {/* Milestone Celebration Banner (Dismissible 1-time notification) */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-10">
+        {/* Milestone Celebration Banner */}
         {showMilestoneNotice && (
-          <div className="p-6 md:p-8 rounded-3xl bg-surface border border-accent/40 shadow-cinematic flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-fadeIn relative overflow-hidden">
+          <div className="p-6 rounded-3xl bg-surface-1 border border-accent/30 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-fadeIn relative overflow-hidden">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-accent/20 border border-accent/40 text-accent flex items-center justify-center text-2xl font-bold font-mono flex-shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-accent-subtle border border-accent/30 text-accent flex items-center justify-center text-2xl flex-shrink-0">
                 🎉
               </div>
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono text-accent uppercase tracking-widest font-bold">
-                    MILESTONE TAMAMLANDI (30/30)
-                  </span>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface-2 text-accent text-[11px] font-semibold">
+                  <span>KALİBRASYON TAMAMLANDI (30/30)</span>
                 </div>
-                <h2 className="font-display text-xl md:text-2xl font-bold text-text-primary">
+                <h2 className="font-display text-lg md:text-xl font-bold text-text-primary">
                   Tebrikler {userName ? `, ${userName}` : ""}! İlk Film DNA Profiliniz Hazır
                 </h2>
-                <p className="text-xs md:text-sm text-text-secondary">
-                  30 filmi sınıflandırdınız. Artık keşif ana sayfasındasınız. Dilediğiniz zaman önerilerinizi inceleyebilir veya profilinizi özelleştirebilirsiniz.
+                <p className="text-xs text-text-secondary">
+                  30 filmi değerlendirdiniz. Artık keşif ana sayfasındasınız.
                 </p>
               </div>
             </div>
@@ -111,319 +124,255 @@ export function DiscoveryHome({
             <div className="flex items-center gap-3 self-end md:self-auto flex-shrink-0">
               <Link
                 href="/profile"
-                className="px-4 py-2.5 rounded-xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all shadow-sm"
+                className="px-4 py-2 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-all shadow-sm"
               >
                 Profilimi Gör →
               </Link>
               <button
                 onClick={handleDismissMilestone}
-                className="px-4 py-2.5 rounded-xl bg-surface-elevated border border-border text-text-muted hover:text-text-primary font-mono text-xs transition-all"
+                className="px-4 py-2 rounded-xl bg-surface-2 border border-border text-text-muted hover:text-text-primary text-xs transition-all"
               >
-                Keşfe Başla ✕
+                Kapat
               </button>
             </div>
           </div>
         )}
 
-        {/* Welcome Hero Banner */}
-        <div className="p-8 md:p-12 rounded-3xl bg-surface border border-border/80 shadow-cinematic space-y-6 relative overflow-hidden">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-3 max-w-2xl">
-              <div className="flex items-center gap-3">
-                <span className="px-3 py-1 rounded-full bg-accent/15 border border-accent/30 text-accent font-mono text-xs font-bold uppercase tracking-wider">
-                  {progression.currentRank.badgeIcon} {progression.currentRank.label}
+        {/* ========================================================================= */}
+        {/* V2 EDITORIAL HERO SECTION                                                  */}
+        {/* ========================================================================= */}
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-surface-1 via-surface-1 to-surface-2 border border-border/80 p-6 sm:p-8 md:p-10 shadow-md">
+          {/* Subtle Ambient Radial Glow */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            {/* Left Column: Greeting & Status */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-3 py-1 rounded-full bg-accent-subtle border border-accent/30 text-accent text-xs font-semibold flex items-center gap-1.5">
+                  <span>{progression.currentRank.badgeIcon}</span>
+                  <span>{progression.currentRank.label}</span>
                 </span>
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs text-text-muted">
                   • {answeredCount} Film Değerlendirildi
                 </span>
               </div>
 
-              <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight text-text-primary">
-                Hoş Geldin{userName ? `, ${userName}` : ""}.
-              </h1>
+              <div className="space-y-2">
+                <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-text-primary">
+                  {userName ? `İyi seyirler, ${userName}.` : "Film zevkine özel sinema vitrini."}
+                </h1>
+                <p className="text-sm md:text-base text-text-secondary leading-relaxed max-w-xl">
+                  Yapay zekâ karar motorunuz film zevkinizi analiz etti. Zevkinizle yüksek uyum sağlayan yapımları ve gizli kalmış cevherleri sizin için derledik.
+                </p>
+              </div>
 
-              <p className="text-sm md:text-base text-text-secondary leading-relaxed">
-                Film DNA profilinize ve sinema zevkinize göre hazırlanan bugünün özel keşif seçkisi.
-              </p>
-            </div>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row md:flex-col gap-3 self-start md:self-auto">
-              <Link
-                href="/recommendations"
-                className="px-6 py-3 rounded-2xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all text-center shadow-md"
-              >
-                ✨ Önerilerime Git →
-              </Link>
-              <Link
-                href="/calibrate"
-                className="px-6 py-3 rounded-2xl bg-surface-elevated border border-border/80 hover:border-accent text-text-primary font-mono text-xs font-medium transition-all text-center"
-              >
-                ➕ Değerlendirmeye Devam Et
-              </Link>
-            </div>
-          </div>
-
-          {/* Quick Mood Pills */}
-          <div className="pt-4 border-t border-border/60 space-y-2">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-text-muted">
-              BU AKŞAM SANA UYGUN MODLAR
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { id: "known-unwatched", label: "👀 İzlemediğin" },
-                { id: "rainy", label: "🌧️ Yağmurlu Hava" },
-                { id: "comedy", label: "🍿 Komedi" },
-                { id: "thriller", label: "⚡ Gerilim" },
-                { id: "mind-bending", label: "🌀 Zihin Büken" },
-                { id: "feel-good", label: "☕ Hafif" },
-                { id: "night", label: "🌙 Gece Seansı" },
-                { id: "classic", label: "🏛️ Klasik" },
-                { id: "short", label: "⏱️ < 100 Dk" },
-              ].map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => scrollToModule(m.id)}
-                  className="px-3.5 py-1.5 rounded-full bg-surface-elevated/80 border border-border/60 hover:border-accent hover:bg-accent/10 text-xs font-mono text-text-secondary transition-all"
+              {/* Primary & Secondary Action CTAs */}
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <Link
+                  href="/recommendations"
+                  className="px-5 py-3 rounded-xl bg-accent text-white font-semibold text-xs md:text-sm hover:bg-accent-hover active:scale-95 transition-all shadow-sm flex items-center gap-2 min-h-[44px]"
                 >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+                  <span>✨</span>
+                  <span>Önerilerime Git</span>
+                </Link>
 
-        {/* Top Hero Match ("Sana Özel Bugünkü Öneri") */}
-        {topHeroMatch && topHeroMatch.movie && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-accent animate-pulse" />
-                SANA ÖZEL BUGÜNKÜ ÖNERİ (TOP MATCH)
-              </span>
-              <span className="px-3 py-1 rounded-full bg-accent/20 border border-accent/40 text-accent text-xs font-mono font-bold">
-                %{topHeroMatch.match} UYUM
-              </span>
-            </div>
-
-            <div className="p-6 md:p-8 rounded-3xl bg-surface border border-border/80 shadow-cinematic flex flex-col md:flex-row gap-6 items-start">
-              {/* Poster */}
-              <div
-                onClick={() =>
-                  setSelectedMovieModal({
-                    movieId: topHeroMatch.movie.id,
-                    initialData: {
-                      title: topHeroMatch.movie.title,
-                      posterPath: topHeroMatch.movie.posterPath,
-                      releaseYear: topHeroMatch.movie.releaseYear,
-                      genres: topHeroMatch.movie.genres,
-                      matchScore: topHeroMatch.match,
-                    },
-                  })
-                }
-                className="w-32 md:w-44 aspect-[2/3] rounded-2xl overflow-hidden bg-surface-elevated relative border border-border/80 shadow-lg cursor-pointer group flex-shrink-0"
-              >
-                {getTmdbImageUrl(topHeroMatch.movie.posterPath, "w500") ? (
-                  <Image
-                    src={getTmdbImageUrl(topHeroMatch.movie.posterPath, "w500")!}
-                    alt={topHeroMatch.movie.title}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                    sizes="176px"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-text-muted font-mono text-xs">
-                    Görsel Yok
-                  </div>
-                )}
+                <Link
+                  href="/calibrate"
+                  className="px-5 py-3 rounded-xl bg-surface-2 border border-border hover:border-accent text-text-primary font-medium text-xs md:text-sm active:scale-95 transition-all flex items-center gap-2 min-h-[44px]"
+                >
+                  <span>🎯</span>
+                  <span>Değerlendirmeye Devam Et</span>
+                </Link>
               </div>
+            </div>
 
-              {/* Info */}
-              <div className="space-y-4 flex-1">
-                <div>
-                  <span className="text-xs font-mono text-text-muted">
-                    {topHeroMatch.movie.releaseYear || "Tarihsiz"} • {topHeroMatch.movie.genres.join(", ")}
-                  </span>
-                  <h3
-                    onClick={() =>
-                      setSelectedMovieModal({
-                        movieId: topHeroMatch.movie.id,
-                        initialData: {
-                          title: topHeroMatch.movie.title,
-                          posterPath: topHeroMatch.movie.posterPath,
-                          releaseYear: topHeroMatch.movie.releaseYear,
-                          genres: topHeroMatch.movie.genres,
-                          matchScore: topHeroMatch.match,
-                          headline: topHeroMatch.headline,
-                          reasons: topHeroMatch.reasons,
-                        },
-                      })
-                    }
-                    className="font-display text-2xl md:text-3xl font-bold text-text-primary cursor-pointer hover:text-accent transition-colors mt-0.5"
-                  >
-                    {topHeroMatch.movie.title}
-                  </h3>
-                </div>
-
-                {topHeroMatch.headline && (
-                  <div className="p-4 rounded-2xl bg-surface-elevated/80 border border-border/60 space-y-2">
-                    <p className="text-xs font-mono font-bold text-text-primary">
-                      {topHeroMatch.headline}
-                    </p>
-                    {topHeroMatch.reasons && topHeroMatch.reasons.length > 0 && (
-                      <p className="text-xs text-text-secondary leading-relaxed">
-                        • {topHeroMatch.reasons[0].replace(/\*\*(.*?)\*\*/g, "$1")}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex items-center gap-3">
+            {/* Right Column: Smart Mood & Preference Shortcuts */}
+            <div className="lg:col-span-5 bg-surface-2/60 border border-border/70 rounded-2xl p-4 sm:p-5 space-y-3">
+              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                ⚡ HIZLI KEŞİF MODLARI
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {MOOD_SHORTCUTS.map((mood) => (
                   <button
-                    onClick={() =>
-                      setSelectedMovieModal({
-                        movieId: topHeroMatch.movie.id,
-                        initialData: {
-                          title: topHeroMatch.movie.title,
-                          posterPath: topHeroMatch.movie.posterPath,
-                          releaseYear: topHeroMatch.movie.releaseYear,
-                          genres: topHeroMatch.movie.genres,
-                          matchScore: topHeroMatch.match,
-                          headline: topHeroMatch.headline,
-                          reasons: topHeroMatch.reasons,
-                        },
-                      })
-                    }
-                    className="px-5 py-2.5 rounded-xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all shadow-sm"
+                    key={mood.id}
+                    onClick={() => scrollToModule(mood.id)}
+                    className="flex items-center gap-2 p-2.5 rounded-xl bg-surface-1 hover:bg-surface-3 border border-border/60 hover:border-accent/40 text-text-secondary hover:text-text-primary transition-all text-left group"
                   >
-                    Filmi İncele & Fragman İzle ➔
+                    <span className="text-base group-hover:scale-110 transition-transform">
+                      {mood.icon}
+                    </span>
+                    <span className="font-medium truncate">{mood.label}</span>
                   </button>
-                </div>
+                ))}
               </div>
             </div>
           </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* TOP MATCH HERO CARD (IF AVAILABLE)                                        */}
+        {/* ========================================================================= */}
+        {topHeroMatch && topHeroMatch.movie && (
+          <section className="space-y-4">
+            <SectionHeader
+              badge="GÜNÜN ZİRVESİ"
+              badgeIcon="⭐"
+              title="Bugünün En Yüksek Eşleşmesi"
+              subtitle="Film DNA profiliniz ve son tercihleriniz baz alınarak seçildi."
+            />
+
+            <div
+              onClick={() =>
+                setSelectedMovieModal({
+                  movieId: topHeroMatch.movie.id,
+                  initialData: {
+                    title: topHeroMatch.movie.title,
+                    posterPath: topHeroMatch.movie.posterPath,
+                    backdropPath: topHeroMatch.movie.backdropPath,
+                    releaseYear: topHeroMatch.movie.releaseYear,
+                    genres: topHeroMatch.movie.genres || [],
+                    matchScore: topHeroMatch.match,
+                    headline: topHeroMatch.headline,
+                    reasons: topHeroMatch.reasons,
+                  },
+                })
+              }
+              className="group relative overflow-hidden rounded-3xl bg-surface-1 border border-border/80 p-5 sm:p-7 md:p-8 shadow-sm hover:border-accent/40 transition-all duration-300 cursor-pointer"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 md:gap-7 items-center">
+                {/* Poster */}
+                <div className="sm:col-span-4 md:col-span-3 aspect-[2/3] w-36 sm:w-full mx-auto sm:mx-0 rounded-2xl overflow-hidden bg-surface-2 border border-border-strong relative flex-shrink-0 shadow-md">
+                  {topHeroMatch.movie.posterPath ? (
+                    <Image
+                      src={getTmdbImageUrl(topHeroMatch.movie.posterPath, "w500")!}
+                      alt={topHeroMatch.movie.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      sizes="(max-width: 640px) 144px, 240px"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-text-muted text-xs">
+                      Görsel Yok
+                    </div>
+                  )}
+                </div>
+
+                {/* Details */}
+                <div className="sm:col-span-8 md:col-span-9 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <ScoreBadge score={topHeroMatch.match} label={topHeroMatch.matchLabel} size="md" showLabel />
+                    <span className="text-xs text-text-muted">
+                      {topHeroMatch.movie.releaseYear || "—"} • {topHeroMatch.movie.genres?.slice(0, 2).join(", ")}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <h3 className="font-display text-xl sm:text-2xl md:text-3xl font-bold text-text-primary group-hover:text-accent transition-colors">
+                      {topHeroMatch.movie.title}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-text-secondary line-clamp-2 sm:line-clamp-3 leading-relaxed">
+                      {topHeroMatch.movie.overview || "Özel yapay zekâ analizli sinema seçkisi."}
+                    </p>
+                  </div>
+
+                  {topHeroMatch.headline && (
+                    <div className="p-3.5 rounded-xl bg-surface-2 border border-border/80 text-xs text-accent font-medium flex items-center gap-2">
+                      <span>✨</span>
+                      <span>{topHeroMatch.headline}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 pt-1">
+                    <button className="px-4 py-2.5 rounded-xl bg-accent text-white font-semibold text-xs hover:bg-accent-hover transition-all shadow-sm">
+                      Filmi İncele & Fragman →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
         )}
 
-        {/* Loading Skeleton Rows */}
-        {isLoading && (
-          <div className="space-y-8 animate-pulse">
-            {[1, 2, 3].map((row) => (
-              <div key={row} className="space-y-3 pt-2">
-                <div className="flex items-center gap-2 border-b border-border/60 pb-3">
-                  <div className="w-6 h-6 rounded-md bg-surface-elevated" />
-                  <div className="h-5 w-48 rounded-md bg-surface-elevated" />
-                </div>
-                <div className="flex gap-4 overflow-hidden pt-1">
-                  {[1, 2, 3, 4, 5, 6].map((card) => (
-                    <div key={card} className="flex-shrink-0 w-36 sm:w-44 space-y-2">
-                      <div className="w-full aspect-[2/3] rounded-2xl bg-surface-elevated border border-border/60" />
-                      <div className="h-3.5 w-3/4 rounded bg-surface-elevated" />
-                      <div className="h-2.5 w-1/2 rounded bg-surface-elevated" />
-                    </div>
+        {/* ========================================================================= */}
+        {/* PERSONALIZATION MODULES / CURATED ROWS                                    */}
+        {/* ========================================================================= */}
+        {isLoading ? (
+          <div className="space-y-8">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="space-y-4 animate-pulse">
+                <div className="h-6 w-48 bg-surface-2 rounded-lg" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {[1, 2, 3, 4, 5].map((m) => (
+                    <div key={m} className="aspect-[2/3] rounded-2xl bg-surface-2" />
                   ))}
                 </div>
               </div>
             ))}
           </div>
-        )}
+        ) : (
+          modules.map((module) => {
+            if (!module.movies || module.movies.length === 0) return null;
 
-        {/* 10-11 Discovery Modules (Horizontal Scrolling Rows) */}
-        {!isLoading &&
-          modules.map((mod) => (
-            <section key={mod.id} id={`module-${mod.id}`} className="space-y-4 pt-2">
-              <div className="flex items-end justify-between border-b border-border/60 pb-3">
-                <div className="space-y-0.5">
-                  <h3 className="font-display text-xl md:text-2xl font-bold text-text-primary flex items-center gap-2">
-                    <span>{mod.icon}</span>
-                    <span>{mod.title}</span>
-                  </h3>
-                  <p className="text-xs text-text-secondary font-mono">
-                    {mod.description}
-                  </p>
-                </div>
-              </div>
+            return (
+              <section key={module.id} id={`module-${module.id}`} className="space-y-4 pt-2">
+                <SectionHeader
+                  badge={module.title}
+                  badgeIcon={module.icon}
+                  title={module.title}
+                  subtitle={module.description}
+                  actionHref="/recommendations"
+                  actionLabel="Tümünü Gör"
+                />
 
-              {/* Horizontal Scroll Movie Row */}
-              <div className="flex gap-4 overflow-x-auto no-scrollbar pb-3 pt-1">
-                {mod.movies.map((movie: any) => {
-                  const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
-
-                  return (
-                    <div
-                      key={movie.id}
-                      onClick={() =>
-                        setSelectedMovieModal({
-                          movieId: movie.id,
-                          initialData: {
-                            title: movie.title,
-                            posterPath: movie.posterPath,
-                            releaseYear: movie.releaseYear,
-                            genres: movie.genres,
-                            matchScore: movie.matchScore,
-                            reasons: movie.reasons,
-                            headline: movie.headline,
-                          },
-                        })
-                      }
-                      className="flex-shrink-0 w-36 sm:w-44 group cursor-pointer space-y-2"
-                    >
-                      {/* Poster */}
-                      <div className="w-full aspect-[2/3] rounded-2xl overflow-hidden bg-surface-elevated relative border border-border/60 shadow-sm group-hover:border-accent/60 transition-all duration-300">
-                        {posterUrl ? (
-                          <Image
-                            src={posterUrl}
-                            alt={movie.title}
-                            fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-500"
-                            sizes="176px"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-text-muted font-mono text-[10px]">
-                            Görsel Yok
-                          </div>
-                        )}
-
-                        {/* Top-Right Badge: Match % if available */}
-                        {typeof movie.matchScore === "number" && movie.matchScore > 0 && (
-                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-accent text-[10px] font-mono font-bold z-10">
-                            ❤️ %{movie.matchScore}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Info & rating */}
-                      <div>
-                        <h4 className="font-display text-xs font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors">
-                          {movie.title}
-                        </h4>
-                        <div className="flex items-center justify-between text-[10px] font-mono text-text-muted mt-0.5">
-                          <span className="line-clamp-1">
-                            {movie.releaseYear || "Tarihsiz"} • {movie.genres[0] || "Film"}
-                          </span>
-                          {movie.voteAverage > 0 && (
-                            <span className="text-text-secondary font-bold flex-shrink-0 ml-1">
-                              ⭐ {movie.voteAverage.toFixed(1)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                {/* Horizontal Scroll on Mobile, Grid on Desktop */}
+                <div className="flex sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 overflow-x-auto pb-3 sm:pb-0 scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
+                  {module.movies.map((movie) => (
+                    <div key={movie.id} className="min-w-[150px] sm:min-w-0 snap-start flex-shrink-0 sm:flex-shrink">
+                      <MediaCard
+                        id={movie.id}
+                        mediaType="FILM"
+                        title={movie.title}
+                        originalTitle={movie.originalTitle}
+                        posterPath={movie.posterPath}
+                        releaseYear={movie.releaseYear}
+                        genres={movie.genres}
+                        matchScore={movie.matchScore}
+                        matchLabel={movie.matchLabel}
+                        reasonHeadline={movie.reasonHeadline}
+                        onClick={() =>
+                          setSelectedMovieModal({
+                            movieId: movie.id,
+                            initialData: {
+                              title: movie.title,
+                              posterPath: movie.posterPath,
+                              backdropPath: movie.backdropPath,
+                              releaseYear: movie.releaseYear,
+                              genres: movie.genres,
+                              matchScore: movie.matchScore,
+                            },
+                          })
+                        }
+                      />
                     </div>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-
-
-        {/* Cinematic Movie Detail Modal */}
-        <MovieDetailsModal
-          movieId={selectedMovieModal?.movieId || null}
-          onClose={() => setSelectedMovieModal(null)}
-          initialData={selectedMovieModal?.initialData}
-        />
+                  ))}
+                </div>
+              </section>
+            );
+          })
+        )}
       </main>
 
       <Footer />
+
+      {/* Movie Details Modal */}
+      {selectedMovieModal && (
+        <MovieDetailsModal
+          movieId={selectedMovieModal.movieId}
+          initialData={selectedMovieModal.initialData}
+          onClose={() => setSelectedMovieModal(null)}
+        />
+      )}
     </div>
   );
 }

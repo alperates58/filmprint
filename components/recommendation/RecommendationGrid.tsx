@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import Image from "next/image";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
 import { PersonalizedRecommendationItem } from "@/lib/recommendation/types";
+import { ScoreBadge } from "@/components/ui/ScoreBadge";
+import { MediaCard } from "@/components/ui/MediaCard";
 
 interface RecommendationGridProps {
   items: PersonalizedRecommendationItem[];
@@ -12,7 +14,8 @@ interface RecommendationGridProps {
 }
 
 export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: RecommendationGridProps) {
-  const [activeRatingMovieId, setActiveRatingMovieId] = useState<string | null>(null);
+  const [filterThreshold, setFilterThreshold] = useState<number>(0);
+  const [selectedGenre, setSelectedGenre] = useState<string>("ALL");
   const [activeMenuMovieId, setActiveMenuMovieId] = useState<string | null>(null);
   const [expandedMovieId, setExpandedMovieId] = useState<string | null>(null);
   const [loadingExplanationMovieId, setLoadingExplanationMovieId] = useState<string | null>(null);
@@ -25,6 +28,13 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
 
   if (!items || items.length === 0) return null;
 
+  // Extract all unique genres for compact filter
+  const allGenres = Array.from(
+    new Set(
+      items.flatMap((item) => item.movie.genres || [])
+    )
+  ).slice(0, 8);
+
   const handleFeedback = async (
     movieId: string,
     action: "LIKE" | "DISLIKE" | "HIDE" | "WATCHLIST" | "WATCHED" | "CLEAR",
@@ -36,7 +46,6 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
     const isClearing = previousAction === action && action !== "WATCHED" && action !== "HIDE";
     const effectiveAction = isClearing ? "CLEAR" : action;
 
-    // Optimistic UI updates
     if (effectiveAction === "HIDE") {
       setHiddenMovieIds((prev) => new Set([...prev, movieId]));
       setUndoToast({ movieId, title: movieTitle || "Film" });
@@ -73,7 +82,6 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
       });
     } catch (err) {
       console.error("[Feedback Action Error]:", err);
-      // Rollback on network failure
       if (effectiveAction === "HIDE") {
         setHiddenMovieIds((prev) => {
           const next = new Set(prev);
@@ -100,27 +108,16 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
           mediaType: "FILM",
           movieId,
           action: "CLEAR",
-          source: "RECOMMENDATIONS",
+          source: "RECOMMENDATIONS_UNDO",
         }),
       });
-    } catch (err) {
-      console.error("[Undo Hide Error]:", err);
+    } catch (e) {
+      console.error("Undo hide error:", e);
     }
   };
 
-  const handleToggleExpand = async (item: PersonalizedRecommendationItem) => {
-    const movieId = item.movie.id;
-    if (expandedMovieId === movieId) {
-      setExpandedMovieId(null);
-      return;
-    }
-
-    setExpandedMovieId(movieId);
-
-    const isAlreadyAi = item.isAiGenerated || dynamicExplanations[movieId]?.isAiGenerated;
-    if (isAlreadyAi || dynamicExplanations[movieId]) {
-      return;
-    }
+  const handleFetchAiExplanation = async (movieId: string, fallbackHeadline?: string, fallbackReasons?: string[]) => {
+    if (loadingExplanationMovieId === movieId) return;
 
     try {
       setLoadingExplanationMovieId(movieId);
@@ -136,7 +133,7 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
           setDynamicExplanations((prev) => ({
             ...prev,
             [movieId]: {
-              headline: data.headline || item.headline,
+              headline: data.headline || fallbackHeadline || "Film DNA Uyumu",
               reasons: data.reasons,
               isAiGenerated: data.isAiGenerated ?? true,
             },
@@ -144,303 +141,153 @@ export function RecommendationGrid({ items, onFeedbackAction, onOpenDetails }: R
         }
       }
     } catch (e) {
-      console.error("Failed to fetch on-demand explanation:", e);
+      console.error("On-demand explanation fetch failed:", e);
     } finally {
       setLoadingExplanationMovieId(null);
     }
   };
 
-  const visibleItems = items.filter((item) => !hiddenMovieIds.has(item.movie.id));
+  // Filter items
+  const visibleItems = items.filter((item) => {
+    if (hiddenMovieIds.has(item.movie.id)) return false;
+    if (filterThreshold > 0 && item.match < filterThreshold) return false;
+    if (selectedGenre !== "ALL") {
+      const genres = item.movie.genres || [];
+      if (!genres.includes(selectedGenre)) return false;
+    }
+    return true;
+  });
 
   return (
-    <div className="space-y-4 relative">
-      {/* Toast Banner for Undo Hide */}
+    <div className="space-y-6">
+      {/* Compact Filter Control Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-surface-1 border border-border/80">
+        {/* Match Threshold Segmented Control */}
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-2 border border-border text-xs font-sans font-medium overflow-x-auto scrollbar-none">
+          <button
+            onClick={() => setFilterThreshold(0)}
+            className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+              filterThreshold === 0
+                ? "bg-accent text-white font-semibold shadow-sm"
+                : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            Tüm Öneriler ({items.length})
+          </button>
+          <button
+            onClick={() => setFilterThreshold(85)}
+            className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+              filterThreshold === 85
+                ? "bg-accent text-white font-semibold shadow-sm"
+                : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            %85+ Yüksek Uyum
+          </button>
+          <button
+            onClick={() => setFilterThreshold(90)}
+            className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+              filterThreshold === 90
+                ? "bg-emerald-500 text-white font-semibold shadow-sm"
+                : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            %90+ Zirve Eşleşmeler
+          </button>
+        </div>
+
+        {/* Genre Filter Pill List */}
+        {allGenres.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none text-xs font-sans">
+            <button
+              onClick={() => setSelectedGenre("ALL")}
+              className={`px-3 py-1 rounded-full border transition-all whitespace-nowrap ${
+                selectedGenre === "ALL"
+                  ? "bg-accent-subtle border-accent/40 text-accent font-semibold"
+                  : "bg-surface-2 border-border text-text-muted hover:text-text-primary"
+              }`}
+            >
+              Tüm Türler
+            </button>
+            {allGenres.map((genre) => (
+              <button
+                key={genre}
+                onClick={() => setSelectedGenre(genre)}
+                className={`px-3 py-1 rounded-full border transition-all whitespace-nowrap ${
+                  selectedGenre === genre
+                    ? "bg-accent-subtle border-accent/40 text-accent font-semibold"
+                    : "bg-surface-2 border-border text-text-muted hover:text-text-primary"
+                }`}
+              >
+                {genre}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Undo Toast Banner */}
       {undoToast && (
-        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-surface-elevated/95 border border-accent/40 shadow-2xl backdrop-blur-md flex items-center gap-4 text-xs font-mono animate-fadeIn">
-          <span>🚫 <strong>{undoToast.title}</strong> önerilerden gizlendi.</span>
+        <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-50 p-4 rounded-2xl bg-surface-2 border border-border-strong text-text-primary shadow-xl flex items-center gap-3 animate-fadeIn">
+          <span className="text-xs font-sans">
+            <strong>{undoToast.title}</strong> önerilerden gizlendi.
+          </span>
           <button
             onClick={() => handleUndoHide(undoToast.movieId)}
-            className="px-3 py-1.5 rounded-lg bg-accent text-white font-bold hover:bg-accent-hover transition-colors shadow-sm"
+            className="px-3 py-1 rounded-lg bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-colors"
           >
             Geri Al
           </button>
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <h3 className="font-display text-lg font-bold tracking-tight text-text-primary">
-          Kişiselleştirilmiş Seçkiler
-        </h3>
-        <span className="text-xs font-mono text-text-muted">
-          {visibleItems.length} Öneri
-        </span>
-      </div>
+      {/* Media Cards Grid */}
+      {visibleItems.length === 0 ? (
+        <div className="p-12 text-center rounded-3xl bg-surface-1 border border-border space-y-3">
+          <p className="text-sm font-sans text-text-secondary">
+            Seçili filtrelere uygun öneri bulunamadı.
+          </p>
+          <button
+            onClick={() => {
+              setFilterThreshold(0);
+              setSelectedGenre("ALL");
+            }}
+            className="px-4 py-2 rounded-xl bg-surface-2 border border-border text-accent text-xs font-semibold hover:bg-surface-3 transition-colors"
+          >
+            Filtreleri Temizle
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {visibleItems.map((item) => {
+            const { movie, match, matchLabel } = item;
+            const genres = movie.genres || [];
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-        {visibleItems.map((item) => {
-          const { movie, match } = item;
-          const currentFeedback = feedbackStateMap[movie.id];
-          const dynamicExp = dynamicExplanations[movie.id];
-          const headline = dynamicExp?.headline || item.headline;
-          const reasons = dynamicExp?.reasons || item.reasons;
-          const isAi = dynamicExp?.isAiGenerated ?? item.isAiGenerated;
-
-          const isRatingOpen = activeRatingMovieId === movie.id;
-          const isMenuOpen = activeMenuMovieId === movie.id;
-          const isExpanded = expandedMovieId === movie.id;
-          const isLoadingExplain = loadingExplanationMovieId === movie.id;
-
-          const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
-
-          return (
-            <div
-              key={movie.id}
-              className="p-4 rounded-2xl bg-surface border border-border/70 shadow-sm flex flex-col justify-between space-y-3 group hover:border-accent/50 transition-all duration-300 relative"
-            >
-              {/* Poster & Match Badge Container */}
-              <div
-                onClick={() => onOpenDetails && onOpenDetails(movie, match, headline, reasons)}
-                className="w-full aspect-[2/3] rounded-xl overflow-hidden bg-surface-elevated relative shadow-sm cursor-pointer"
-                title="Film detaylarını gör"
-              >
-                {posterUrl ? (
-                  <Image
-                    src={posterUrl}
-                    alt={movie.title}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-text-muted font-mono text-[10px]">
-                    Görsel Yok
-                  </div>
-                )}
-
-                {/* Match Percentage Badge */}
-                <div className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-accent text-[10px] font-mono font-bold">
-                  ❤️ %{match} UYUM
-                </div>
-              </div>
-
-              {/* Movie Details & Reasons */}
-              <div className="space-y-1.5 flex-1">
-                <h4
-                  onClick={() => onOpenDetails && onOpenDetails(movie, match, headline, reasons)}
-                  className="font-display text-sm font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors cursor-pointer"
-                >
-                  {movie.title}
-                </h4>
-                <div className="flex items-center justify-between text-[10px] font-mono text-text-muted">
-                  <span className="line-clamp-1">
-                    {movie.releaseYear || "Tarihsiz"} • {movie.genres.join(", ")}
-                  </span>
-                  {movie.voteAverage > 0 && (
-                    <span className="text-text-secondary font-bold flex-shrink-0 ml-1">
-                      ⭐ {movie.voteAverage.toFixed(1)}
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-[11px] text-text-secondary font-medium leading-snug pt-0.5">
-                  {headline}
-                </p>
-
-                {/* Expandable Neden sana uygun? accordion */}
-                <div className="pt-1">
-                  <button
-                    onClick={() => handleToggleExpand(item)}
-                    className="text-[10px] font-mono text-accent hover:underline flex items-center gap-1 font-semibold"
-                  >
-                    <span>Neden sana uygun?</span>
-                    {isAi && (
-                      <span className="text-[9px] px-1 py-0.2 rounded bg-accent/15 text-accent font-normal">
-                        AI
-                      </span>
-                    )}
-                    <span>{isExpanded ? "▴" : "▾"}</span>
-                  </button>
-
-                  {isExpanded && (
-                    <>
-                      {isLoadingExplain ? (
-                        <div className="mt-1.5 p-3 rounded-xl bg-surface-elevated/90 border border-accent/30 text-[11px] space-y-2 animate-pulse">
-                          <div className="flex items-center gap-1.5 text-accent font-mono text-[10px] font-semibold">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
-                            <span>Film DNA'nla eşleştiriliyor...</span>
-                          </div>
-                          <div className="space-y-1.5">
-                            <div className="h-2 bg-surface rounded-full w-5/6 animate-pulse" />
-                            <div className="h-2 bg-surface rounded-full w-4/6 animate-pulse" />
-                            <div className="h-2 bg-surface rounded-full w-3/4 animate-pulse" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-1.5 p-2.5 rounded-xl bg-surface-elevated/80 border border-border/60 text-[11px] text-text-secondary space-y-1 animate-fadeIn">
-                          {reasons && reasons.length > 0 ? (
-                            reasons.map((r, idx) => (
-                              <div key={idx} className="flex items-start gap-1.5">
-                                <span className="text-accent font-bold text-[10px]">•</span>
-                                <span>{r.replace(/\*\*(.*?)\*\*/g, "$1")}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-[10px] text-text-muted italic">
-                              Zevk profiline göre özel eşleştirildi.
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Feedback Actions Section */}
-              {isRatingOpen ? (
-                <div className="pt-2 border-t border-border/60 space-y-2 animate-fadeIn">
-                  <div className="flex justify-between items-center text-[11px] font-mono text-text-primary font-bold">
-                    <span>Nasıl buldun?</span>
-                    <button
-                      onClick={() => setActiveRatingMovieId(null)}
-                      className="text-text-muted hover:text-text-primary text-[10px]"
-                    >
-                      İptal
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      onClick={() => {
-                        setActiveRatingMovieId(null);
-                        handleFeedback(movie.id, "WATCHED", "LOVE", movie.title);
-                      }}
-                      className="py-1.5 rounded-lg bg-accent/20 hover:bg-accent/30 text-text-primary font-mono text-[10px] border border-accent/40 text-center"
-                    >
-                      ❤️ Çok Sevdim
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActiveRatingMovieId(null);
-                        handleFeedback(movie.id, "WATCHED", "LIKE", movie.title);
-                      }}
-                      className="py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-text-primary font-mono text-[10px] border border-border text-center"
-                    >
-                      👍 Beğendim
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActiveRatingMovieId(null);
-                        handleFeedback(movie.id, "WATCHED", "NEUTRAL", movie.title);
-                      }}
-                      className="py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-text-secondary font-mono text-[10px] border border-border text-center"
-                    >
-                      😐 Ortalama
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActiveRatingMovieId(null);
-                        handleFeedback(movie.id, "WATCHED", "DISLIKE", movie.title);
-                      }}
-                      className="py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-text-muted font-mono text-[10px] border border-border text-center"
-                    >
-                      👎 Sevmedim
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-1 text-[11px] font-mono relative">
-                  {/* Quick Primary Actions: LIKE & DISLIKE */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      aria-pressed={currentFeedback === "LIKE"}
-                      onClick={() => handleFeedback(movie.id, "LIKE", undefined, movie.title)}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
-                        currentFeedback === "LIKE"
-                          ? "bg-accent/20 text-accent border border-accent/50 shadow-sm"
-                          : "bg-surface-elevated hover:bg-border border border-border/70 text-text-secondary hover:text-text-primary"
-                      }`}
-                      title="İlgimi Çekti (Benzerlerini daha çok öner)"
-                    >
-                      <span>👍</span>
-                      <span className="hidden sm:inline text-[10px]">İlgimi Çekti</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      aria-pressed={currentFeedback === "DISLIKE"}
-                      onClick={() => handleFeedback(movie.id, "DISLIKE", undefined, movie.title)}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
-                        currentFeedback === "DISLIKE"
-                          ? "bg-surface-elevated text-text-muted border border-border shadow-sm"
-                          : "bg-surface-elevated hover:bg-border border border-border/70 text-text-secondary hover:text-text-muted"
-                      }`}
-                      title="İlgimi Çekmedi"
-                    >
-                      <span>👎</span>
-                      <span className="hidden sm:inline text-[10px]">İlgimi Çekmedi</span>
-                    </button>
-                  </div>
-
-                  {/* Watchlist & Overflow Menu */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      aria-pressed={currentFeedback === "WATCHLIST"}
-                      onClick={() => handleFeedback(movie.id, "WATCHLIST", undefined, movie.title)}
-                      className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition-all ${
-                        currentFeedback === "WATCHLIST"
-                          ? "bg-accent text-white font-bold shadow-sm"
-                          : "bg-surface-elevated hover:bg-border border border-border/70 text-text-secondary hover:text-text-primary"
-                      }`}
-                      title="İzleme Listeme Ekle"
-                    >
-                      <span>🔖</span>
-                      <span className="hidden md:inline text-[10px]">Listem</span>
-                    </button>
-
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setActiveMenuMovieId(isMenuOpen ? null : movie.id)}
-                        className="p-1.5 rounded-lg bg-surface-elevated hover:bg-border border border-border/70 text-text-secondary hover:text-text-primary text-xs"
-                        title="Daha fazla seçenek"
-                      >
-                        ⋯
-                      </button>
-
-                      {/* Dropdown Menu */}
-                      {isMenuOpen && (
-                        <div className="absolute bottom-full right-0 mb-1.5 w-44 rounded-xl bg-surface-elevated border border-border/80 shadow-2xl p-1.5 space-y-1 z-30 animate-fadeIn">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveMenuMovieId(null);
-                              setActiveRatingMovieId(movie.id);
-                            }}
-                            className="w-full px-2.5 py-1.5 rounded-lg text-left text-[11px] font-mono hover:bg-surface hover:text-accent transition-colors flex items-center gap-2"
-                          >
-                            <span>👁️</span>
-                            <span>İzledim</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleFeedback(movie.id, "HIDE", undefined, movie.title)}
-                            className="w-full px-2.5 py-1.5 rounded-lg text-left text-[11px] font-mono text-text-muted hover:bg-surface hover:text-red-400 transition-colors flex items-center gap-2"
-                          >
-                            <span>🚫</span>
-                            <span>Bunu Önerme</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            return (
+              <MediaCard
+                key={movie.id}
+                id={movie.id}
+                mediaType="FILM"
+                title={movie.title}
+                originalTitle={movie.originalTitle}
+                posterPath={movie.posterPath}
+                releaseYear={movie.releaseYear}
+                genres={genres}
+                matchScore={match}
+                matchLabel={matchLabel}
+                reasonHeadline={item.headline}
+                isWatchlist={feedbackStateMap[movie.id] === "WATCHLIST"}
+                onClick={() => {
+                  if (onOpenDetails) {
+                    onOpenDetails(movie, match, item.headline, item.reasons);
+                  }
+                }}
+                onFeedbackAction={(action) => handleFeedback(movie.id, action, undefined, movie.title)}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

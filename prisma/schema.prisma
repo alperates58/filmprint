@@ -428,8 +428,8 @@ enum CatalogCandidateStatus {
 model CatalogIngestionState {
   id                   String               @id @default(uuid())
   mediaType            MediaType            @unique
-  enabled              Boolean              @default(true)
-  mode                 CatalogIngestionMode @default(INITIAL_FILL)
+  enabled              Boolean              @default(false)
+  mode                 CatalogIngestionMode @default(PAUSED)
   sourceDate           String?
   sourceCursor         Int                  @default(0)
   targetDailyItems     Int                  @default(10000)

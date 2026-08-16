@@ -109,6 +109,7 @@ export interface CatalogIngestionOverviewStatus {
   circuitThreshold: number;
   circuitCooldownMs: number;
   film: CatalogMediaStatusView;
+  movie: CatalogMediaStatusView;
   tv: CatalogMediaStatusView;
 }
 
@@ -157,6 +158,8 @@ export interface CatalogIngestionBatchResult {
 }
 
 export type CatalogAdminActionType =
+  | "MASTER_START"
+  | "MASTER_PAUSE"
   | "START_MOVIE"
   | "PAUSE_MOVIE"
   | "START_TV"

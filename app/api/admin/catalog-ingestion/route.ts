@@ -15,18 +15,27 @@ export async function GET() {
     if ((error as Error).message === "UNAUTHORIZED_ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("[Catalog Ingestion Status API Error]:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("[Catalog Ingestion Status API Error]:", (error as Error).message);
+    return NextResponse.json(
+      { error: "CATALOG_INGESTION_INTERNAL_ERROR", message: (error as Error).message },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: Request) {
   try {
     const admin = await requireAdminSession();
-    const body = await request.json();
+    let body: any = {};
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
     const { action, mediaType, batchSize, resetCursorValue } = body;
 
-    if (!action) {
+    if (!action || typeof action !== "string") {
       return NextResponse.json({ error: "Action is required." }, { status: 400 });
     }
 
@@ -35,15 +44,20 @@ export async function POST(request: Request) {
       batchSize,
       resetCursorValue,
       ...(mediaType ? { mediaType } : {}),
-    } as any);
+    });
 
-    await logAdminAudit(
-      admin.id,
-      `CATALOG_INGESTION_${action}`,
-      "CatalogIngestionState",
-      mediaType || undefined,
-      body
-    );
+    // Safely log audit without blocking the response
+    try {
+      await logAdminAudit(
+        admin.id,
+        `CATALOG_INGESTION_${action}`,
+        "CatalogIngestionState",
+        mediaType || undefined,
+        body
+      );
+    } catch (auditErr) {
+      console.warn("[CatalogIngestion] Note: Admin audit log skipped:", (auditErr as Error).message);
+    }
 
     const refreshedStatus = await getCatalogIngestionOverviewStatus();
 
@@ -57,9 +71,12 @@ export async function POST(request: Request) {
     if ((error as Error).message === "UNAUTHORIZED_ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("[Catalog Ingestion Action API Error]:", error);
+    console.error("[Catalog Ingestion Action API Error]:", (error as Error).message);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal Server Error" },
+      {
+        error: "CATALOG_INGESTION_INTERNAL_ERROR",
+        message: error instanceof Error ? error.message : "Internal Server Error",
+      },
       { status: 500 }
     );
   }

@@ -9,7 +9,6 @@ import { sharedCatalogLimiter } from "./rate-limiter";
 import type {
   CatalogAdminActionType,
   CatalogIngestionBatchResult,
-  CatalogIngestionFullConfig,
   CatalogIngestionGlobalConfig,
   CatalogIngestionOverviewStatus,
   CatalogMediaConfigInput,
@@ -32,112 +31,243 @@ export function getTodayUtcDateString(): string {
   return `${year}-${month}-${day}`;
 }
 
-export async function getCatalogIngestionGlobalConfig(): Promise<CatalogIngestionGlobalConfig> {
-  const settings = await db.systemSetting.findMany({
-    where: {
-      key: {
-        in: [
-          "catalog_ingestion_master_enabled",
-          "catalog_ingestion_global_max_rps",
-          "catalog_ingestion_stale_days",
-          "catalog_ingestion_circuit_threshold",
-          "catalog_ingestion_circuit_cooldown_ms",
-        ],
-      },
-    },
-  });
+/**
+ * Ensures system settings and media ingestion state rows are initialized
+ * idempotently with safe production defaults (masterEnabled = false, mode = PAUSED).
+ */
+export async function ensureCatalogIngestionStates(): Promise<void> {
+  const todayUtc = getTodayUtcDateString();
 
-  const map = new Map(settings.map((s) => [s.key, s.value]));
+  try {
+    // 1. Ensure master setting exists (defaulting to false)
+    const existingMaster = await db.systemSetting.findUnique({
+      where: { key: "catalog_ingestion_master_enabled" },
+    });
 
-  const masterEnabled = map.get("catalog_ingestion_master_enabled") !== "false";
-  const globalMaxRps = Math.max(0.1, Math.min(10.0, parseFloat(map.get("catalog_ingestion_global_max_rps") || "4.0")));
-  const staleDays = Math.max(30, Math.min(365, parseInt(map.get("catalog_ingestion_stale_days") || "180", 10)));
-  const circuitThreshold = Math.max(3, Math.min(50, parseInt(map.get("catalog_ingestion_circuit_threshold") || "10", 10)));
-  const circuitCooldownMs = Math.max(10000, Math.min(3600000, parseInt(map.get("catalog_ingestion_circuit_cooldown_ms") || "300000", 10)));
-
-  // Update shared limiter and circuit breakers
-  sharedCatalogLimiter.setGlobalMaxRps(globalMaxRps);
-  filmCircuitBreaker.updateConfig(circuitThreshold, circuitCooldownMs);
-  tvCircuitBreaker.updateConfig(circuitThreshold, circuitCooldownMs);
-
-  return {
-    masterEnabled,
-    globalMaxRps,
-    staleDays,
-    circuitThreshold,
-    circuitCooldownMs,
-  };
-}
-
-export async function getOrCreateMediaIngestionState(mediaType: MediaType) {
-  const existing = await db.catalogIngestionState.findUnique({
-    where: { mediaType },
-  });
-
-  if (existing) {
-    // Perform daily UTC counter reset if date rolled over
-    const todayUtc = getTodayUtcDateString();
-    if (existing.lastCounterResetDate !== todayUtc) {
-      return await db.catalogIngestionState.update({
-        where: { mediaType },
+    if (!existingMaster) {
+      await db.systemSetting.create({
         data: {
-          processedToday: 0,
-          insertedToday: 0,
-          updatedToday: 0,
-          rejectedToday: 0,
-          rateLimitedToday: 0,
-          failedToday: 0,
-          lastCounterResetDate: todayUtc,
+          key: "catalog_ingestion_master_enabled",
+          value: "false",
         },
       });
     }
-    return existing;
-  }
 
+    // 2. Ensure FILM state row exists
+    await db.catalogIngestionState.upsert({
+      where: { mediaType: "FILM" },
+      update: {},
+      create: {
+        mediaType: "FILM",
+        enabled: false,
+        mode: "PAUSED",
+        targetDailyItems: 10_000,
+        requestsPerSecond: 1.0,
+        concurrency: 2,
+        initialTarget: 100_000,
+        lastCounterResetDate: todayUtc,
+      },
+    });
+
+    // 3. Ensure TV state row exists
+    await db.catalogIngestionState.upsert({
+      where: { mediaType: "TV" },
+      update: {},
+      create: {
+        mediaType: "TV",
+        enabled: false,
+        mode: "PAUSED",
+        targetDailyItems: 3_000,
+        requestsPerSecond: 1.0,
+        concurrency: 2,
+        initialTarget: 30_000,
+        lastCounterResetDate: todayUtc,
+      },
+    });
+  } catch (err) {
+    console.warn("[CatalogIngestion] Note: ensureCatalogIngestionStates encountered:", (err as Error).message);
+  }
+}
+
+export async function getCatalogIngestionGlobalConfig(): Promise<CatalogIngestionGlobalConfig> {
+  try {
+    const settings = await db.systemSetting.findMany({
+      where: {
+        key: {
+          in: [
+            "catalog_ingestion_master_enabled",
+            "catalog_ingestion_global_max_rps",
+            "catalog_ingestion_stale_days",
+            "catalog_ingestion_circuit_threshold",
+            "catalog_ingestion_circuit_cooldown_ms",
+          ],
+        },
+      },
+    });
+
+    const map = new Map(settings.map((s) => [s.key, s.value]));
+
+    // Safe default: strictly false unless explicitly set to "true"
+    const masterEnabled = map.get("catalog_ingestion_master_enabled") === "true";
+    const globalMaxRps = Math.max(0.1, Math.min(10.0, parseFloat(map.get("catalog_ingestion_global_max_rps") || "4.0")));
+    const staleDays = Math.max(30, Math.min(365, parseInt(map.get("catalog_ingestion_stale_days") || "180", 10)));
+    const circuitThreshold = Math.max(3, Math.min(50, parseInt(map.get("catalog_ingestion_circuit_threshold") || "10", 10)));
+    const circuitCooldownMs = Math.max(10000, Math.min(3600000, parseInt(map.get("catalog_ingestion_circuit_cooldown_ms") || "300000", 10)));
+
+    // Update shared limiter and circuit breakers
+    sharedCatalogLimiter.setGlobalMaxRps(globalMaxRps);
+    filmCircuitBreaker.updateConfig(circuitThreshold, circuitCooldownMs);
+    tvCircuitBreaker.updateConfig(circuitThreshold, circuitCooldownMs);
+
+    return {
+      masterEnabled,
+      globalMaxRps,
+      staleDays,
+      circuitThreshold,
+      circuitCooldownMs,
+    };
+  } catch (err) {
+    console.error("[CatalogIngestion] Error reading global config; using safe fallback:", (err as Error).message);
+    return {
+      masterEnabled: false,
+      globalMaxRps: 4.0,
+      staleDays: 180,
+      circuitThreshold: 10,
+      circuitCooldownMs: 300_000,
+    };
+  }
+}
+
+export async function getOrCreateMediaIngestionState(mediaType: MediaType) {
   const defaultInitialTarget = mediaType === "FILM" ? 100_000 : 30_000;
   const defaultDailyTarget = mediaType === "FILM" ? 10_000 : 3_000;
+  const todayUtc = getTodayUtcDateString();
 
-  return await db.catalogIngestionState.create({
-    data: {
+  const state = await db.catalogIngestionState.upsert({
+    where: { mediaType },
+    update: {},
+    create: {
       mediaType,
-      enabled: true,
-      mode: "INITIAL_FILL",
+      enabled: false,
+      mode: "PAUSED",
       targetDailyItems: defaultDailyTarget,
       requestsPerSecond: 1.0,
       concurrency: 2,
       initialTarget: defaultInitialTarget,
-      lastCounterResetDate: getTodayUtcDateString(),
+      lastCounterResetDate: todayUtc,
     },
   });
+
+  // Perform daily UTC counter reset if date rolled over
+  if (state.lastCounterResetDate !== todayUtc) {
+    return await db.catalogIngestionState.update({
+      where: { mediaType },
+      data: {
+        processedToday: 0,
+        insertedToday: 0,
+        updatedToday: 0,
+        rejectedToday: 0,
+        rateLimitedToday: 0,
+        failedToday: 0,
+        lastCounterResetDate: todayUtc,
+      },
+    });
+  }
+
+  return state;
 }
 
 export async function getCatalogIngestionOverviewStatus(): Promise<CatalogIngestionOverviewStatus> {
+  await ensureCatalogIngestionStates();
+
   const globalConfig = await getCatalogIngestionGlobalConfig();
-  const [filmState, tvState] = await Promise.all([
-    getOrCreateMediaIngestionState("FILM"),
-    getOrCreateMediaIngestionState("TV"),
-  ]);
 
-  // Compute live database counts and eligible usable counts
-  const [filmTotal, tvTotal] = await Promise.all([
-    db.movie.count(),
-    db.tvShow.count(),
-  ]);
+  let filmState;
+  let tvState;
+  try {
+    [filmState, tvState] = await Promise.all([
+      getOrCreateMediaIngestionState("FILM"),
+      getOrCreateMediaIngestionState("TV"),
+    ]);
+  } catch (err) {
+    console.error("[CatalogIngestion] Error getting media ingestion state:", (err as Error).message);
+    const fallbackDate = getTodayUtcDateString();
+    filmState = {
+      mediaType: "FILM" as MediaType,
+      enabled: false,
+      mode: "PAUSED" as const,
+      sourceDate: null,
+      sourceCursor: 0,
+      targetDailyItems: 10_000,
+      requestsPerSecond: 1.0,
+      concurrency: 2,
+      initialTarget: 100_000,
+      processedToday: 0,
+      insertedToday: 0,
+      updatedToday: 0,
+      rejectedToday: 0,
+      rateLimitedToday: 0,
+      failedToday: 0,
+      lastCounterResetDate: fallbackDate,
+      circuitOpenUntil: null,
+      lastRunAt: null,
+      lastSuccessAt: null,
+      lastErrorAt: null,
+      lastError: null,
+    };
+    tvState = {
+      mediaType: "TV" as MediaType,
+      enabled: false,
+      mode: "PAUSED" as const,
+      sourceDate: null,
+      sourceCursor: 0,
+      targetDailyItems: 3_000,
+      requestsPerSecond: 1.0,
+      concurrency: 2,
+      initialTarget: 30_000,
+      processedToday: 0,
+      insertedToday: 0,
+      updatedToday: 0,
+      rejectedToday: 0,
+      rateLimitedToday: 0,
+      failedToday: 0,
+      lastCounterResetDate: fallbackDate,
+      circuitOpenUntil: null,
+      lastRunAt: null,
+      lastSuccessAt: null,
+      lastErrorAt: null,
+      lastError: null,
+    };
+  }
 
-  // Sample eligible usable totals (using realistic quality floor query)
-  const [sampleMovies, sampleTvShows] = await Promise.all([
-    db.movie.findMany({ take: 250, select: { title: true, originalTitle: true, posterPath: true, releaseYear: true, voteAverage: true, popularity: true, metadata: true } }),
-    db.tvShow.findMany({ take: 250, select: { name: true, originalName: true, posterPath: true, firstAirDate: true, voteAverage: true, popularity: true, metadata: true, overview: true } }),
-  ]);
+  // Safely compute live database counts and eligible usable counts
+  let filmTotal = 0;
+  let tvTotal = 0;
+  let estimatedFilmEligible = 0;
+  let estimatedTvEligible = 0;
 
-  const eligibleSampleMovieCount = filterEligibleMovies(sampleMovies as any, "RECOMMENDATION").length;
-  const eligibleSampleTvCount = filterEligibleTvShows(sampleTvShows as any, "RECOMMENDATION").length;
+  try {
+    [filmTotal, tvTotal] = await Promise.all([
+      db.movie.count(),
+      db.tvShow.count(),
+    ]);
 
-  const movieEligibleRatio = sampleMovies.length > 0 ? eligibleSampleMovieCount / sampleMovies.length : 1.0;
-  const tvEligibleRatio = sampleTvShows.length > 0 ? eligibleSampleTvCount / sampleTvShows.length : 1.0;
+    const [sampleMovies, sampleTvShows] = await Promise.all([
+      db.movie.findMany({ take: 250, select: { title: true, originalTitle: true, posterPath: true, releaseYear: true, voteAverage: true, popularity: true, metadata: true } }),
+      db.tvShow.findMany({ take: 250, select: { name: true, originalName: true, posterPath: true, firstAirDate: true, voteAverage: true, popularity: true, metadata: true, overview: true } }),
+    ]);
 
-  const estimatedFilmEligible = Math.round(filmTotal * movieEligibleRatio);
-  const estimatedTvEligible = Math.round(tvTotal * tvEligibleRatio);
+    const eligibleSampleMovieCount = filterEligibleMovies(sampleMovies as any, "RECOMMENDATION").length;
+    const eligibleSampleTvCount = filterEligibleTvShows(sampleTvShows as any, "RECOMMENDATION").length;
+
+    const movieEligibleRatio = sampleMovies.length > 0 ? eligibleSampleMovieCount / sampleMovies.length : 1.0;
+    const tvEligibleRatio = sampleTvShows.length > 0 ? eligibleSampleTvCount / sampleTvShows.length : 1.0;
+
+    estimatedFilmEligible = Math.round(filmTotal * movieEligibleRatio);
+    estimatedTvEligible = Math.round(tvTotal * tvEligibleRatio);
+  } catch (err) {
+    console.warn("[CatalogIngestion] Catalog count/sample query note:", (err as Error).message);
+  }
 
   const filmCircuit = filmCircuitBreaker.getState(filmState.circuitOpenUntil);
   const tvCircuit = tvCircuitBreaker.getState(tvState.circuitOpenUntil);
@@ -189,10 +319,14 @@ export async function getCatalogIngestionOverviewStatus(): Promise<CatalogIngest
     };
   };
 
+  const filmView = buildMediaView(filmState, filmTotal, estimatedFilmEligible, filmCircuit);
+  const tvView = buildMediaView(tvState, tvTotal, estimatedTvEligible, tvCircuit);
+
   return {
     ...globalConfig,
-    film: buildMediaView(filmState, filmTotal, estimatedFilmEligible, filmCircuit),
-    tv: buildMediaView(tvState, tvTotal, estimatedTvEligible, tvCircuit),
+    film: filmView,
+    movie: filmView, // Alias for parity across both film and movie terminology
+    tv: tvView,
   };
 }
 
@@ -238,9 +372,19 @@ export async function updateCatalogIngestionConfig(input: {
     }
 
     if (Object.keys(data).length > 0) {
-      await db.catalogIngestionState.update({
+      await db.catalogIngestionState.upsert({
         where: { mediaType },
-        data,
+        update: data,
+        create: {
+          mediaType,
+          enabled: data.enabled ?? false,
+          mode: data.mode ?? "PAUSED",
+          targetDailyItems: data.targetDailyItems ?? (mediaType === "FILM" ? 10_000 : 3_000),
+          requestsPerSecond: data.requestsPerSecond ?? 1.0,
+          concurrency: data.concurrency ?? 2,
+          initialTarget: data.initialTarget ?? (mediaType === "FILM" ? 100_000 : 30_000),
+          lastCounterResetDate: getTodayUtcDateString(),
+        },
       });
     }
   };
@@ -442,36 +586,88 @@ export async function executeAdminAction(
   params?: {
     batchSize?: number;
     resetCursorValue?: number;
+    mediaType?: MediaType;
   }
 ): Promise<{ success: boolean; message: string; result?: any }> {
+  await ensureCatalogIngestionStates();
+  const todayUtc = getTodayUtcDateString();
+
   switch (action) {
+    case "MASTER_START":
+      await updateSystemSetting("catalog_ingestion_master_enabled", "true");
+      return { success: true, message: "Master ingestion switch AÇILDI." };
+
+    case "MASTER_PAUSE":
+      await updateSystemSetting("catalog_ingestion_master_enabled", "false");
+      return { success: true, message: "Master ingestion switch DURDURULDU." };
+
     case "START_MOVIE":
-      await db.catalogIngestionState.update({
+      await db.catalogIngestionState.upsert({
         where: { mediaType: "FILM" },
-        data: { enabled: true, mode: "INITIAL_FILL" },
+        update: { enabled: true, mode: "INITIAL_FILL" },
+        create: {
+          mediaType: "FILM",
+          enabled: true,
+          mode: "INITIAL_FILL",
+          targetDailyItems: 10_000,
+          requestsPerSecond: 1.0,
+          concurrency: 2,
+          initialTarget: 100_000,
+          lastCounterResetDate: todayUtc,
+        },
       });
-      return { success: true, message: "Film ingestion started." };
+      return { success: true, message: "Film ingestion başlatıldı." };
 
     case "PAUSE_MOVIE":
-      await db.catalogIngestionState.update({
+      await db.catalogIngestionState.upsert({
         where: { mediaType: "FILM" },
-        data: { mode: "PAUSED" },
+        update: { mode: "PAUSED" },
+        create: {
+          mediaType: "FILM",
+          enabled: false,
+          mode: "PAUSED",
+          targetDailyItems: 10_000,
+          requestsPerSecond: 1.0,
+          concurrency: 2,
+          initialTarget: 100_000,
+          lastCounterResetDate: todayUtc,
+        },
       });
-      return { success: true, message: "Film ingestion paused." };
+      return { success: true, message: "Film ingestion duraklatıldı." };
 
     case "START_TV":
-      await db.catalogIngestionState.update({
+      await db.catalogIngestionState.upsert({
         where: { mediaType: "TV" },
-        data: { enabled: true, mode: "INITIAL_FILL" },
+        update: { enabled: true, mode: "INITIAL_FILL" },
+        create: {
+          mediaType: "TV",
+          enabled: true,
+          mode: "INITIAL_FILL",
+          targetDailyItems: 3_000,
+          requestsPerSecond: 1.0,
+          concurrency: 2,
+          initialTarget: 30_000,
+          lastCounterResetDate: todayUtc,
+        },
       });
-      return { success: true, message: "TV ingestion started." };
+      return { success: true, message: "TV ingestion başlatıldı." };
 
     case "PAUSE_TV":
-      await db.catalogIngestionState.update({
+      await db.catalogIngestionState.upsert({
         where: { mediaType: "TV" },
-        data: { mode: "PAUSED" },
+        update: { mode: "PAUSED" },
+        create: {
+          mediaType: "TV",
+          enabled: false,
+          mode: "PAUSED",
+          targetDailyItems: 3_000,
+          requestsPerSecond: 1.0,
+          concurrency: 2,
+          initialTarget: 30_000,
+          lastCounterResetDate: todayUtc,
+        },
       });
-      return { success: true, message: "TV ingestion paused." };
+      return { success: true, message: "TV ingestion duraklatıldı." };
 
     case "RESET_DAILY_COUNTERS":
       await db.catalogIngestionState.updateMany({
@@ -482,10 +678,10 @@ export async function executeAdminAction(
           rejectedToday: 0,
           rateLimitedToday: 0,
           failedToday: 0,
-          lastCounterResetDate: getTodayUtcDateString(),
+          lastCounterResetDate: todayUtc,
         },
       });
-      return { success: true, message: "Daily counters reset to 0." };
+      return { success: true, message: "Günlük sayaçlar sıfırlandı." };
 
     case "RESET_CIRCUIT_BREAKER":
       filmCircuitBreaker.reset();
@@ -496,10 +692,10 @@ export async function executeAdminAction(
           consecutiveFailures: 0,
         },
       });
-      return { success: true, message: "Circuit breaker reset." };
+      return { success: true, message: "Circuit breaker sıfırlandı." };
 
     case "RUN_BATCH":
-      const media = (params as any)?.mediaType === "TV" ? "TV" : "FILM";
+      const media = params?.mediaType === "TV" ? "TV" : "FILM";
       const size = Math.min(100, Math.max(5, params?.batchSize || 10));
       const batchResult = await executeCatalogIngestionBatch(media, {
         batchSize: size,
@@ -507,22 +703,33 @@ export async function executeAdminAction(
       });
       return {
         success: true,
-        message: `Executed ${media} batch of ${batchResult.processed} items. (Inserted: ${batchResult.inserted}, Updated: ${batchResult.updated}, Rejected: ${batchResult.rejected}, Failed: ${batchResult.failed})`,
+        message: `${media} batch (${batchResult.processed} öğe) başarıyla çalıştırıldı. (Eklenen: ${batchResult.inserted}, Güncellenen: ${batchResult.updated}, Reddedilen: ${batchResult.rejected}, Hata: ${batchResult.failed})`,
         result: batchResult,
       };
 
     case "RESET_CURSOR":
-      const targetMedia = (params as any)?.mediaType === "TV" ? "TV" : "FILM";
+      const targetMedia = params?.mediaType === "TV" ? "TV" : "FILM";
       const cursorVal = Math.max(0, params?.resetCursorValue || 0);
-      await db.catalogIngestionState.update({
+      await db.catalogIngestionState.upsert({
         where: { mediaType: targetMedia },
-        data: {
+        update: {
           sourceCursor: cursorVal,
         },
+        create: {
+          mediaType: targetMedia,
+          enabled: false,
+          mode: "PAUSED",
+          sourceCursor: cursorVal,
+          targetDailyItems: targetMedia === "FILM" ? 10_000 : 3_000,
+          requestsPerSecond: 1.0,
+          concurrency: 2,
+          initialTarget: targetMedia === "FILM" ? 100_000 : 30_000,
+          lastCounterResetDate: todayUtc,
+        },
       });
-      return { success: true, message: `${targetMedia} cursor reset to ${cursorVal}.` };
+      return { success: true, message: `${targetMedia} cursor ${cursorVal} olarak ayarlandı.` };
 
     default:
-      return { success: false, message: "Unknown action." };
+      return { success: false, message: "Bilinmeyen eylem (Unknown action)." };
   }
 }

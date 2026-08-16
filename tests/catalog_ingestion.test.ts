@@ -12,6 +12,7 @@ import { isMeaningfulOverview, normalizeOverviewForPersistence } from "../lib/co
 import { evaluateContentIngestionSafety } from "../lib/content/ingestion-safety";
 import { mergeTmdbMovieLocalization } from "../lib/tmdb/movie-localization";
 import { mergeTmdbTvLocalization } from "../lib/tmdb/tv/localization";
+import type { CatalogIngestionOverviewStatus } from "../lib/catalog-ingestion/types";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -226,6 +227,109 @@ export async function runCatalogIngestionTests(): Promise<void> {
     assert(mergedTv.show.overview === tvEn.overview, "TV overview must fallback to English when Turkish is empty");
     assert(mergedTv.titleSource === "TR", "TV Title source must be TR");
     assert(mergedTv.overviewSource === "EN", "TV Overview source must be EN");
+  }
+
+  // 11. Status Serialization Safety & JSON Compatibility
+  {
+    const mockOverviewStatus: CatalogIngestionOverviewStatus = {
+      masterEnabled: false,
+      globalMaxRps: 4.0,
+      staleDays: 180,
+      circuitThreshold: 10,
+      circuitCooldownMs: 300000,
+      film: {
+        mediaType: "FILM",
+        enabled: false,
+        mode: "PAUSED",
+        effectiveRunning: false,
+        sourceDate: null,
+        sourceCursor: 0,
+        targetDailyItems: 10000,
+        requestsPerSecond: 1.0,
+        concurrency: 2,
+        initialTarget: 100000,
+        processedToday: 0,
+        insertedToday: 0,
+        updatedToday: 0,
+        rejectedToday: 0,
+        rateLimitedToday: 0,
+        failedToday: 0,
+        catalogTotal: 0,
+        eligibleTotal: 0,
+        progressPercent: 0,
+        circuitState: "CLOSED",
+        circuitOpenUntil: null,
+        lastRunAt: null,
+        lastSuccessAt: null,
+        lastErrorAt: null,
+        lastError: null,
+      },
+      movie: {
+        mediaType: "FILM",
+        enabled: false,
+        mode: "PAUSED",
+        effectiveRunning: false,
+        sourceDate: null,
+        sourceCursor: 0,
+        targetDailyItems: 10000,
+        requestsPerSecond: 1.0,
+        concurrency: 2,
+        initialTarget: 100000,
+        processedToday: 0,
+        insertedToday: 0,
+        updatedToday: 0,
+        rejectedToday: 0,
+        rateLimitedToday: 0,
+        failedToday: 0,
+        catalogTotal: 0,
+        eligibleTotal: 0,
+        progressPercent: 0,
+        circuitState: "CLOSED",
+        circuitOpenUntil: null,
+        lastRunAt: null,
+        lastSuccessAt: null,
+        lastErrorAt: null,
+        lastError: null,
+      },
+      tv: {
+        mediaType: "TV",
+        enabled: false,
+        mode: "PAUSED",
+        effectiveRunning: false,
+        sourceDate: null,
+        sourceCursor: 0,
+        targetDailyItems: 3000,
+        requestsPerSecond: 1.0,
+        concurrency: 2,
+        initialTarget: 30000,
+        processedToday: 0,
+        insertedToday: 0,
+        updatedToday: 0,
+        rejectedToday: 0,
+        rateLimitedToday: 0,
+        failedToday: 0,
+        catalogTotal: 0,
+        eligibleTotal: 0,
+        progressPercent: 0,
+        circuitState: "CLOSED",
+        circuitOpenUntil: null,
+        lastRunAt: null,
+        lastSuccessAt: null,
+        lastErrorAt: null,
+        lastError: null,
+      },
+    };
+
+    const serialized = JSON.stringify(mockOverviewStatus);
+    const parsed = JSON.parse(serialized);
+    assert(parsed.masterEnabled === false, "Master switch default must be false");
+    assert(parsed.movie !== undefined, "Status must contain movie view");
+    assert(parsed.film !== undefined, "Status must contain film view");
+    assert(parsed.tv !== undefined, "Status must contain tv view");
+    assert(parsed.movie.mode === "PAUSED", "Movie safe default mode must be PAUSED");
+    assert(parsed.tv.mode === "PAUSED", "TV safe default mode must be PAUSED");
+    assert(parsed.movie.enabled === false, "Movie safe default enabled must be false");
+    assert(parsed.tv.enabled === false, "TV safe default enabled must be false");
   }
 
   console.log("  ✅ TMDB Catalog Ingestion Engine Unit Tests Passed.");

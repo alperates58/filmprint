@@ -8,7 +8,12 @@ import {
 export async function POST(request: Request) {
   try {
     const admin = await requireAdminSession();
-    const body = await request.json();
+    let body: any = {};
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
 
     const {
       masterEnabled,
@@ -64,13 +69,17 @@ export async function POST(request: Request) {
       tv,
     });
 
-    await logAdminAudit(
-      admin.id,
-      "CATALOG_INGESTION_CONFIG_UPDATED",
-      "CatalogIngestionState",
-      undefined,
-      body
-    );
+    try {
+      await logAdminAudit(
+        admin.id,
+        "CATALOG_INGESTION_CONFIG_UPDATED",
+        "CatalogIngestionState",
+        undefined,
+        body
+      );
+    } catch (auditErr) {
+      console.warn("[CatalogIngestion] Note: Admin config audit log skipped:", (auditErr as Error).message);
+    }
 
     const refreshedStatus = await getCatalogIngestionOverviewStatus();
 
@@ -83,9 +92,12 @@ export async function POST(request: Request) {
     if ((error as Error).message === "UNAUTHORIZED_ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("[Catalog Ingestion Config API Error]:", error);
+    console.error("[Catalog Ingestion Config API Error]:", (error as Error).message);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal Server Error" },
+      {
+        error: "CATALOG_INGESTION_INTERNAL_ERROR",
+        message: error instanceof Error ? error.message : "Internal Server Error",
+      },
       { status: 500 }
     );
   }

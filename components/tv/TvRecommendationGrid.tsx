@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
+import { TvDetailsModal } from "./TvDetailsModal";
 import type { PersonalizedTvRecommendationItem } from "@/lib/tv/recommendation/types";
 
 interface TvRecommendationGridProps {
@@ -20,6 +21,7 @@ export function TvRecommendationGrid({ items, onFeedbackAction, hybridPending }:
   const [feedbackStateMap, setFeedbackStateMap] = useState<Record<string, string>>({});
   const [hiddenShowIds, setHiddenShowIds] = useState<Set<string>>(new Set());
   const [undoToast, setUndoToast] = useState<{ showId: string; title: string } | null>(null);
+  const [selectedTvModal, setSelectedTvModal] = useState<{ tvShowId: string; initialData?: any } | null>(null);
 
   useEffect(() => {
     if (hybridPending && !refreshedRef.current) {
@@ -223,7 +225,10 @@ export function TvRecommendationGrid({ items, onFeedbackAction, hybridPending }:
               className="p-4 rounded-2xl bg-surface border border-border/80 shadow-md flex flex-col justify-between space-y-3 group hover:border-accent/40 transition-all duration-300 relative"
             >
               {/* Poster Container */}
-              <div className="w-full aspect-[2/3] rounded-xl overflow-hidden bg-surface-elevated relative shadow-sm">
+              <div
+                onClick={() => setSelectedTvModal({ tvShowId: show.id })}
+                className="w-full aspect-[2/3] rounded-xl overflow-hidden bg-surface-elevated relative shadow-sm cursor-pointer"
+              >
                 {posterUrl ? (
                   <Image
                     src={posterUrl}
@@ -253,7 +258,10 @@ export function TvRecommendationGrid({ items, onFeedbackAction, hybridPending }:
 
               {/* Show Metadata */}
               <div className="space-y-1 flex-1">
-                <h3 className="font-display text-base font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors">
+                <h3
+                  onClick={() => setSelectedTvModal({ tvShowId: show.id })}
+                  className="font-display text-base font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors cursor-pointer"
+                >
                   {show.name}
                 </h3>
                 <div className="flex items-center justify-between text-xs font-mono text-text-muted">
@@ -466,6 +474,20 @@ export function TvRecommendationGrid({ items, onFeedbackAction, hybridPending }:
           );
         })}
       </div>
+
+      {/* TV Details Modal */}
+      {selectedTvModal && (
+        <TvDetailsModal
+          tvShowId={selectedTvModal.tvShowId}
+          initialData={selectedTvModal.initialData}
+          onClose={() => setSelectedTvModal(null)}
+          onInteractionUpdate={(tvShowId, status, rating) => {
+            if (onFeedbackAction) {
+              onFeedbackAction(tvShowId, status, rating || undefined);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

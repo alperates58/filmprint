@@ -35,14 +35,20 @@ require.extensions[".ts"] = function (module, filename) {
 
 const { runCatalogIngestionTests } = require("./catalog_ingestion.test.ts");
 const { runRecommendationFeedbackTests } = require("./recommendation_feedback.test.ts");
+const { runPersonalLibraryTests } = require("./personal_library.test.ts");
+const { runTvProgressionTests } = require("./tv_progression.test.ts");
 
 async function main() {
   console.log("===============================================================");
-  console.log("RUNNING ALL TMDB & RECOMMENDATION FEEDBACK UNIT TESTS");
+  console.log("RUNNING ALL TMDB, FEEDBACK, TV PROGRESSION & LIBRARY TESTS");
   console.log("===============================================================\n");
   await runCatalogIngestionTests();
   console.log("");
   await runRecommendationFeedbackTests();
+  console.log("");
+  await runPersonalLibraryTests();
+  console.log("");
+  await runTvProgressionTests();
   console.log("\n===============================================================");
   console.log("ALL TESTS PASSED SUCCESSFULLY");
   console.log("===============================================================\n");

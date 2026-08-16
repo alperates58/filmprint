@@ -11,39 +11,75 @@ interface RankItem {
 
 interface AdminRankDistributionProps {
   rankDistribution: RankItem[];
+  tvRankDistribution?: RankItem[];
 }
 
-export function AdminRankDistribution({ rankDistribution }: AdminRankDistributionProps) {
+export function AdminRankDistribution({
+  rankDistribution,
+  tvRankDistribution = [],
+}: AdminRankDistributionProps) {
+  const [selectedMedia, setSelectedMedia] = useState<"FILM" | "TV">("FILM");
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const totalUsersWithRank = rankDistribution.reduce((acc, r) => acc + r.count, 0);
-  const activeRanks = rankDistribution.filter((r) => r.count > 0);
+  const currentDistribution = selectedMedia === "FILM" ? rankDistribution : tvRankDistribution;
+  const totalUsersWithRank = currentDistribution.reduce((acc, r) => acc + r.count, 0);
+  const activeRanks = currentDistribution.filter((r) => r.count > 0);
 
   return (
     <div className="p-5 rounded-2xl bg-surface border border-border/80 space-y-4 shadow-md">
-      {/* Header & Toggle */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      {/* Header & Media Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="font-display text-base font-bold text-text-primary">
               Kullanıcı Rütbe Dağılımı
             </h2>
             <span className="text-[11px] font-mono text-accent bg-accent/10 px-2.5 py-0.5 rounded-full border border-accent/20">
-              {activeRanks.length} Aktif Rütbe / {totalUsersWithRank} Kullanıcı
+              {activeRanks.length} Aktif / {totalUsersWithRank} Kullanıcı
             </span>
           </div>
           <p className="text-xs text-text-muted font-mono mt-0.5">
-            Kullanıcıların mevcut sinema rütbelerine göre kümelenmesi
+            Kullanıcıların film ve dizi değerlendirme rütbelerine göre kümelenmesi
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="text-xs font-mono text-accent hover:text-accent/80 flex items-center gap-1 self-start sm:self-auto py-1 px-3 rounded-lg bg-surface-elevated border border-border transition-colors"
-        >
-          <span>{isExpanded ? "▲ Daralt" : "▼ Tüm Rütbeleri Göster (19)"}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Media Switcher */}
+          <div className="flex items-center p-1 rounded-xl bg-surface-elevated border border-border font-mono text-xs">
+            <button
+              type="button"
+              onClick={() => setSelectedMedia("FILM")}
+              className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1 ${
+                selectedMedia === "FILM"
+                  ? "bg-accent text-white font-bold shadow-sm"
+                  : "text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              <span>🎬</span>
+              <span>Film Rütbeleri (19)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedMedia("TV")}
+              className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1 ${
+                selectedMedia === "TV"
+                  ? "bg-accent text-white font-bold shadow-sm"
+                  : "text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              <span>📺</span>
+              <span>Dizi Rütbeleri (16)</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-xs font-mono text-accent hover:text-accent/80 flex items-center gap-1 py-1.5 px-3 rounded-xl bg-surface-elevated border border-border transition-colors whitespace-nowrap"
+          >
+            <span>{isExpanded ? "▲ Daralt" : `▼ Tüm Rütbeler (${currentDistribution.length})`}</span>
+          </button>
+        </div>
       </div>
 
       {/* Segmented Distribution Bar */}
@@ -91,17 +127,17 @@ export function AdminRankDistribution({ rankDistribution }: AdminRankDistributio
           })}
         </div>
       ) : (
-        <p className="text-xs font-mono text-text-muted italic">Henüz rütbeli kullanıcı bulunmuyor.</p>
+        <p className="text-xs font-mono text-text-muted italic">Bu kategoride henüz rütbeli kullanıcı bulunmuyor.</p>
       )}
 
-      {/* Expandable Full 19 Ranks Grid */}
+      {/* Expandable Full Ranks Grid */}
       {isExpanded && (
         <div className="pt-3 border-t border-border/60 space-y-2 animate-fadeIn">
           <p className="text-[10px] font-mono text-text-muted uppercase tracking-wider">
-            TÜM RÜTBE KATALOGU (19 KADEME)
+            TÜM {selectedMedia === "FILM" ? "FİLM" : "DİZİ"} RÜTBE KATALOGU ({currentDistribution.length} KADEME)
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-            {rankDistribution.map((r) => {
+            {currentDistribution.map((r) => {
               const hasUsers = r.count > 0;
               return (
                 <div

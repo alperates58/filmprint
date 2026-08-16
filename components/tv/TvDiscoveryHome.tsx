@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
+import { TvDetailsModal } from "./TvDetailsModal";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
 import { getTvProgressionForCount } from "@/lib/progression/service";
 import type { TvHomeModuleItem, PersonalizedTvRecommendationItem } from "@/lib/tv/recommendation/types";
@@ -31,6 +32,11 @@ export function TvDiscoveryHome({
   topHeroMatch,
   maturityLabel = "Dizi Kaşifi",
 }: TvDiscoveryHomeProps) {
+  const [selectedTvModal, setSelectedTvModal] = useState<{
+    tvShowId: string;
+    initialData?: any;
+  } | null>(null);
+
   const progression = getTvProgressionForCount(answeredCount);
   const scrollToModule = (moduleId: string) => {
     const el = document.getElementById(`module-${moduleId}`);
@@ -193,12 +199,13 @@ export function TvDiscoveryHome({
                 )}
 
                 <div className="flex items-center gap-3">
-                  <Link
-                    href="/tv/recommendations"
-                    className="px-5 py-2.5 rounded-xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all shadow-sm"
+                  <button
+                    onClick={() => heroShow && setSelectedTvModal({ tvShowId: heroShow.id })}
+                    className="px-5 py-2.5 rounded-xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all shadow-sm flex items-center gap-1.5"
                   >
-                    Diziyi İncele & Detayları Gör ➔
-                  </Link>
+                    <span>👁️</span>
+                    <span>Diziyi İncele / İzledim Olarak İşaretle ➔</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -243,9 +250,9 @@ export function TvDiscoveryHome({
                       "Dizi";
 
                     return (
-                      <Link
+                      <div
                         key={show.id}
-                        href="/tv/recommendations"
+                        onClick={() => setSelectedTvModal({ tvShowId: show.id })}
                         className="flex-shrink-0 w-36 sm:w-44 group cursor-pointer space-y-2"
                       >
                         {/* Poster Card */}
@@ -288,7 +295,7 @@ export function TvDiscoveryHome({
                             )}
                           </div>
                         </div>
-                      </Link>
+                      </div>
                     );
                   })}
                 </div>
@@ -318,6 +325,15 @@ export function TvDiscoveryHome({
           </div>
         )}
       </main>
+
+      {/* TV Details Modal */}
+      {selectedTvModal && (
+        <TvDetailsModal
+          tvShowId={selectedTvModal.tvShowId}
+          initialData={selectedTvModal.initialData}
+          onClose={() => setSelectedTvModal(null)}
+        />
+      )}
 
       <Footer />
     </div>

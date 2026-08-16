@@ -95,6 +95,24 @@ export async function updateUserInteraction(
     }
   }
 
+  // 3. Sync with canonical UserContentLibrary
+  if (targetStatus === InteractionStatus.WATCHED) {
+    await db.userContentLibrary.upsert({
+      where: { userId_movieId: { userId, movieId } },
+      update: {
+        state: "WATCHED",
+        watchedAt: now,
+      },
+      create: {
+        userId,
+        mediaType: "FILM",
+        movieId,
+        state: "WATCHED",
+        watchedAt: now,
+      },
+    });
+  }
+
   return updatedInteraction;
 }
 
@@ -102,18 +120,15 @@ export async function updateUserInteraction(
  * Removes a movie from user's Watch Later list without affecting MovieInteraction history.
  */
 export async function removeFromWatchLater(userId: string, movieId: string) {
-  const existing = await db.recommendationFeedback.findUnique({
-    where: { userId_movieId: { userId, movieId } },
-  });
-
-  if (existing && existing.action === "WATCH_LATER") {
-    await db.recommendationFeedback.delete({
-      where: { id: existing.id },
-    });
-    return true;
-  }
-
-  return false;
+  await Promise.all([
+    db.recommendationFeedback.deleteMany({
+      where: { userId, movieId, action: { in: ["WATCH_LATER", "WATCHLIST"] } },
+    }),
+    db.userContentLibrary.deleteMany({
+      where: { userId, movieId, state: "WATCHLIST" },
+    }),
+  ]);
+  return true;
 }
 
 /**

@@ -195,6 +195,7 @@ export async function getPersonalizedTvRecommendations(
     ...unsureInteractions.map((i) => i.tvShowId),
     ...feedbackProfile.watchedShowIds,
     ...feedbackProfile.hiddenShowIds,
+    ...feedbackProfile.droppedShowIds,
   ]);
 
   const candidateList: Array<{ candidate: CandidateTvShow; source: TvCandidateSource }> = [];
@@ -409,10 +410,60 @@ export async function getPersonalizedTvRecommendations(
  * Generates editorial TV home modules for the /tv page.
  */
 export async function getTvHomeModules(userId: string): Promise<TvHomeModuleItem[]> {
-  const result = await getPersonalizedTvRecommendations(userId, {
-    limit: 60,
-    includeKnownUnwatched: true,
-  });
+  const [result, watchlistEntries] = await Promise.all([
+    getPersonalizedTvRecommendations(userId, {
+      limit: 60,
+      includeKnownUnwatched: true,
+    }),
+    db.userContentLibrary.findMany({
+      where: { userId, mediaType: "TV", state: "WATCHLIST" },
+      include: { tvShow: true },
+      take: 8,
+      orderBy: { addedAt: "desc" },
+    }),
+  ]);
 
-  return buildTvHomeEditorialModules(result.recommendations);
+  const modules = buildTvHomeEditorialModules(result.recommendations);
+
+  if (watchlistEntries.length > 0) {
+    const watchlistItems: PersonalizedTvRecommendationItem[] = watchlistEntries
+      .filter((e) => e.tvShow !== null)
+      .map((e) => ({
+        tvShow: e.tvShow as any,
+        matchScore: 90,
+        matchLabel: "İzleme Listenizde",
+        source: "KNOWN_UNWATCHED",
+        scoreBreakdown: {
+          genreFit: 90,
+          qualityScore: 90,
+          formatFit: 90,
+          seriesLengthFit: 90,
+          runtimeFit: 90,
+          eraFit: 90,
+          popularityFit: 90,
+          statusFit: 90,
+          internationalFit: 90,
+          networkStyleFit: 90,
+          archetypeBonus: 0,
+          dislikePenalty: 0,
+          feedbackAdjustment: 10,
+        },
+        reasonCodes: ["WATCHLIST"],
+        evidenceShows: [],
+        deterministicExplanation: "Kütüphanene eklediğin dizi.",
+        isHybrid: false,
+      }));
+
+    if (watchlistItems.length > 0) {
+      modules.unshift({
+        id: "USER_WATCHLIST",
+        title: "İzleme Listenden",
+        subtitle: "Daha sonra izlemek üzere kaydettiğin diziler",
+        type: "HORIZONTAL_ROW",
+        items: watchlistItems,
+      });
+    }
+  }
+
+  return modules;
 }

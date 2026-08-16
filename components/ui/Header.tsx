@@ -159,7 +159,7 @@ export function Header({
                       : "text-text-muted hover:text-text-primary"
                   }`}
                 >
-                  Filmlerim
+                  Kütüphanem
                 </Link>
 
                 <Link
@@ -221,14 +221,14 @@ export function Header({
                 </Link>
 
                 <Link
-                  href="/tv/library"
+                  href="/library?tab=watchlist"
                   className={`px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
-                    pathname.startsWith("/tv/library")
+                    pathname.startsWith("/library")
                       ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
                       : "text-text-muted hover:text-text-primary"
                   }`}
                 >
-                  Dizilerim
+                  Kütüphanem
                 </Link>
               </>
             )}
@@ -409,7 +409,7 @@ export function Header({
                     pathname.startsWith("/library") ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
                   }`}
                 >
-                  Filmlerim
+                  Kütüphanem
                 </Link>
 
                 <Link
@@ -466,13 +466,13 @@ export function Header({
                 </Link>
 
                 <Link
-                  href="/tv/library"
+                  href="/library"
                   onClick={() => setMobileMenuOpen(false)}
                   className={`px-4 py-2 rounded-xl text-xs font-mono transition-all ${
-                    pathname.startsWith("/tv/library") ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
+                    pathname.startsWith("/library") ? "bg-accent text-white font-bold" : "text-text-secondary bg-surface-elevated"
                   }`}
                 >
-                  Dizilerim
+                  Kütüphanem
                 </Link>
               </>
             )}

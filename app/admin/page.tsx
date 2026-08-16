@@ -116,7 +116,10 @@ export default async function AdminOverviewPage() {
 
             {/* Rank Distribution Card */}
             {data.rankDistribution && (
-              <AdminRankDistribution rankDistribution={data.rankDistribution} />
+              <AdminRankDistribution
+                rankDistribution={data.rankDistribution}
+                tvRankDistribution={data.tvRankDistribution}
+              />
             )}
 
             {/* Interaction & Calibration Breakdown for Film and TV */}

@@ -73,6 +73,8 @@ export function MovieDetailsModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
+  const [isFavorite, setIsFavorite] = useState<boolean>(false);
+
   // Lock body scroll when modal is open
   useEffect(() => {
     if (movieId) {
@@ -107,12 +109,23 @@ export function MovieDetailsModal({
     setActiveRatingMode(false);
 
     try {
-      const res = await fetch(`/api/movies/${movieId}`);
+      const [res, libRes] = await Promise.all([
+        fetch(`/api/movies/${movieId}`),
+        fetch(`/api/library?contentId=${movieId}`).catch(() => null),
+      ]);
       if (!res.ok) throw new Error("Film detayları yüklenemedi.");
       const data: FullMovieDetails = await res.json();
       setDetails(data);
       setCurrentStatus(data.userStatus);
       setCurrentRating(data.userRating);
+
+      if (libRes && libRes.ok) {
+        const libData = await libRes.json();
+        const found = libData.items?.find((i: any) => i.contentId === movieId);
+        if (found) {
+          setIsFavorite(Boolean(found.isFavorite));
+        }
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -124,7 +137,7 @@ export function MovieDetailsModal({
     fetchDetails();
   }, [fetchDetails]);
 
-  // Handle interaction update
+  // Handle library and interaction updates
   const handleUpdateInteraction = async (
     targetStatus: "WATCHED" | "NOT_WATCHED" | "UNSURE",
     targetRating: "LOVE" | "LIKE" | "NEUTRAL" | "DISLIKE" | null = null
@@ -135,13 +148,26 @@ export function MovieDetailsModal({
     setActiveRatingMode(false);
 
     try {
-      const res = await fetch(`/api/interactions/${movieId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: targetStatus, rating: targetRating }),
-      });
+      if (targetStatus === "WATCHED") {
+        await fetch("/api/library", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mediaType: "FILM",
+            movieId,
+            action: "MARK_WATCHED",
+            rating: targetRating,
+          }),
+        });
+      } else {
+        await fetch(`/api/interactions/${movieId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: targetStatus, rating: targetRating }),
+        });
+      }
 
-      if (res.ok && onInteractionUpdate) {
+      if (onInteractionUpdate) {
         onInteractionUpdate(movieId, targetStatus, targetRating);
       }
     } catch (e) {
@@ -149,33 +175,68 @@ export function MovieDetailsModal({
     }
   };
 
-  const handleSaveWatchLater = async () => {
+  const handleToggleWatchlist = async () => {
     if (!movieId) return;
-    setCurrentStatus("WATCH_LATER");
+    const isCurrentlyWatchlist = currentStatus === "WATCH_LATER" || currentStatus === "WATCHLIST";
+    const nextAction = isCurrentlyWatchlist ? "CLEAR_STATE" : "ADD_WATCHLIST";
+    setCurrentStatus(isCurrentlyWatchlist ? null : "WATCHLIST");
+
     try {
-      await fetch("/api/recommendations/feedback", {
+      await fetch("/api/library", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ movieId, action: "WATCH_LATER" }),
+        body: JSON.stringify({
+          mediaType: "FILM",
+          movieId,
+          action: nextAction,
+        }),
       });
       if (onInteractionUpdate) {
-        onInteractionUpdate(movieId, "WATCH_LATER", null);
+        onInteractionUpdate(movieId, nextAction, null);
       }
     } catch (e) {
-      console.error("[Watch Later Save Error]:", e);
+      console.error("[Watchlist Toggle Error]:", e);
     }
   };
 
-  const handleRemoveWatchLater = async () => {
+  const handleToggleFavorite = async () => {
     if (!movieId) return;
-    setCurrentStatus(null);
+    const nextFav = !isFavorite;
+    setIsFavorite(nextFav);
+
     try {
-      await fetch(`/api/interactions/${movieId}`, { method: "DELETE" });
+      await fetch("/api/library", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mediaType: "FILM",
+          movieId,
+          action: nextFav ? "ADD_FAVORITE" : "REMOVE_FAVORITE",
+        }),
+      });
+    } catch (e) {
+      console.error("[Favorite Toggle Error]:", e);
+    }
+  };
+
+  const handleMarkDropped = async () => {
+    if (!movieId) return;
+    setCurrentStatus("DROPPED");
+    try {
+      await fetch("/api/library", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mediaType: "FILM",
+          movieId,
+          action: "MARK_DROPPED",
+        }),
+      });
       if (onInteractionUpdate) {
-        onInteractionUpdate(movieId, "REMOVED", null);
+        onInteractionUpdate(movieId, "DROPPED", null);
       }
     } catch (e) {
-      console.error("[Watch Later Remove Error]:", e);
+      console.error("[Mark Dropped Error]:", e);
     }
   };
 
@@ -316,20 +377,37 @@ export function MovieDetailsModal({
             {/* User Interaction Action Bar */}
             <div className="p-4 rounded-2xl bg-surface-elevated border border-border/80 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-mono text-text-muted">
-                  DURUMUNUZ:{" "}
-                  <strong className="text-text-primary uppercase">
-                    {currentStatus === "WATCHED"
-                      ? `İzledin (${RATING_LABELS[currentRating || ""]?.label || "Değerlendirildi"})`
-                      : currentStatus === "NOT_WATCHED"
-                      ? "İzlemedin"
-                      : currentStatus === "UNSURE"
-                      ? "Emin Değilsin"
-                      : currentStatus === "WATCH_LATER"
-                      ? "Daha Sonra Listende"
-                      : "Değerlendirilmedi"}
-                  </strong>
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleToggleFavorite}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-mono flex items-center gap-1.5 transition-all ${
+                      isFavorite
+                        ? "bg-amber-500/20 border-amber-500/50 text-amber-400 font-bold"
+                        : "bg-surface border-border/80 text-text-muted hover:text-amber-400"
+                    }`}
+                    title={isFavorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
+                  >
+                    <span>★</span>
+                    <span>{isFavorite ? "Favorilerimde" : "Favoriye Ekle"}</span>
+                  </button>
+
+                  <span className="text-xs font-mono text-text-muted">
+                    DURUM:{" "}
+                    <strong className="text-text-primary uppercase">
+                      {currentStatus === "WATCHED"
+                        ? `İzlendi (${RATING_LABELS[currentRating || ""]?.label || "Puanlandı"})`
+                        : currentStatus === "WATCHLIST"
+                        ? "İzleme Listende"
+                        : currentStatus === "DROPPED"
+                        ? "Bırakıldı"
+                        : currentStatus === "NOT_WATCHED"
+                        ? "İzlemedin"
+                        : currentStatus === "UNSURE"
+                        ? "Emin Değilsin"
+                        : "Listelenmedi"}
+                    </strong>
+                  </span>
+                </div>
 
                 {activeRatingMode && (
                   <button
@@ -373,42 +451,41 @@ export function MovieDetailsModal({
                 <div className="flex flex-wrap gap-2 pt-1">
                   <button
                     onClick={() => setActiveRatingMode(true)}
-                    className="px-5 py-2.5 rounded-xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all shadow-sm"
+                    className="px-5 py-2.5 rounded-xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all shadow-sm flex items-center gap-1.5"
                   >
-                    {currentStatus === "WATCHED" ? "Puanı Değiştir" : "Artık İzledim ➔"}
+                    <span>👁️</span>
+                    <span>{currentStatus === "WATCHED" ? "Puanı Değiştir" : "İzledim Olarak İşaretle"}</span>
                   </button>
 
-                  {currentStatus !== "WATCH_LATER" ? (
+                  <button
+                    onClick={handleToggleWatchlist}
+                    className={`px-4 py-2.5 rounded-xl border font-mono text-xs transition-all flex items-center gap-1.5 ${
+                      currentStatus === "WATCHLIST"
+                        ? "bg-accent/15 border-accent/40 text-accent font-bold"
+                        : "bg-surface border-border/80 hover:border-accent text-text-primary"
+                    }`}
+                  >
+                    <span>🔖</span>
+                    <span>{currentStatus === "WATCHLIST" ? "Listede ✓" : "İzleme Listeme Ekle"}</span>
+                  </button>
+
+                  {currentStatus !== "DROPPED" && (
                     <button
-                      onClick={handleSaveWatchLater}
-                      className="px-4 py-2.5 rounded-xl bg-surface border border-border/80 hover:border-accent text-text-primary font-mono text-xs transition-all"
+                      onClick={handleMarkDropped}
+                      className="px-3.5 py-2.5 rounded-xl bg-surface border border-border/80 text-text-muted hover:text-red-400 hover:border-red-400/40 font-mono text-xs transition-all flex items-center gap-1"
+                      title="İzlemeyi yarıda bıraktım"
                     >
-                      🔖 Daha Sonra
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleRemoveWatchLater}
-                      className="px-4 py-2.5 rounded-xl bg-surface border border-border/80 text-text-muted hover:text-text-primary font-mono text-xs transition-all"
-                    >
-                      Kaldır
+                      <span>🚫</span>
+                      <span>Bıraktım</span>
                     </button>
                   )}
 
                   {currentStatus !== "NOT_WATCHED" && (
                     <button
                       onClick={() => handleUpdateInteraction("NOT_WATCHED", null)}
-                      className="px-4 py-2.5 rounded-xl bg-surface border border-border/80 text-text-muted hover:text-text-primary font-mono text-xs transition-all"
+                      className="px-3.5 py-2.5 rounded-xl bg-surface border border-border/80 text-text-muted hover:text-text-primary font-mono text-xs transition-all"
                     >
                       İzlemedim
-                    </button>
-                  )}
-
-                  {currentStatus !== "UNSURE" && (
-                    <button
-                      onClick={() => handleUpdateInteraction("UNSURE", null)}
-                      className="px-4 py-2.5 rounded-xl bg-surface border border-border/80 text-text-muted hover:text-text-primary font-mono text-xs transition-all"
-                    >
-                      Emin Değilim
                     </button>
                   )}
                 </div>

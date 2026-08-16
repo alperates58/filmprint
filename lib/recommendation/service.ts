@@ -134,6 +134,7 @@ export async function getPersonalizedRecommendations(
     ...watchedMovieIds,
     ...feedbackProfile.watchedMovieIds,
     ...feedbackProfile.hiddenMovieIds,
+    ...feedbackProfile.droppedMovieIds,
   ]);
 
   // Scale candidate pool size based on user interaction volume

@@ -1,5 +1,5 @@
 import { db } from "@/lib/db/client";
-import { RecommendationAction, RatingStatus } from "@prisma/client";
+import { RecommendationAction, RatingStatus, LibraryState, MediaType } from "@prisma/client";
 import type { CandidateTvShow } from "./types";
 import { TV_FEEDBACK_ADJUSTMENT_BOUNDS } from "./constants";
 
@@ -10,9 +10,11 @@ export interface TvFeedbackProfile {
   hiddenShowIds: Set<string>;
   watchlistShowIds: Set<string>;
   watchedShowIds: Set<string>;
-  notInterestedShowIds: Set<string>; // Alias for backward compatibility
-  watchLaterShowIds: Set<string>;    // Alias for backward compatibility
-  alreadyWatchedShowIds: Set<string>;// Alias for backward compatibility
+  droppedShowIds: Set<string>;
+  favoriteShowIds: Set<string>;
+  notInterestedShowIds: Set<string>;
+  watchLaterShowIds: Set<string>;
+  alreadyWatchedShowIds: Set<string>;
   notInterestedGenres: Map<string, number>;
   genreSignals: Record<string, number>;
   creatorSignals: Record<string, number>;
@@ -37,6 +39,8 @@ export const EMPTY_TV_FEEDBACK_PROFILE: TvFeedbackProfile = {
   hiddenShowIds: new Set<string>(),
   watchlistShowIds: new Set<string>(),
   watchedShowIds: new Set<string>(),
+  droppedShowIds: new Set<string>(),
+  favoriteShowIds: new Set<string>(),
   notInterestedShowIds: new Set<string>(),
   watchLaterShowIds: new Set<string>(),
   alreadyWatchedShowIds: new Set<string>(),
@@ -65,7 +69,7 @@ export async function buildTvFeedbackProfile(
   userId: string,
   nowDate: Date = new Date()
 ): Promise<TvFeedbackProfile> {
-  const [feedbacks, interactions] = await Promise.all([
+  const [feedbacks, interactions, libraryEntries] = await Promise.all([
     db.tvRecommendationFeedback.findMany({
       where: { userId },
       include: { tvShow: true },
@@ -80,9 +84,13 @@ export async function buildTvFeedbackProfile(
         status: true,
       },
     }),
+    db.userContentLibrary.findMany({
+      where: { userId, mediaType: MediaType.TV },
+      include: { tvShow: true },
+    }),
   ]);
 
-  if (feedbacks.length === 0) {
+  if (feedbacks.length === 0 && libraryEntries.length === 0) {
     return { ...EMPTY_TV_FEEDBACK_PROFILE, userId };
   }
 
@@ -95,7 +103,8 @@ export async function buildTvFeedbackProfile(
   const hiddenShowIds = new Set<string>();
   const watchlistShowIds = new Set<string>();
   const watchedShowIds = new Set<string>();
-  const notInterestedGenres = new Map<string, number>();
+  const droppedShowIds = new Set<string>();
+  const favoriteShowIds = new Set<string>();
 
   const rawGenreScores: Record<string, number> = {};
   const genreSampleCounts: Record<string, number> = {};
@@ -117,45 +126,111 @@ export async function buildTvFeedbackProfile(
   const recentDislikes: string[] = [];
   const recentWatchlist: string[] = [];
 
+  // 1. Process Canonical Library Entries
+  const processedLibraryTvIds = new Set<string>();
+  for (const lib of libraryEntries) {
+    if (!lib.tvShow) continue;
+    const tvShowId = lib.tvShowId || lib.tvShow.id;
+    processedLibraryTvIds.add(tvShowId);
+
+    const tvMeta = (lib.tvShow.metadata as Record<string, unknown>) || {};
+    const rawGenres = (tvMeta.genres as any[]) || [];
+    const genres = rawGenres.map((g) => (typeof g === "string" ? g : g.name || "")).filter(Boolean);
+    const creators = Array.isArray(tvMeta.created_by)
+      ? (tvMeta.created_by as any[]).map((c) => (typeof c === "string" ? c : c.name || "")).filter(Boolean)
+      : [];
+    const networks = Array.isArray(tvMeta.networks)
+      ? (tvMeta.networks as any[]).map((n) => (typeof n === "string" ? n : n.name || "")).filter(Boolean)
+      : [];
+    const firstAirYear = lib.tvShow.firstAirDate ? parseInt(lib.tvShow.firstAirDate.slice(0, 4), 10) : null;
+
+    let genreDelta = 0;
+    let creatorDelta = 0;
+    let networkDelta = 0;
+    let eraDelta = 0;
+
+    if (lib.isFavorite) {
+      favoriteShowIds.add(tvShowId);
+      genreDelta += 3.0;
+      creatorDelta += 4.0;
+      networkDelta += 2.0;
+      eraDelta += 1.5;
+      positiveCount++;
+      if (recentLikes.length < 5) recentLikes.push(lib.tvShow.name);
+    }
+
+    if (lib.state === LibraryState.WATCHLIST) {
+      watchlistShowIds.add(tvShowId);
+      genreDelta += 2.0;
+      creatorDelta += 4.0;
+      networkDelta += 1.5;
+      eraDelta += 1.5;
+      watchlistCount++;
+      if (recentWatchlist.length < 5) recentWatchlist.push(lib.tvShow.name);
+    } else if (lib.state === LibraryState.DROPPED) {
+      droppedShowIds.add(tvShowId);
+      genreDelta -= 2.0;
+      creatorDelta -= 3.0;
+      networkDelta -= 1.5;
+      eraDelta -= 1.0;
+      negativeCount++;
+      if (recentDislikes.length < 5) recentDislikes.push(lib.tvShow.name);
+    } else if (lib.state === LibraryState.WATCHED) {
+      watchedShowIds.add(tvShowId);
+    }
+
+    for (const g of genres) {
+      rawGenreScores[g] = (rawGenreScores[g] || 0) + genreDelta;
+      genreSampleCounts[g] = (genreSampleCounts[g] || 0) + 1;
+    }
+    for (const c of creators) {
+      rawCreatorScores[c] = (rawCreatorScores[c] || 0) + creatorDelta;
+      creatorSampleCounts[c] = (creatorSampleCounts[c] || 0) + 1;
+    }
+    for (const n of networks) {
+      rawNetworkScores[n] = (rawNetworkScores[n] || 0) + networkDelta;
+      networkSampleCounts[n] = (networkSampleCounts[n] || 0) + 1;
+    }
+    if (firstAirYear) {
+      const eraDecade = `${Math.floor(firstAirYear / 10) * 10}s`;
+      rawEraScores[eraDecade] = (rawEraScores[eraDecade] || 0) + eraDelta;
+      eraSampleCounts[eraDecade] = (eraSampleCounts[eraDecade] || 0) + 1;
+    }
+  }
+
+  // 2. Process Feedback items
   for (const f of feedbacks) {
-    const meta = (f.tvShow.metadata as Record<string, any>) || {};
-    const rawGenres = meta.genres || [];
-    const genres: string[] = Array.isArray(rawGenres)
-      ? rawGenres.map((g: any) => (typeof g === "string" ? g : g.name || "")).filter(Boolean)
-      : [];
+    if (processedLibraryTvIds.has(f.tvShowId)) continue;
 
-    const rawCreators = meta.created_by || meta.createdBy || [];
-    const creators: string[] = Array.isArray(rawCreators)
-      ? rawCreators.map((c: any) => (typeof c === "string" ? c : c.name || "")).filter(Boolean)
+    const tvMeta = (f.tvShow.metadata as Record<string, unknown>) || {};
+    const rawGenres = (tvMeta.genres as any[]) || [];
+    const genres = rawGenres.map((g) => (typeof g === "string" ? g : g.name || "")).filter(Boolean);
+    const creators = Array.isArray(tvMeta.created_by)
+      ? (tvMeta.created_by as any[]).map((c) => (typeof c === "string" ? c : c.name || "")).filter(Boolean)
       : [];
-
-    const rawNetworks = meta.networks || [];
-    const networks: string[] = Array.isArray(rawNetworks)
-      ? rawNetworks.map((n: any) => (typeof n === "string" ? n : n.name || "")).filter(Boolean)
+    const networks = Array.isArray(tvMeta.networks)
+      ? (tvMeta.networks as any[]).map((n) => (typeof n === "string" ? n : n.name || "")).filter(Boolean)
       : [];
-
-    const airYear = f.tvShow.firstAirDate ? new Date(f.tvShow.firstAirDate).getFullYear() : null;
+    const firstAirYear = f.tvShow.firstAirDate ? parseInt(f.tvShow.firstAirDate.slice(0, 4), 10) : null;
 
     const daysAgo = Math.max(
       0,
       Math.floor((nowDate.getTime() - new Date(f.updatedAt).getTime()) / (1000 * 60 * 60 * 24))
     );
     const recencyMultiplier = daysAgo <= 30 ? 1.0 : daysAgo <= 90 ? 0.75 : 0.5;
-
     const action = f.action;
 
-    // Track ID sets
     if (action === RecommendationAction.LIKE) {
       likedShowIds.add(f.tvShowId);
-      if (recentLikes.length < 5) recentLikes.push(f.tvShow.name);
+      if (recentLikes.length < 5 && !recentLikes.includes(f.tvShow.name)) recentLikes.push(f.tvShow.name);
     } else if (action === RecommendationAction.DISLIKE || action === RecommendationAction.NOT_INTERESTED) {
       dislikedShowIds.add(f.tvShowId);
-      if (recentDislikes.length < 5) recentDislikes.push(f.tvShow.name);
+      if (recentDislikes.length < 5 && !recentDislikes.includes(f.tvShow.name)) recentDislikes.push(f.tvShow.name);
     } else if (action === RecommendationAction.HIDE) {
       hiddenShowIds.add(f.tvShowId);
     } else if (action === RecommendationAction.WATCHLIST || action === RecommendationAction.WATCH_LATER) {
       watchlistShowIds.add(f.tvShowId);
-      if (recentWatchlist.length < 5) recentWatchlist.push(f.tvShow.name);
+      if (recentWatchlist.length < 5 && !recentWatchlist.includes(f.tvShow.name)) recentWatchlist.push(f.tvShow.name);
     } else if (
       action === RecommendationAction.WATCHED_FROM_RECOMMENDATION ||
       action === RecommendationAction.ALREADY_WATCHED
@@ -163,7 +238,6 @@ export async function buildTvFeedbackProfile(
       watchedShowIds.add(f.tvShowId);
     }
 
-    // Similarity feature weights
     let genreDelta = 0;
     let creatorDelta = 0;
     let networkDelta = 0;
@@ -172,27 +246,22 @@ export async function buildTvFeedbackProfile(
     if (action === RecommendationAction.LIKE) {
       genreDelta = 1.5 * recencyMultiplier;
       creatorDelta = 3.0 * recencyMultiplier;
-      networkDelta = 1.5 * recencyMultiplier;
+      networkDelta = 1.0 * recencyMultiplier;
       eraDelta = 1.0 * recencyMultiplier;
       positiveCount++;
     } else if (action === RecommendationAction.WATCHLIST || action === RecommendationAction.WATCH_LATER) {
       genreDelta = 2.0 * recencyMultiplier;
       creatorDelta = 4.0 * recencyMultiplier;
-      networkDelta = 2.0 * recencyMultiplier;
+      networkDelta = 1.5 * recencyMultiplier;
       eraDelta = 1.5 * recencyMultiplier;
       positiveCount++;
       watchlistCount++;
     } else if (action === RecommendationAction.DISLIKE || action === RecommendationAction.NOT_INTERESTED) {
       genreDelta = -2.0 * recencyMultiplier;
       creatorDelta = -4.0 * recencyMultiplier;
-      networkDelta = -2.0 * recencyMultiplier;
+      networkDelta = -1.5 * recencyMultiplier;
       eraDelta = -1.0 * recencyMultiplier;
       negativeCount++;
-
-      // Backward compatible notInterestedGenres map
-      for (const g of genres) {
-        notInterestedGenres.set(g, (notInterestedGenres.get(g) || 0) + 1);
-      }
     } else if (
       action === RecommendationAction.WATCHED_FROM_RECOMMENDATION ||
       action === RecommendationAction.ALREADY_WATCHED
@@ -207,72 +276,51 @@ export async function buildTvFeedbackProfile(
       } else if (rating === RatingStatus.DISLIKE) {
         genreDelta = -1.5 * recencyMultiplier;
         creatorDelta = -2.5 * recencyMultiplier;
-        networkDelta = -1.5 * recencyMultiplier;
+        networkDelta = -1.0 * recencyMultiplier;
         eraDelta = -0.8 * recencyMultiplier;
         negativeCount++;
       }
     }
 
-    // Accumulate Genre Signals
     for (const g of genres) {
-      if (g) {
-        rawGenreScores[g] = (rawGenreScores[g] || 0) + genreDelta;
-        genreSampleCounts[g] = (genreSampleCounts[g] || 0) + 1;
-      }
+      rawGenreScores[g] = (rawGenreScores[g] || 0) + genreDelta;
+      genreSampleCounts[g] = (genreSampleCounts[g] || 0) + 1;
     }
-
-    // Accumulate Creator Signals
     for (const c of creators) {
-      if (c) {
-        rawCreatorScores[c] = (rawCreatorScores[c] || 0) + creatorDelta;
-        creatorSampleCounts[c] = (creatorSampleCounts[c] || 0) + 1;
-      }
+      rawCreatorScores[c] = (rawCreatorScores[c] || 0) + creatorDelta;
+      creatorSampleCounts[c] = (creatorSampleCounts[c] || 0) + 1;
     }
-
-    // Accumulate Network Signals
     for (const n of networks) {
-      if (n) {
-        rawNetworkScores[n] = (rawNetworkScores[n] || 0) + networkDelta;
-        networkSampleCounts[n] = (networkSampleCounts[n] || 0) + 1;
-      }
+      rawNetworkScores[n] = (rawNetworkScores[n] || 0) + networkDelta;
+      networkSampleCounts[n] = (networkSampleCounts[n] || 0) + 1;
     }
-
-    // Accumulate Era Signals
-    if (airYear) {
-      const eraDecade = `${Math.floor(airYear / 10) * 10}s`;
+    if (firstAirYear) {
+      const eraDecade = `${Math.floor(firstAirYear / 10) * 10}s`;
       rawEraScores[eraDecade] = (rawEraScores[eraDecade] || 0) + eraDelta;
       eraSampleCounts[eraDecade] = (eraSampleCounts[eraDecade] || 0) + 1;
     }
   }
 
-  // Damping & Normalization
-  const genreSignals: Record<string, number> = {};
-  for (const [genre, rawScore] of Object.entries(rawGenreScores)) {
-    const count = genreSampleCounts[genre] || 1;
-    const shrinkage = count === 1 ? 0.6 : 1.0;
-    genreSignals[genre] = Number((rawScore * shrinkage).toFixed(2));
-  }
+  const applyDamping = (
+    rawScores: Record<string, number>,
+    sampleCounts: Record<string, number>,
+    maxCap: number,
+    minCap: number
+  ): Record<string, number> => {
+    const result: Record<string, number> = {};
+    for (const [key, rawVal] of Object.entries(rawScores)) {
+      const count = sampleCounts[key] || 1;
+      const shrinkage = count === 1 ? 0.55 : count === 2 ? 0.75 : 1.0;
+      const damped = rawVal * shrinkage;
+      result[key] = Math.max(minCap, Math.min(maxCap, Number(damped.toFixed(2))));
+    }
+    return result;
+  };
 
-  const creatorSignals: Record<string, number> = {};
-  for (const [c, rawScore] of Object.entries(rawCreatorScores)) {
-    const count = creatorSampleCounts[c] || 1;
-    const shrinkage = count === 1 ? 0.7 : 1.0;
-    creatorSignals[c] = Number((rawScore * shrinkage).toFixed(2));
-  }
-
-  const networkSignals: Record<string, number> = {};
-  for (const [n, rawScore] of Object.entries(rawNetworkScores)) {
-    const count = networkSampleCounts[n] || 1;
-    const shrinkage = count === 1 ? 0.6 : 1.0;
-    networkSignals[n] = Number((rawScore * shrinkage).toFixed(2));
-  }
-
-  const eraSignals: Record<string, number> = {};
-  for (const [era, rawScore] of Object.entries(rawEraScores)) {
-    const count = eraSampleCounts[era] || 1;
-    const shrinkage = count === 1 ? 0.6 : 1.0;
-    eraSignals[era] = Number((rawScore * shrinkage).toFixed(2));
-  }
+  const genreSignals = applyDamping(rawGenreScores, genreSampleCounts, 5.0, -6.0);
+  const creatorSignals = applyDamping(rawCreatorScores, creatorSampleCounts, 4.0, -5.0);
+  const networkSignals = applyDamping(rawNetworkScores, networkSampleCounts, 3.0, -4.0);
+  const eraSignals = applyDamping(rawEraScores, eraSampleCounts, 2.0, -2.0);
 
   return {
     userId,
@@ -281,10 +329,12 @@ export async function buildTvFeedbackProfile(
     hiddenShowIds,
     watchlistShowIds,
     watchedShowIds,
+    droppedShowIds,
+    favoriteShowIds,
     notInterestedShowIds: dislikedShowIds,
     watchLaterShowIds: watchlistShowIds,
     alreadyWatchedShowIds: watchedShowIds,
-    notInterestedGenres,
+    notInterestedGenres: new Map<string, number>(),
     genreSignals,
     creatorSignals,
     networkSignals,
@@ -292,8 +342,8 @@ export async function buildTvFeedbackProfile(
     positiveCount,
     negativeCount,
     watchlistCount,
-    totalFeedbacks: feedbacks.length,
-    recentFeedbackWeight: Math.min(1.0, feedbacks.length / 10),
+    totalFeedbacks: feedbacks.length + libraryEntries.length,
+    recentFeedbackWeight: positiveCount > negativeCount ? 1.0 : 0.8,
     feedbackSummary: {
       recentLikes,
       recentDislikes,
@@ -303,70 +353,82 @@ export async function buildTvFeedbackProfile(
 }
 
 /**
- * Calculates bounded TV feedback score adjustment for a candidate.
+ * Calculates score adjustment for a TV candidate based on user feedback & library states.
  */
 export function calculateTvFeedbackAdjustment(
-  show: CandidateTvShow,
-  feedback: TvFeedbackProfile
+  candidate: CandidateTvShow,
+  profile: TvFeedbackProfile
 ): number {
-  if (feedback.totalFeedbacks === 0) return 0;
+  if (profile.totalFeedbacks === 0) return 0;
 
   // 1. Direct Content-Level Signals
-  if (feedback.dislikedShowIds.has(show.id)) {
-    return TV_FEEDBACK_ADJUSTMENT_BOUNDS.min; // -15
+  if (profile.droppedShowIds.has(candidate.id)) {
+    return TV_FEEDBACK_ADJUSTMENT_BOUNDS.min; // -15.0
   }
-  if (feedback.watchlistShowIds.has(show.id)) {
-    return TV_FEEDBACK_ADJUSTMENT_BOUNDS.max; // +10
+  if (profile.dislikedShowIds.has(candidate.id)) {
+    return TV_FEEDBACK_ADJUSTMENT_BOUNDS.min; // -15.0
   }
-  if (feedback.likedShowIds.has(show.id)) {
-    return 6;
+  if (profile.favoriteShowIds.has(candidate.id)) {
+    return TV_FEEDBACK_ADJUSTMENT_BOUNDS.max; // +10.0
+  }
+  if (profile.watchlistShowIds.has(candidate.id)) {
+    return TV_FEEDBACK_ADJUSTMENT_BOUNDS.max; // +10.0
+  }
+  if (profile.likedShowIds.has(candidate.id)) {
+    return 6.0;
   }
 
   // 2. Feature Similarity Aggregation
   let similarityAdjustment = 0;
 
   // Genre signals
-  const showGenres = show.metadata?.genres || [];
+  const rawGenres = (candidate.metadata as any)?.genres || [];
+  const genres: string[] = Array.isArray(rawGenres)
+    ? rawGenres.map((g: any) => (typeof g === "string" ? g : g.name || "")).filter(Boolean)
+    : [];
+
   let genreSum = 0;
-  for (const g of showGenres) {
-    if (g && feedback.genreSignals[g]) {
-      genreSum += feedback.genreSignals[g];
+  for (const g of genres) {
+    if (g && profile.genreSignals[g]) {
+      genreSum += profile.genreSignals[g];
     }
   }
   similarityAdjustment += Math.max(-6, Math.min(5, genreSum));
 
   // Creator signals
-  const rawCreators = show.metadata?.created_by || show.metadata?.createdBy || [];
-  const creators: string[] = Array.isArray(rawCreators)
-    ? rawCreators.map((c: any) => (typeof c === "string" ? c : c.name || "")).filter(Boolean)
+  const creators = Array.isArray((candidate.metadata as any)?.created_by)
+    ? ((candidate.metadata as any).created_by as any[]).map((c) => (typeof c === "string" ? c : c.name || "")).filter(Boolean)
     : [];
+
   for (const c of creators) {
-    if (c && feedback.creatorSignals[c]) {
-      similarityAdjustment += Math.max(-5, Math.min(4, feedback.creatorSignals[c]));
+    if (c && profile.creatorSignals[c]) {
+      similarityAdjustment += Math.max(-5, Math.min(4, profile.creatorSignals[c]));
     }
   }
 
   // Network signals
-  const rawNetworks = show.metadata?.networks || [];
-  const networks: string[] = Array.isArray(rawNetworks)
-    ? rawNetworks.map((n: any) => (typeof n === "string" ? n : n.name || "")).filter(Boolean)
+  const networks = Array.isArray((candidate.metadata as any)?.networks)
+    ? ((candidate.metadata as any).networks as any[]).map((n) => (typeof n === "string" ? n : n.name || "")).filter(Boolean)
     : [];
+
   for (const n of networks) {
-    if (n && feedback.networkSignals[n]) {
-      similarityAdjustment += Math.max(-3, Math.min(3, feedback.networkSignals[n]));
+    if (n && profile.networkSignals[n]) {
+      similarityAdjustment += Math.max(-4, Math.min(3, profile.networkSignals[n]));
     }
   }
 
   // Era signals
-  if (show.firstAirDate) {
-    const airYear = new Date(show.firstAirDate).getFullYear();
-    const eraDecade = `${Math.floor(airYear / 10) * 10}s`;
-    if (feedback.eraSignals[eraDecade]) {
-      similarityAdjustment += Math.max(-2, Math.min(2, feedback.eraSignals[eraDecade]));
+  if (candidate.firstAirDate) {
+    const year = parseInt(candidate.firstAirDate.slice(0, 4), 10);
+    if (!isNaN(year)) {
+      const eraDecade = `${Math.floor(year / 10) * 10}s`;
+      if (profile.eraSignals[eraDecade]) {
+        similarityAdjustment += Math.max(-2, Math.min(2, profile.eraSignals[eraDecade]));
+      }
     }
   }
 
-  // Clamp within TV_FEEDBACK_ADJUSTMENT_BOUNDS [-15, +10]
+  // Clamp within bounds
   return Math.max(
     TV_FEEDBACK_ADJUSTMENT_BOUNDS.min,
     Math.min(TV_FEEDBACK_ADJUSTMENT_BOUNDS.max, Math.round(similarityAdjustment))

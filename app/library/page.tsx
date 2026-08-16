@@ -1,41 +1,15 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
-
 import { MovieDetailsModal } from "@/components/movie/MovieDetailsModal";
+import { TvDetailsModal } from "@/components/tv/TvDetailsModal";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
-
-interface LibraryItem {
-  id: string;
-  movieId: string;
-  title: string;
-  originalTitle: string;
-  releaseYear: number | null;
-  posterPath: string | null;
-  genres: string[];
-  status: "WATCHED" | "NOT_WATCHED" | "UNSURE" | "WATCH_LATER";
-  rating: "LOVE" | "LIKE" | "NEUTRAL" | "DISLIKE" | null;
-  answeredAt: string;
-  updatedAt: string;
-}
-
-interface LibraryResponse {
-  items: LibraryItem[];
-  totalCount: number;
-  totalPages: number;
-  currentPage: number;
-  counts: {
-    watched: number;
-    notWatched: number;
-    unsure: number;
-    watchLater: number;
-  };
-}
+import type { LibraryItemDto, UserLibraryResponse } from "@/lib/library/service";
 
 const RATING_LABELS: Record<string, { label: string; emoji: string }> = {
   LOVE: { label: "Çok Sevdim", emoji: "❤️" },
@@ -48,32 +22,41 @@ function LibraryContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const currentTab = searchParams.get("tab") || "watched";
-  const [items, setItems] = useState<LibraryItem[]>([]);
-  const [counts, setCounts] = useState({ watched: 0, notWatched: 0, unsure: 0, watchLater: 0 });
+  const tabParam = (searchParams.get("tab") || "WATCHLIST").toUpperCase();
+  const [currentTab, setCurrentTab] = useState<string>(tabParam);
+  const [mediaType, setMediaType] = useState<"ALL" | "FILM" | "TV">("ALL");
+
+  const [items, setItems] = useState<LibraryItemDto[]>([]);
+  const [counts, setCounts] = useState({
+    total: 0,
+    watchlist: 0,
+    watched: 0,
+    dropped: 0,
+    favorites: 0,
+    films: { total: 0, watchlist: 0, watched: 0, dropped: 0, favorites: 0 },
+    tv: { total: 0, watchlist: 0, watched: 0, dropped: 0, favorites: 0 },
+  });
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [ratingFilter, setRatingFilter] = useState("ALL");
-  const [sort, setSort] = useState("newest");
+  const [sort, setSort] = useState<string>("newest");
   const [isLoading, setIsLoading] = useState(true);
-  const [matchScoresMap, setMatchScoresMap] = useState<Record<string, any>>({});
+
+  // Tonight smart picker modal
+  const [isTonightLoading, setIsTonightLoading] = useState(false);
+  const [tonightPicks, setTonightPicks] = useState<LibraryItemDto[] | null>(null);
 
   // Active inline action states
-  const [activeRatingMovieId, setActiveRatingMovieId] = useState<string | null>(null);
-  const [activeMenuMovieId, setActiveMenuMovieId] = useState<string | null>(null);
-  const [confirmStatusModal, setConfirmStatusModal] = useState<{
-    movieId: string;
-    movieTitle: string;
-    targetStatus: string;
-  } | null>(null);
-  const [selectedMovieModal, setSelectedMovieModal] = useState<{
-    movieId: string;
-    initialData?: any;
-  } | null>(null);
+  const [activeRatingItem, setActiveRatingItem] = useState<{ id: string; contentId: string; mediaType: "FILM" | "TV" } | null>(null);
+  const [selectedMovieModal, setSelectedMovieModal] = useState<{ movieId: string; initialData?: any } | null>(null);
+  const [selectedTvModal, setSelectedTvModal] = useState<{ tvShowId: string; initialData?: any } | null>(null);
 
-  // Debounce search input
+  useEffect(() => {
+    setCurrentTab(tabParam);
+  }, [tabParam]);
+
+  // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
@@ -85,100 +68,92 @@ function LibraryContent() {
   const fetchLibrary = useCallback(async () => {
     setIsLoading(true);
     try {
+      const isFav = currentTab === "FAVORITES";
+      const stateFilter = isFav ? "ALL" : currentTab;
+
       const params = new URLSearchParams({
-        status: currentTab,
+        mediaType,
+        state: stateFilter,
         search: debouncedSearch,
-        rating: ratingFilter,
         sort,
         page: String(page),
         limit: "24",
       });
 
+      if (isFav) {
+        params.set("isFavorite", "true");
+      }
+
       const res = await fetch(`/api/library?${params.toString()}`);
       if (res.ok) {
-        const data: LibraryResponse = await res.json();
+        const data: UserLibraryResponse = await res.json();
         setItems(data.items);
         setCounts(data.counts);
         setTotalPages(data.totalPages);
       }
     } catch (e) {
-      console.error("[Fetch Library Error]:", e);
+      console.error("[Library Fetch Error]:", e);
     } finally {
       setIsLoading(false);
     }
-  }, [currentTab, debouncedSearch, ratingFilter, sort, page]);
+  }, [currentTab, mediaType, debouncedSearch, sort, page]);
 
   useEffect(() => {
     fetchLibrary();
   }, [fetchLibrary]);
 
-  useEffect(() => {
-    if (items.length > 0) {
-      const movieIds = items.map((i) => i.movieId);
-      fetch("/api/movies/match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ movieIds }),
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data?.matches) {
-            setMatchScoresMap(data.matches);
-          }
-        })
-        .catch((e) => console.error("[Batch Match Fetch Error]:", e));
-    }
-  }, [items]);
-
   const handleTabChange = (newTab: string) => {
+    setCurrentTab(newTab);
     setPage(1);
-    setActiveRatingMovieId(null);
-    setActiveMenuMovieId(null);
-    router.push(`/library?tab=${newTab}`);
+    router.push(`/library?tab=${newTab.toLowerCase()}`, { scroll: false });
   };
 
-  const handleUpdateInteraction = async (
-    movieId: string,
-    targetStatus: "WATCHED" | "NOT_WATCHED" | "UNSURE",
-    targetRating: "LOVE" | "LIKE" | "NEUTRAL" | "DISLIKE" | null = null
+  const handleAction = async (
+    mediaType: "FILM" | "TV",
+    contentId: string,
+    action: "ADD_WATCHLIST" | "REMOVE_WATCHLIST" | "MARK_WATCHED" | "MARK_DROPPED" | "ADD_FAVORITE" | "REMOVE_FAVORITE" | "CLEAR_STATE",
+    rating?: string
   ) => {
-    // Optimistic UI update
-    setItems((prev) => prev.filter((item) => item.movieId !== movieId));
-    setActiveRatingMovieId(null);
-    setActiveMenuMovieId(null);
-    setConfirmStatusModal(null);
-
     try {
-      const res = await fetch(`/api/interactions/${movieId}`, {
-        method: "PATCH",
+      // Optimistic update
+      if (action === "ADD_FAVORITE" || action === "REMOVE_FAVORITE") {
+        const nextFav = action === "ADD_FAVORITE";
+        setItems((prev) =>
+          prev.map((i) => (i.contentId === contentId ? { ...i, isFavorite: nextFav } : i))
+        );
+      }
+
+      const res = await fetch("/api/library", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          status: targetStatus,
-          rating: targetRating,
+          mediaType,
+          contentId,
+          action,
+          rating,
         }),
       });
 
-      if (!res.ok) {
-        fetchLibrary();
-      } else {
+      if (res.ok) {
         fetchLibrary();
       }
     } catch (e) {
-      console.error("[Update Interaction Error]:", e);
-      fetchLibrary();
+      console.error("[Library Action Error]:", e);
     }
   };
 
-  const handleRemoveFromWatchLater = async (movieId: string) => {
-    setItems((prev) => prev.filter((item) => item.movieId !== movieId));
+  const handleFetchTonightPicks = async () => {
+    setIsTonightLoading(true);
     try {
-      await fetch(`/api/interactions/${movieId}`, {
-        method: "DELETE",
-      });
-      fetchLibrary();
+      const res = await fetch(`/api/library/tonight?mediaType=${mediaType}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTonightPicks(data.picks || []);
+      }
     } catch (e) {
-      console.error("[Remove Watch Later Error]:", e);
-      fetchLibrary();
+      console.error("[Tonight Picks Error]:", e);
+    } finally {
+      setIsTonightLoading(false);
     }
   };
 
@@ -186,439 +161,369 @@ function LibraryContent() {
     <div className="min-h-screen bg-background text-text-primary flex flex-col font-sans selection:bg-accent/20">
       <Header />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 md:py-12 space-y-8">
-        {/* Page Header */}
-        <div className="space-y-2">
-          <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold">
-            KİŞİSEL SİNEMA ARŞİVİ
-          </span>
-          <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight text-text-primary">
-            Filmlerim
-          </h1>
-          <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
-            Değerlendirdiğiniz, izlemediğinizi belirttiğiniz veya daha sonra izlemek üzere kaydettiğiniz tüm yapımlar.
-          </p>
-        </div>
-
-        {/* Tab Selector Bar */}
-        <div className="border-b border-border/80 pb-1 overflow-x-auto no-scrollbar">
-          <nav className="flex space-x-2 md:space-x-4 min-w-max">
-            <button
-              onClick={() => handleTabChange("watched")}
-              className={`px-4 py-2.5 rounded-xl font-mono text-xs md:text-sm font-semibold transition-all flex items-center gap-2 ${
-                currentTab === "watched"
-                  ? "bg-accent text-white shadow-sm"
-                  : "text-text-muted hover:text-text-primary hover:bg-surface-elevated"
-              }`}
-            >
-              <span>🎬 İzlediklerim</span>
-              <span className="px-2 py-0.5 rounded-full bg-background/20 text-[10px] font-bold">
-                {counts.watched}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-4 md:px-6 py-6 md:py-10 space-y-6 md:space-y-8">
+        {/* Top Header & Tonight Feature Banner */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-surface border border-border/80 shadow-cinematic relative overflow-hidden">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono text-accent uppercase tracking-widest font-bold">
+                KİŞİSEL KÜTÜPHANE
               </span>
-            </button>
-
-            <button
-              onClick={() => handleTabChange("not_watched")}
-              className={`px-4 py-2.5 rounded-xl font-mono text-xs md:text-sm font-semibold transition-all flex items-center gap-2 ${
-                currentTab === "not_watched"
-                  ? "bg-accent text-white shadow-sm"
-                  : "text-text-muted hover:text-text-primary hover:bg-surface-elevated"
-              }`}
-            >
-              <span>🙈 İzlemediklerim</span>
-              <span className="px-2 py-0.5 rounded-full bg-background/20 text-[10px] font-bold">
-                {counts.notWatched}
-              </span>
-            </button>
-
-            <button
-              onClick={() => handleTabChange("unsure")}
-              className={`px-4 py-2.5 rounded-xl font-mono text-xs md:text-sm font-semibold transition-all flex items-center gap-2 ${
-                currentTab === "unsure"
-                  ? "bg-accent text-white shadow-sm"
-                  : "text-text-muted hover:text-text-primary hover:bg-surface-elevated"
-              }`}
-            >
-              <span>🤔 Emin Değilim</span>
-              <span className="px-2 py-0.5 rounded-full bg-background/20 text-[10px] font-bold">
-                {counts.unsure}
-              </span>
-            </button>
-
-            <button
-              onClick={() => handleTabChange("watch_later")}
-              className={`px-4 py-2.5 rounded-xl font-mono text-xs md:text-sm font-semibold transition-all flex items-center gap-2 ${
-                currentTab === "watch_later"
-                  ? "bg-accent text-white shadow-sm"
-                  : "text-text-muted hover:text-text-primary hover:bg-surface-elevated"
-              }`}
-            >
-              <span>🔖 Daha Sonra</span>
-              <span className="px-2 py-0.5 rounded-full bg-background/20 text-[10px] font-bold">
-                {counts.watchLater}
-              </span>
-            </button>
-          </nav>
-        </div>
-
-        {/* Search, Filter & Sort Controls */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-surface p-4 rounded-2xl border border-border/80 shadow-sm">
-          {/* Search Box */}
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Film adıyla ara (örn. Blade, Interstellar)..."
-              className="w-full pl-9 pr-4 py-2 rounded-xl bg-background border border-border text-xs md:text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
-            />
-            <span className="absolute left-3 top-2.5 text-text-muted text-xs">🔍</span>
-          </div>
-
-          {/* Rating Filter (Only for Watched Tab) */}
-          {currentTab === "watched" && (
-            <select
-              value={ratingFilter}
-              onChange={(e) => {
-                setRatingFilter(e.target.value);
-                setPage(1);
-              }}
-              className="px-3 py-2 rounded-xl bg-background border border-border text-xs text-text-primary focus:outline-none focus:border-accent font-mono"
-            >
-              <option value="ALL">Tüm Değerlendirmeler</option>
-              <option value="LOVE">❤️ Çok Sevdim</option>
-              <option value="LIKE">👍 Beğendim</option>
-              <option value="NEUTRAL">😐 Ortalama</option>
-              <option value="DISLIKE">👎 Sevmedim</option>
-            </select>
-          )}
-
-          {/* Sort Dropdown */}
-          <select
-            value={sort}
-            onChange={(e) => {
-              setSort(e.target.value);
-              setPage(1);
-            }}
-            className="px-3 py-2 rounded-xl bg-background border border-border text-xs text-text-primary focus:outline-none focus:border-accent font-mono"
-          >
-            <option value="newest">En Yeni Değerlendirilen</option>
-            <option value="oldest">En Eski</option>
-            <option value="title">Film Adı (A-Z)</option>
-          </select>
-        </div>
-
-        {/* Loading State */}
-        {isLoading && (
-          <div className="p-12 text-center text-text-muted font-mono text-xs space-y-3 rounded-3xl bg-surface border border-border">
-            <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
-            <p>Filmleriniz getiriliyor...</p>
-          </div>
-        )}
-
-        {/* Empty States */}
-        {!isLoading && items.length === 0 && (
-          <div className="p-12 rounded-3xl bg-surface border border-border text-center space-y-4 max-w-md mx-auto my-8">
-            <div className="w-12 h-12 rounded-full bg-accent/15 border border-accent/30 text-accent text-xl flex items-center justify-center mx-auto">
-              {currentTab === "watched"
-                ? "🎬"
-                : currentTab === "not_watched"
-                ? "🙈"
-                : currentTab === "unsure"
-                ? "🤔"
-                : "🔖"}
             </div>
-            <div className="space-y-1">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
+              Kütüphanem
+            </h1>
+            <p className="text-xs sm:text-sm text-text-secondary">
+              İzleme listeniz, tamamladığınız yapımlar ve favorileriniz tek bir çatı altında.
+            </p>
+          </div>
+
+          <button
+            onClick={handleFetchTonightPicks}
+            disabled={isTonightLoading || counts.watchlist === 0}
+            className="px-5 py-3 rounded-2xl bg-accent text-white font-mono text-xs font-bold hover:bg-accent-hover transition-all shadow-md flex items-center justify-center gap-2 self-start md:self-auto disabled:opacity-50 disabled:cursor-not-allowed group flex-shrink-0"
+          >
+            <span>🍿</span>
+            <span>{isTonightLoading ? "Seçiliyor..." : "Bu Akşam Ne İzlesem?"}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/25 text-white">
+              {counts.watchlist}
+            </span>
+          </button>
+        </div>
+
+        {/* Filters and Navigation Controls */}
+        <div className="space-y-4">
+          {/* Main State Tabs */}
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar text-xs font-mono">
+            {[
+              { key: "WATCHLIST", label: "İzleme Listem", count: counts.watchlist, icon: "🔖" },
+              { key: "WATCHED", label: "İzlediklerim", count: counts.watched, icon: "👁️" },
+              { key: "FAVORITES", label: "Favorilerim", count: counts.favorites, icon: "⭐" },
+              { key: "DROPPED", label: "Bıraktıklarım", count: counts.dropped, icon: "🚫" },
+              { key: "ALL", label: "Tümü", count: counts.total, icon: "📁" },
+            ].map((tab) => {
+              const isActive = currentTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => handleTabChange(tab.key)}
+                  className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+                    isActive
+                      ? "bg-accent text-white font-bold shadow-sm"
+                      : "bg-surface border border-border/70 text-text-muted hover:text-text-primary hover:border-border"
+                  }`}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                      isActive ? "bg-black/20 text-white" : "bg-surface-elevated text-text-secondary"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Sub-Filters: Media Type, Search, and Sorting */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            {/* Media Type Switcher */}
+            <div className="flex items-center p-1 rounded-xl bg-surface border border-border/80 text-xs font-mono self-start">
+              {[
+                { key: "ALL", label: "Tümü" },
+                { key: "FILM", label: "Filmler" },
+                { key: "TV", label: "Diziler" },
+              ].map((m) => (
+                <button
+                  key={m.key}
+                  onClick={() => {
+                    setMediaType(m.key as any);
+                    setPage(1);
+                  }}
+                  className={`px-3 py-1 rounded-lg transition-all ${
+                    mediaType === m.key
+                      ? "bg-accent/20 text-accent font-bold border border-accent/30"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {/* Search input */}
+              <div className="relative flex-1 sm:w-60">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Kütüphanede ara..."
+                  className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-surface border border-border/80 text-xs font-mono text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent/60"
+                />
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-xs">
+                  🔍
+                </span>
+                {search && (
+                  <button
+                    onClick={() => setSearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Sort Selector */}
+              <select
+                value={sort}
+                onChange={(e) => {
+                  setSort(e.target.value);
+                  setPage(1);
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-surface border border-border/80 text-xs font-mono text-text-primary focus:outline-none focus:border-accent/60"
+              >
+                <option value="newest">En Yeni Eklenenler</option>
+                <option value="oldest">En Eski Eklenenler</option>
+                <option value="title">Başlık (A-Z)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Cards Grid */}
+        {isLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6 animate-pulse">
+            {Array.from({ length: 12 }).map((_, idx) => (
+              <div key={idx} className="aspect-[2/3] rounded-2xl bg-surface border border-border/60" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="p-12 rounded-3xl bg-surface border border-border/80 text-center space-y-4 my-8">
+            <div className="w-14 h-14 rounded-2xl bg-accent/15 border border-accent/30 text-accent text-2xl flex items-center justify-center mx-auto">
+              📭
+            </div>
+            <div className="space-y-1 max-w-md mx-auto">
               <h3 className="font-display text-lg font-bold text-text-primary">
-                {currentTab === "watched"
-                  ? "Henüz izlediğin bir film kaydetmedin"
-                  : currentTab === "not_watched"
-                  ? "İzlemediğini işaretlediğin film yok"
-                  : currentTab === "unsure"
-                  ? "Emin olmadığını belirttiğin film yok"
-                  : "Daha sonra izlemek için kaydettiğin film yok"}
+                {currentTab === "WATCHLIST"
+                  ? "İzleme listeniz henüz boş"
+                  : currentTab === "WATCHED"
+                  ? "Henüz izlenmiş bir yapım yok"
+                  : currentTab === "FAVORITES"
+                  ? "Henüz bir favori eklemediniz"
+                  : "Bu filtrede bir yapım bulunamadı"}
               </h3>
-              <p className="text-xs text-text-muted leading-relaxed">
-                {debouncedSearch
-                  ? "Arama kriterlerine uygun film bulunamadı."
-                  : "Kalibrasyon ve öneri sayfalarından filmleri değerlendirebilirsiniz."}
+              <p className="text-xs text-text-secondary">
+                {currentTab === "WATCHLIST"
+                  ? "Öneriler sayfasından veya film detaylarından beğendiğiniz yapımları izleme listenize ekleyebilirsiniz."
+                  : "Önerileri keşfederek kütüphanenizi zenginleştirebilirsiniz."}
               </p>
             </div>
-            <div>
+            <div className="pt-2 flex items-center justify-center gap-3 font-mono text-xs">
               <Link
                 href="/recommendations"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-mono font-medium hover:bg-accent-hover transition-all"
+                className="px-4 py-2 rounded-xl bg-accent text-white font-bold hover:bg-accent-hover transition-all shadow-sm"
               >
-                Önerilere Git ➔
+                Önerilere Git →
+              </Link>
+              <Link
+                href="/calibrate"
+                className="px-4 py-2 rounded-xl bg-surface-elevated border border-border text-text-secondary hover:text-text-primary transition-all"
+              >
+                Kalibrasyon Yap
               </Link>
             </div>
           </div>
-        )}
-
-        {/* Movie Cards Grid */}
-        {!isLoading && items.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
             {items.map((item) => {
-              const { movieId, title, releaseYear, posterPath, genres, status, rating } = item;
-              const isRatingOpen = activeRatingMovieId === movieId;
-              const isMenuOpen = activeMenuMovieId === movieId;
-              const posterUrl = getTmdbImageUrl(posterPath, "w500");
+              const posterUrl = getTmdbImageUrl(item.posterPath, "w500");
+              const isRatingOpen = activeRatingItem?.id === item.id;
 
               return (
                 <div
-                  key={movieId}
-                  className="p-4 rounded-2xl bg-surface border border-border/80 shadow-sm flex flex-col justify-between space-y-3 group hover:border-accent/40 transition-all"
+                  key={item.id}
+                  className="rounded-2xl bg-surface border border-border/80 p-2.5 shadow-sm flex flex-col justify-between space-y-2 group hover:border-accent/50 transition-all duration-300 relative"
                 >
-                  <div className="space-y-3">
-                    {/* Poster */}
-                    <div
-                      onClick={() =>
-                        setSelectedMovieModal({
-                          movieId,
-                          initialData: {
-                            title,
-                            posterPath,
-                            releaseYear,
-                            genres,
-                            matchScore: matchScoresMap[movieId]?.displayScore,
-                            reasons: matchScoresMap[movieId]?.reasons,
-                            headline: matchScoresMap[movieId]?.headline,
-                          },
-                        })
+                  {/* Poster Container */}
+                  <div
+                    onClick={() => {
+                      if (item.mediaType === "FILM") {
+                        setSelectedMovieModal({ movieId: item.contentId });
+                      } else {
+                        setSelectedTvModal({ tvShowId: item.contentId });
                       }
-                      className="w-full aspect-[2/3] rounded-xl overflow-hidden bg-surface-elevated relative shadow-sm cursor-pointer"
-                      title="Film detaylarını gör"
-                    >
-                      {posterUrl ? (
-                        <Image
-                          src={posterUrl}
-                          alt={title}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-500"
-                          sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 25vw"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-text-muted font-mono text-[10px]">
-                          Görsel Yok
-                        </div>
-                      )}
-
-                      {/* Current Rating Badge (If Watched) */}
-                      {status === "WATCHED" && rating && (
-                        <div className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-text-primary text-[10px] font-mono font-bold flex items-center gap-1 z-10">
-                          <span>{RATING_LABELS[rating]?.emoji}</span>
-                          <span>{RATING_LABELS[rating]?.label}</span>
-                        </div>
-                      )}
-
-                      {/* Filmprint Match Score Badge */}
-                      {matchScoresMap[movieId]?.available && matchScoresMap[movieId]?.displayScore > 0 && (
-                        <div
-                          className={`absolute ${
-                            status === "WATCHED" && rating ? "top-2 left-2 text-[9px] px-2 py-0.5" : "top-2 right-2 text-[10px] px-2.5 py-1"
-                          } rounded-full bg-background/90 backdrop-blur-md border border-accent/40 text-accent font-mono font-bold z-10`}
-                        >
-                          ❤️ %{matchScoresMap[movieId].displayScore} UYUM
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Movie Info */}
-                    <div
-                      onClick={() =>
-                        setSelectedMovieModal({
-                          movieId,
-                          initialData: {
-                            title,
-                            posterPath,
-                            releaseYear,
-                            genres,
-                          },
-                        })
-                      }
-                      className="cursor-pointer"
-                    >
-                      <h4 className="font-display text-sm font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors">
-                        {title}
-                      </h4>
-                      <p className="text-[10px] font-mono text-text-muted line-clamp-1">
-                        {releaseYear || "Tarihsiz"} • {genres.join(", ")}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Actions according to current tab */}
-                  <div className="pt-2 border-t border-border/60">
-                    {/* Inline Rating Selection */}
-                    {isRatingOpen ? (
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center text-[10px] font-mono text-text-primary font-bold">
-                          <span>Değerlendir:</span>
-                          <button
-                            onClick={() => setActiveRatingMovieId(null)}
-                            className="text-text-muted hover:text-text-primary text-[9px]"
-                          >
-                            İptal
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <button
-                            onClick={() => handleUpdateInteraction(movieId, "WATCHED", "LOVE")}
-                            className="py-1.5 rounded-lg bg-accent/20 text-text-primary font-mono text-[10px] border border-accent/40 hover:bg-accent/30 transition-colors"
-                          >
-                            ❤️ Çok Sevdim
-                          </button>
-                          <button
-                            onClick={() => handleUpdateInteraction(movieId, "WATCHED", "LIKE")}
-                            className="py-1.5 rounded-lg bg-surface-elevated text-text-primary font-mono text-[10px] border border-border hover:bg-border/60 transition-colors"
-                          >
-                            👍 Beğendim
-                          </button>
-                          <button
-                            onClick={() => handleUpdateInteraction(movieId, "WATCHED", "NEUTRAL")}
-                            className="py-1.5 rounded-lg bg-surface-elevated text-text-secondary font-mono text-[10px] border border-border hover:bg-border/60 transition-colors"
-                          >
-                            😐 Ortalama
-                          </button>
-                          <button
-                            onClick={() => handleUpdateInteraction(movieId, "WATCHED", "DISLIKE")}
-                            className="py-1.5 rounded-lg bg-surface-elevated text-text-muted font-mono text-[10px] border border-border hover:bg-border/60 transition-colors"
-                          >
-                            👎 Sevmedim
-                          </button>
-                        </div>
-                      </div>
+                    }}
+                    className="w-full aspect-[2/3] rounded-xl overflow-hidden bg-surface-elevated relative shadow-sm cursor-pointer"
+                  >
+                    {posterUrl ? (
+                      <Image
+                        src={posterUrl}
+                        alt={item.title}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 16vw"
+                      />
                     ) : (
-                      <div className="relative">
-                        {/* Watched Tab Actions */}
-                        {status === "WATCHED" && (
-                          <div className="flex items-center justify-between gap-2">
-                            <button
-                              onClick={() => setActiveRatingMovieId(movieId)}
-                              className="flex-1 py-1.5 rounded-lg bg-surface-elevated border border-border hover:border-accent text-text-primary font-mono text-xs font-semibold transition-colors"
-                            >
-                              Puanı Değiştir
-                            </button>
-
-                            <button
-                              onClick={() =>
-                                setActiveMenuMovieId(isMenuOpen ? null : movieId)
-                              }
-                              className="p-1.5 rounded-lg bg-surface-elevated border border-border text-text-muted hover:text-text-primary text-xs font-mono"
-                              title="Diğer Seçenekler"
-                            >
-                              ⚙️
-                            </button>
-
-                            {/* Secondary Menu Dropdown */}
-                            {isMenuOpen && (
-                              <div className="absolute right-0 bottom-full mb-1 w-44 p-1 rounded-xl bg-surface-elevated border border-border/80 shadow-xl z-20 space-y-1">
-                                <button
-                                  onClick={() =>
-                                    setConfirmStatusModal({
-                                      movieId,
-                                      movieTitle: title,
-                                      targetStatus: "NOT_WATCHED",
-                                    })
-                                  }
-                                  className="w-full text-left px-3 py-1.5 rounded-lg text-[11px] font-mono text-text-secondary hover:bg-background hover:text-text-primary transition-colors"
-                                >
-                                  🙈 İzlemedim yap
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    handleUpdateInteraction(movieId, "UNSURE", null)
-                                  }
-                                  className="w-full text-left px-3 py-1.5 rounded-lg text-[11px] font-mono text-text-secondary hover:bg-background hover:text-text-primary transition-colors"
-                                >
-                                  🤔 Emin Değilim yap
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Not Watched Tab Actions */}
-                        {status === "NOT_WATCHED" && (
-                          <div className="flex items-center justify-between gap-2">
-                            <button
-                              onClick={() => setActiveRatingMovieId(movieId)}
-                              className="flex-1 py-1.5 rounded-lg bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-colors shadow-sm"
-                            >
-                              Artık İzledim ➔
-                            </button>
-                            <button
-                              onClick={() => handleUpdateInteraction(movieId, "UNSURE", null)}
-                              className="px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-text-muted hover:text-text-primary font-mono text-[10px]"
-                            >
-                              Emin Değilim
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Unsure Tab Actions */}
-                        {status === "UNSURE" && (
-                          <div className="flex items-center justify-between gap-2">
-                            <button
-                              onClick={() => setActiveRatingMovieId(movieId)}
-                              className="flex-1 py-1.5 rounded-lg bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-colors"
-                            >
-                              İzledim
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleUpdateInteraction(movieId, "NOT_WATCHED", null)
-                              }
-                              className="flex-1 py-1.5 rounded-lg bg-surface-elevated border border-border text-text-secondary hover:text-text-primary font-mono text-xs transition-colors"
-                            >
-                              İzlemedim
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Watch Later Tab Actions */}
-                        {status === "WATCH_LATER" && (
-                          <div className="flex items-center justify-between gap-2">
-                            <button
-                              onClick={() => setActiveRatingMovieId(movieId)}
-                              className="flex-1 py-1.5 rounded-lg bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-colors"
-                            >
-                              İzledim ➔
-                            </button>
-                            <button
-                              onClick={() => handleRemoveFromWatchLater(movieId)}
-                              className="px-3 py-1.5 rounded-lg bg-surface-elevated border border-border text-text-muted hover:text-text-primary font-mono text-xs transition-colors"
-                            >
-                              Kaldır
-                            </button>
-                          </div>
-                        )}
+                      <div className="w-full h-full flex items-center justify-center text-text-muted font-mono text-[10px]">
+                        Görsel Yok
                       </div>
                     )}
+
+                    {/* Media Type Badge */}
+                    <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-background/80 backdrop-blur-sm text-[9px] font-mono font-bold text-text-muted border border-border/60">
+                      {item.mediaType === "TV" ? "DİZİ" : "FİLM"}
+                    </div>
+
+                    {/* Favorite Star Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAction(
+                          item.mediaType,
+                          item.contentId,
+                          item.isFavorite ? "REMOVE_FAVORITE" : "ADD_FAVORITE"
+                        );
+                      }}
+                      className={`absolute top-2 right-2 w-7 h-7 rounded-full backdrop-blur-md border flex items-center justify-center transition-all ${
+                        item.isFavorite
+                          ? "bg-amber-500/20 border-amber-500/50 text-amber-400"
+                          : "bg-background/80 border-border/60 text-text-muted hover:text-amber-400"
+                      }`}
+                      title={item.isFavorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
+                    >
+                      ★
+                    </button>
+
+                    {/* State Badge */}
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between pointer-events-none">
+                      <span className="px-2 py-0.5 rounded-md bg-background/90 backdrop-blur-md text-[9px] font-mono font-bold text-text-primary border border-border/60">
+                        {item.state === "WATCHLIST"
+                          ? "🔖 Listede"
+                          : item.state === "WATCHED"
+                          ? "👁️ İzlendi"
+                          : "🚫 Bırakıldı"}
+                      </span>
+                      {item.userRating && (
+                        <span className="px-1.5 py-0.5 rounded-md bg-accent/20 text-accent text-[9px] font-mono font-bold border border-accent/30">
+                          {RATING_LABELS[item.userRating]?.emoji || "⭐"}
+                        </span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Title & Metadata */}
+                  <div className="space-y-1">
+                    <h4
+                      onClick={() => {
+                        if (item.mediaType === "FILM") {
+                          setSelectedMovieModal({ movieId: item.contentId });
+                        } else {
+                          setSelectedTvModal({ tvShowId: item.contentId });
+                        }
+                      }}
+                      className="font-display text-xs font-bold text-text-primary line-clamp-1 group-hover:text-accent transition-colors cursor-pointer"
+                    >
+                      {item.title}
+                    </h4>
+                    <div className="flex items-center justify-between text-[10px] font-mono text-text-muted">
+                      <span>{item.releaseYear || "Tarihsiz"}</span>
+                      {item.voteAverage > 0 && (
+                        <span className="text-text-secondary font-bold">
+                          ⭐ {item.voteAverage.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Inline Action Bar / Rating Mode */}
+                  {isRatingOpen ? (
+                    <div className="pt-1.5 border-t border-border/60 space-y-1 animate-fadeIn">
+                      <div className="flex justify-between items-center text-[9px] font-mono text-text-muted">
+                        <span>PUANLA:</span>
+                        <button
+                          onClick={() => setActiveRatingItem(null)}
+                          className="hover:text-text-primary"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1">
+                        {["LOVE", "LIKE", "NEUTRAL", "DISLIKE"].map((r) => (
+                          <button
+                            key={r}
+                            onClick={() => {
+                              setActiveRatingItem(null);
+                              handleAction(item.mediaType, item.contentId, "MARK_WATCHED", r);
+                            }}
+                            className="p-1 rounded bg-surface-elevated hover:bg-accent/20 border border-border text-center text-xs"
+                            title={RATING_LABELS[r].label}
+                          >
+                            {RATING_LABELS[r].emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pt-1.5 border-t border-border/60 flex items-center justify-between gap-1 text-[10px] font-mono">
+                      {item.state !== "WATCHED" && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveRatingItem({ id: item.id, contentId: item.contentId, mediaType: item.mediaType })}
+                          className="px-2 py-1 rounded bg-surface-elevated hover:bg-accent/15 hover:text-accent border border-border/70 transition-all flex-1 text-center font-semibold"
+                          title="İzlendi olarak işaretle"
+                        >
+                          İzledim
+                        </button>
+                      )}
+
+                      {item.state !== "WATCHLIST" && (
+                        <button
+                          type="button"
+                          onClick={() => handleAction(item.mediaType, item.contentId, "ADD_WATCHLIST")}
+                          className="px-2 py-1 rounded bg-surface-elevated hover:bg-border border border-border/70 transition-all flex-1 text-center"
+                          title="İzleme listesine geri al"
+                        >
+                          Listem
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleAction(item.mediaType, item.contentId, "CLEAR_STATE")}
+                        className="p-1 rounded bg-surface-elevated hover:bg-red-500/20 hover:text-red-400 border border-border/70 transition-all text-text-muted"
+                        title="Kütüphaneden Kaldır"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
 
-        {/* Pagination Controls */}
-        {!isLoading && totalPages > 1 && (
-          <div className="flex items-center justify-center gap-3 pt-6 font-mono text-xs">
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="pt-6 flex items-center justify-center gap-2 font-mono text-xs">
             <button
-              disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="px-4 py-2 rounded-xl bg-surface border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:border-accent text-text-primary transition-all"
+              disabled={page <= 1}
+              className="px-3 py-1.5 rounded-xl bg-surface border border-border text-text-primary disabled:opacity-40"
             >
               ← Önceki
             </button>
-            <span className="text-text-muted font-bold">
-              Sayfa {page} / {totalPages}
+            <span className="px-3 py-1.5 text-text-muted">
+              {page} / {totalPages}
             </span>
             <button
-              disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="px-4 py-2 rounded-xl bg-surface border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:border-accent text-text-primary transition-all"
+              disabled={page >= totalPages}
+              className="px-3 py-1.5 rounded-xl bg-surface border border-border text-text-primary disabled:opacity-40"
             >
               Sonraki →
             </button>
@@ -626,74 +531,130 @@ function LibraryContent() {
         )}
       </main>
 
-      <Footer />
-
-      {/* Cinematic Movie Detail Modal */}
-      <MovieDetailsModal
-        movieId={selectedMovieModal?.movieId || null}
-        onClose={() => {
-          setSelectedMovieModal(null);
-          fetchLibrary();
-        }}
-        initialData={selectedMovieModal?.initialData}
-        onInteractionUpdate={() => {
-          fetchLibrary();
-        }}
-      />
-
-      {/* Confirmation Modal for Destructive WATCHED -> NOT_WATCHED */}
-      {confirmStatusModal && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-surface border border-border p-6 rounded-3xl max-w-sm w-full space-y-4 shadow-2xl">
-            <h3 className="font-display text-base font-bold text-text-primary">
-              Durumu Değiştirilsin mi?
-            </h3>
-            <p className="text-xs text-text-secondary leading-relaxed">
-              <strong className="text-text-primary">{confirmStatusModal.movieTitle}</strong> filmini{" "}
-              <span className="text-accent font-semibold">İzlemedim</span> durumuna getirmek istediğinize emin misiniz? Değerlendirmeniz kaldırılacaktır.
-            </p>
-            <div className="flex gap-2 justify-end pt-2 font-mono text-xs">
+      {/* "Bu Akşam Ne İzlesem?" Modal */}
+      {tonightPicks && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="max-w-2xl w-full bg-surface border border-accent/40 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl relative">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🍿</span>
+                <div>
+                  <h3 className="font-display text-xl font-bold text-text-primary">
+                    Bu Akşam Ne İzlesem?
+                  </h3>
+                  <p className="text-xs text-text-secondary font-mono">
+                    İzleme listenizdeki yapımlar zevk profilinizle eşleştirildi.
+                  </p>
+                </div>
+              </div>
               <button
-                onClick={() => setConfirmStatusModal(null)}
-                className="px-4 py-2 rounded-xl bg-surface-elevated border border-border text-text-muted hover:text-text-primary"
+                onClick={() => setTonightPicks(null)}
+                className="w-8 h-8 rounded-full bg-surface-elevated hover:bg-border border border-border flex items-center justify-center text-text-muted hover:text-text-primary text-xs"
               >
-                İptal
+                ✕
               </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {tonightPicks.map((pick) => {
+                const posterUrl = getTmdbImageUrl(pick.posterPath, "w500");
+                return (
+                  <div
+                    key={pick.id}
+                    className="p-3 rounded-2xl bg-surface-elevated border border-accent/30 space-y-2 flex flex-col justify-between group"
+                  >
+                    <div className="aspect-[2/3] rounded-xl overflow-hidden bg-surface relative">
+                      {posterUrl ? (
+                        <Image
+                          src={posterUrl}
+                          alt={pick.title}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[10px] text-text-muted">
+                          Görsel Yok
+                        </div>
+                      )}
+                      {pick.matchScore && (
+                        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-background/90 text-accent font-mono text-[9px] font-bold border border-accent/40">
+                          %{pick.matchScore} UYUM
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-display text-xs font-bold text-text-primary line-clamp-1">
+                        {pick.title}
+                      </h4>
+                      <p className="text-[10px] font-mono text-text-muted">
+                        {pick.releaseYear || "Tarihsiz"} • {pick.genres.slice(0, 2).join(", ")}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setTonightPicks(null);
+                        if (pick.mediaType === "FILM") {
+                          setSelectedMovieModal({ movieId: pick.contentId });
+                        } else {
+                          setSelectedTvModal({ tvShowId: pick.contentId });
+                        }
+                      }}
+                      className="w-full py-1.5 rounded-lg bg-accent text-white font-mono text-[10px] font-bold hover:bg-accent-hover transition-colors text-center"
+                    >
+                      Detayları Gör
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end pt-2">
               <button
-                onClick={() =>
-                  handleUpdateInteraction(
-                    confirmStatusModal.movieId,
-                    "NOT_WATCHED",
-                    null
-                  )
-                }
-                className="px-4 py-2 rounded-xl bg-accent text-white font-semibold hover:bg-accent-hover"
+                onClick={() => setTonightPicks(null)}
+                className="px-4 py-2 rounded-xl bg-surface-elevated hover:bg-border text-xs font-mono text-text-secondary"
               >
-                Evet, Değiştir
+                Kapat
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Movie Details Modal */}
+      {selectedMovieModal && (
+        <MovieDetailsModal
+          movieId={selectedMovieModal.movieId}
+          initialData={selectedMovieModal.initialData}
+          onClose={() => {
+            setSelectedMovieModal(null);
+            fetchLibrary();
+          }}
+          onInteractionUpdate={() => fetchLibrary()}
+        />
+      )}
+
+      {/* TV Details Modal */}
+      {selectedTvModal && (
+        <TvDetailsModal
+          tvShowId={selectedTvModal.tvShowId}
+          initialData={selectedTvModal.initialData}
+          onClose={() => {
+            setSelectedTvModal(null);
+            fetchLibrary();
+          }}
+          onInteractionUpdate={() => fetchLibrary()}
+        />
+      )}
+
+      <Footer />
     </div>
   );
 }
 
 export default function LibraryPage() {
   return (
-    <React.Suspense
-      fallback={
-        <div className="min-h-screen bg-background text-text-primary flex flex-col font-sans">
-          <Header />
-          <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 md:py-12 space-y-8">
-            <div className="p-12 text-center text-text-muted font-mono text-xs">
-              Filmlerim kütüphanesi yükleniyor...
-            </div>
-          </main>
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
       <LibraryContent />
-    </React.Suspense>
+    </Suspense>
   );
 }

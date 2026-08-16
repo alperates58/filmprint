@@ -1,7 +1,12 @@
 import { db } from "@/lib/db/client";
 import { getSystemSettings, getIntegrationStatus, getDeepSeekConfig } from "@/lib/config/service";
-import { getRankForCount, getProgressionForCount } from "@/lib/progression/service";
-import { RANK_DEFINITIONS } from "@/lib/progression/constants";
+import {
+  getRankForCount,
+  getProgressionForCount,
+  getTvProgressionForCount,
+  getTvRankForCount,
+} from "@/lib/progression/service";
+import { RANK_DEFINITIONS, TV_RANK_DEFINITIONS } from "@/lib/progression/constants";
 
 export async function getAdminOverviewData() {
   const [
@@ -21,6 +26,8 @@ export async function getAdminOverviewData() {
     totalMovieNights,
     activeMovieNights,
     completedMovieNights,
+    libraryGroups,
+    totalFavorites,
   ] = await Promise.all([
     db.user.count(),
     db.movie.count(),
@@ -52,6 +59,12 @@ export async function getAdminOverviewData() {
     db.movieNightSession.count(),
     db.movieNightSession.count({ where: { status: "LOBBY" } }),
     db.movieNightSession.count({ where: { status: "COMPLETED" } }),
+    // Personal Library
+    db.userContentLibrary.groupBy({
+      by: ["mediaType", "state"],
+      _count: { state: true },
+    }),
+    db.userContentLibrary.count({ where: { isFavorite: true } }),
   ]);
 
   // Movie feedback breakdown
@@ -206,9 +219,17 @@ export async function getAdminOverviewData() {
     rankDistributionMap[r.key] = 0;
   });
 
+  const tvRankDistributionMap: Record<string, number> = {};
+  TV_RANK_DEFINITIONS.forEach((r) => {
+    tvRankDistributionMap[r.key] = 0;
+  });
+
   for (const u of allUsersWithCounts) {
     const r = getRankForCount(u._count.interactions);
     rankDistributionMap[r.key] = (rankDistributionMap[r.key] || 0) + 1;
+
+    const tvr = getTvRankForCount(u._count.tvInteractions);
+    tvRankDistributionMap[tvr.key] = (tvRankDistributionMap[tvr.key] || 0) + 1;
   }
 
   const rankDistribution = RANK_DEFINITIONS.map((r) => ({
@@ -216,6 +237,13 @@ export async function getAdminOverviewData() {
     label: r.label,
     icon: r.badgeIcon,
     count: rankDistributionMap[r.key] || 0,
+  }));
+
+  const tvRankDistribution = TV_RANK_DEFINITIONS.map((r) => ({
+    key: r.key,
+    label: r.label,
+    icon: r.badgeIcon,
+    count: tvRankDistributionMap[r.key] || 0,
   }));
 
   return {
@@ -228,6 +256,7 @@ export async function getAdminOverviewData() {
       completedTvCalibration: totalTvProfiles,
     },
     rankDistribution,
+    tvRankDistribution,
     movies: { total: totalMovies, cached: totalMovies, totalCached: totalMovies },
     tvShows: { total: totalTvShows, cached: totalTvShows, totalCached: totalTvShows },
     totalMediaCached: totalMovies + totalTvShows,
@@ -288,6 +317,35 @@ export async function getAdminOverviewData() {
       positiveOutcomeRate: tvPositiveOutcomeRate,
       matchBucketOutcomes: tvMatchBucketOutcomes,
     },
+    libraryMetrics: (() => {
+      let total = 0;
+      let watchlist = 0;
+      let watched = 0;
+      let dropped = 0;
+      let filmCount = 0;
+      let tvCount = 0;
+
+      for (const g of libraryGroups as any[]) {
+        const count = g._count.state || 0;
+        total += count;
+        if (g.state === "WATCHLIST") watchlist += count;
+        else if (g.state === "WATCHED") watched += count;
+        else if (g.state === "DROPPED") dropped += count;
+
+        if (g.mediaType === "FILM") filmCount += count;
+        else if (g.mediaType === "TV") tvCount += count;
+      }
+
+      return {
+        total,
+        watchlist,
+        watched,
+        dropped,
+        favorites: totalFavorites,
+        filmCount,
+        tvCount,
+      };
+    })(),
     system: {
       tmdb: tmdbStatus,
       deepseek: deepseekStatus,
@@ -359,6 +417,7 @@ export async function getAdminUsersData(search?: string, page: number = 1, pageS
       hasTvTasteProfile: !!u.tvTasteProfile,
       tvConfidence: u.tvTasteProfile?.confidence || 0.0,
       rank: getRankForCount(u._count.interactions),
+      tvRank: getTvRankForCount(u._count.tvInteractions),
     })),
     totalCount,
     totalPages: Math.ceil(totalCount / pageSize) || 1,
@@ -449,6 +508,7 @@ export async function getAdminUserDetailData(id: string) {
   const tvNotWatched = tvStatusMap.get("NOT_WATCHED") || 0;
   const tvUnsure = tvStatusMap.get("UNSURE") || 0;
   const totalTvInteractionCount = tvWatched + tvPartiallyWatched + tvNotWatched + tvUnsure;
+  const tvProgression = getTvProgressionForCount(totalTvInteractionCount);
 
   // Movie feedback breakdown from DB
   const movieFeedbackMap = new Map(movieFeedbackCounts.map((g) => [g.action, g._count.action]));
@@ -483,6 +543,7 @@ export async function getAdminUserDetailData(id: string) {
       createdAt: user.createdAt,
       lastSeenAt: user.lastSeenAt,
       progression,
+      tvProgression,
       stats: {
         totalInteractions: totalMovieInteractionCount,
         watched,

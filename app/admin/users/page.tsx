@@ -58,21 +58,22 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
               <thead>
                 <tr className="border-b border-border/60 bg-surface-elevated/50 text-[11px] font-mono text-text-muted uppercase">
                   <th className="py-3 px-4">Kullanıcı</th>
-                  <th className="py-3 px-4">Rütbe</th>
-                  <th className="py-3 px-4">Durum</th>
-                  <th className="py-3 px-4">Kayıt Tarihi</th>
-                  <th className="py-3 px-4">Son Aktivite</th>
-                  <th className="py-3 px-3 text-center">Film</th>
-                  <th className="py-3 px-3 text-center">Dizi</th>
-                  <th className="py-3 px-3 text-center">Film DNA</th>
-                  <th className="py-3 px-3 text-center">Dizi DNA</th>
+                  <th className="py-3 px-3">Film Rütbesi</th>
+                  <th className="py-3 px-3">Dizi Rütbesi</th>
+                  <th className="py-3 px-3">Durum</th>
+                  <th className="py-3 px-3">Kayıt Tarihi</th>
+                  <th className="py-3 px-3">Son Aktivite</th>
+                  <th className="py-3 px-2 text-center">Film</th>
+                  <th className="py-3 px-2 text-center">Dizi</th>
+                  <th className="py-3 px-2 text-center">Film DNA</th>
+                  <th className="py-3 px-2 text-center">Dizi DNA</th>
                   <th className="py-3 px-4 text-right">İşlem</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40 text-xs">
                 {data.users.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-8 text-center text-text-muted font-mono text-xs">
+                    <td colSpan={11} className="py-8 text-center text-text-muted font-mono text-xs">
                       Kullanıcı bulunamadı.
                     </td>
                   </tr>
@@ -103,11 +104,19 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                         </div>
                       </td>
 
-                      {/* Rank Badge Column */}
-                      <td className="py-3 px-4 font-mono">
+                      {/* Film Rank Badge Column */}
+                      <td className="py-3 px-3 font-mono">
                         <span className="px-2 py-0.5 rounded-md bg-accent/10 border border-accent/30 text-accent text-[10px] font-bold inline-flex items-center gap-1">
-                          <span>{user.rank.badgeIcon}</span>
-                          <span>{user.rank.label}</span>
+                          <span>{user.rank?.badgeIcon || "🎬"}</span>
+                          <span className="truncate max-w-[110px]">{user.rank?.label || "Sinema Çırağı"}</span>
+                        </span>
+                      </td>
+
+                      {/* TV Rank Badge Column */}
+                      <td className="py-3 px-3 font-mono">
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold inline-flex items-center gap-1">
+                          <span>{user.tvRank?.badgeIcon || "📺"}</span>
+                          <span className="truncate max-w-[110px]">{user.tvRank?.label || "Dizi Meraklısı"}</span>
                         </span>
                       </td>
 
@@ -224,8 +233,13 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
 
                   <div className="flex flex-wrap items-center gap-2 text-xs font-mono pt-1">
                     <span className="px-2 py-0.5 rounded-md bg-accent/15 text-accent border border-accent/30 text-[10px] font-bold flex items-center gap-1">
-                      <span>{user.rank.badgeIcon}</span>
-                      <span>{user.rank.label}</span>
+                      <span>{user.rank?.badgeIcon || "🎬"}</span>
+                      <span>{user.rank?.label || "Sinema Çırağı"}</span>
+                    </span>
+
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+                      <span>{user.tvRank?.badgeIcon || "📺"}</span>
+                      <span>{user.tvRank?.label || "Dizi Meraklısı"}</span>
                     </span>
 
                     {user.accountType === "REGISTERED" ? (

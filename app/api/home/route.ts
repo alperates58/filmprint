@@ -271,6 +271,30 @@ export async function GET() {
       movies: mod.movies.slice(0, 8).map(formatMovie), // 6-8 target per row
     }));
 
+    // Personal Library: İzleme Listenden Row (if user has watchlist items)
+    const watchlistEntries = await db.userContentLibrary.findMany({
+      where: { userId, mediaType: "FILM", state: "WATCHLIST" },
+      include: { movie: true },
+      take: 8,
+      orderBy: { addedAt: "desc" },
+    });
+
+    if (watchlistEntries.length > 0) {
+      const watchlistMovies = watchlistEntries
+        .filter((e) => e.movie !== null)
+        .map((e) => formatMovie(e.movie as any));
+
+      if (watchlistMovies.length > 0) {
+        modules.unshift({
+          id: "user_watchlist",
+          title: "İzleme Listenden",
+          icon: "🔖",
+          description: "Kütüphanene eklediğin ve izlemeyi planladığın filmler",
+          movies: watchlistMovies,
+        });
+      }
+    }
+
     // 7. Calculate Home Supply Health Metrics
     const renderedRowCount = modules.length;
     const hiddenRowCount = rawModules.length - renderedRowCount;

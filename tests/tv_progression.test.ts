@@ -3,8 +3,8 @@ import {
   getTvProgressionForCount,
   getRankForCount,
   getProgressionForCount,
-} from "../lib/progression/service.ts";
-import { TV_RANK_DEFINITIONS, RANK_DEFINITIONS } from "../lib/progression/constants.ts";
+} from "@/lib/progression/service";
+import { TV_RANK_DEFINITIONS, RANK_DEFINITIONS } from "@/lib/progression/constants";
 
 
 

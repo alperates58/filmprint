@@ -133,7 +133,7 @@ export async function POST(request: Request) {
           },
         });
 
-        // Upsert RecommendationFeedback
+        // Upsert RecommendationFeedback for Movie
         await db.recommendationFeedback.upsert({
           where: { userId_movieId: { userId, movieId: targetId } },
           update: {
@@ -155,6 +155,22 @@ export async function POST(request: Request) {
             deterministicScore,
             aiScore,
             hybridScore,
+          },
+        });
+
+        // Upsert UserContentLibrary for Movie
+        await db.userContentLibrary.upsert({
+          where: { userId_movieId: { userId, movieId: targetId } },
+          update: {
+            state: "WATCHED",
+            watchedAt: new Date(),
+          },
+          create: {
+            userId,
+            mediaType: "FILM",
+            movieId: targetId,
+            state: "WATCHED",
+            watchedAt: new Date(),
           },
         });
       } else {
@@ -197,6 +213,22 @@ export async function POST(request: Request) {
             deterministicScore,
             aiScore,
             hybridScore,
+          },
+        });
+
+        // Upsert UserContentLibrary for TV
+        await db.userContentLibrary.upsert({
+          where: { userId_tvShowId: { userId, tvShowId: targetId } },
+          update: {
+            state: "WATCHED",
+            watchedAt: new Date(),
+          },
+          create: {
+            userId,
+            mediaType: "TV",
+            tvShowId: targetId,
+            state: "WATCHED",
+            watchedAt: new Date(),
           },
         });
       }
@@ -247,6 +279,20 @@ export async function POST(request: Request) {
           hybridScore,
         },
       });
+
+      // Sync with canonical UserContentLibrary for WATCHLIST
+      if (enumAction === RecommendationAction.WATCHLIST) {
+        await db.userContentLibrary.upsert({
+          where: { userId_movieId: { userId, movieId: targetId } },
+          update: { state: "WATCHLIST" },
+          create: {
+            userId,
+            mediaType: "FILM",
+            movieId: targetId,
+            state: "WATCHLIST",
+          },
+        });
+      }
     } else {
       await db.tvRecommendationFeedback.upsert({
         where: { userId_tvShowId: { userId, tvShowId: targetId } },
@@ -271,6 +317,20 @@ export async function POST(request: Request) {
           hybridScore,
         },
       });
+
+      // Sync with canonical UserContentLibrary for WATCHLIST
+      if (enumAction === RecommendationAction.WATCHLIST) {
+        await db.userContentLibrary.upsert({
+          where: { userId_tvShowId: { userId, tvShowId: targetId } },
+          update: { state: "WATCHLIST" },
+          create: {
+            userId,
+            mediaType: "TV",
+            tvShowId: targetId,
+            state: "WATCHLIST",
+          },
+        });
+      }
     }
 
     return NextResponse.json({

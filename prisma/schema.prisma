@@ -63,6 +63,12 @@ enum AuthProvider {
   EMAIL
 }
 
+enum LibraryState {
+  WATCHLIST
+  WATCHED
+  DROPPED
+}
+
 enum MediaType {
   FILM
   TV
@@ -88,6 +94,7 @@ model User {
   tvRecommendationExplanations TvRecommendationExplanation[]
   aiTasteProfiles         UserAiTasteProfile[]
   aiRecommendationSnapshots AiRecommendationSnapshot[]
+  libraryEntries          UserContentLibrary[]
   hostedMovieNights       MovieNightSession[]      @relation("HostedMovieNights")
   movieNightMemberships   MovieNightMember[]
   sessions                UserSession[]
@@ -121,6 +128,7 @@ model Movie {
   updatedAt               DateTime                 @updatedAt
   interactions            MovieInteraction[]
   recommendationFeedbacks  RecommendationFeedback[]
+  libraryEntries          UserContentLibrary[]
   selectedInMovieNights   MovieNightSession[]      @relation("SelectedMovieNight")
 
   @@index([tmdbId])
@@ -309,6 +317,7 @@ model TvShow {
   interactions            TvInteraction[]
   recommendationFeedbacks TvRecommendationFeedback[]
   recommendationExplanations TvRecommendationExplanation[]
+  libraryEntries          UserContentLibrary[]
 
   @@index([tmdbId])
   @@index([popularity])
@@ -490,5 +499,33 @@ model CatalogCandidateState {
   @@unique([mediaType, tmdbId])
   @@index([mediaType, status])
   @@index([retryAfter])
+}
+
+model UserContentLibrary {
+  id         String       @id @default(uuid())
+  userId     String
+  mediaType  MediaType    @default(FILM)
+  movieId    String?
+  tvShowId   String?
+  state      LibraryState @default(WATCHLIST)
+  isFavorite Boolean      @default(false)
+  addedAt    DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  watchedAt  DateTime?
+  droppedAt  DateTime?
+  metadata   Json         @default("{}")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie  Movie?  @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  tvShow TvShow? @relation(fields: [tvShowId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+  @@unique([userId, tvShowId])
+  @@index([userId])
+  @@index([mediaType])
+  @@index([state])
+  @@index([isFavorite])
+  @@index([userId, mediaType, state])
+  @@index([userId, isFavorite])
 }
 

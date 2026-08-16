@@ -266,7 +266,7 @@ export default async function AdminUserDetailPage({
         {/* User Film Interactions History Table */}
         <div className="bg-surface border border-border/80 rounded-2xl overflow-hidden shadow-md space-y-3 p-4">
           <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-2">
-            <span>🎬</span> Cevaplanan Film Geçmişi ({user.interactions.length})
+            <span>🎬</span> Cevaplanan Film Geçmişi (Son {user.interactions.length})
           </h2>
 
           {user.interactions.length === 0 ? (
@@ -324,7 +324,7 @@ export default async function AdminUserDetailPage({
         {/* User TV Interactions History Table */}
         <div className="bg-surface border border-border/80 rounded-2xl overflow-hidden shadow-md space-y-3 p-4">
           <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-2">
-            <span>📺</span> Cevaplanan Dizi Geçmişi ({user.tvInteractions.length})
+            <span>📺</span> Cevaplanan Dizi Geçmişi (Son {user.tvInteractions.length})
           </h2>
 
           {user.tvInteractions.length === 0 ? (

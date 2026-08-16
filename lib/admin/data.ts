@@ -382,39 +382,72 @@ export async function getAdminUserDetailData(id: string) {
 
   if (!user) return null;
 
-  const [totalMovieInteractionCount, totalTvInteractionCount] = await Promise.all([
-    db.movieInteraction.count({ where: { userId: id } }),
-    db.tvInteraction.count({ where: { userId: id } }),
+  const [
+    movieCountsByStatus,
+    tvCountsByStatus,
+    movieFeedbackCounts,
+    tvFeedbackCounts,
+  ] = await Promise.all([
+    db.movieInteraction.groupBy({
+      by: ["status"],
+      where: { userId: id },
+      _count: { status: true },
+    }),
+    db.tvInteraction.groupBy({
+      by: ["status"],
+      where: { userId: id },
+      _count: { status: true },
+    }),
+    db.recommendationFeedback.groupBy({
+      by: ["action"],
+      where: { userId: id },
+      _count: { action: true },
+    }),
+    db.tvRecommendationFeedback.groupBy({
+      by: ["action"],
+      where: { userId: id },
+      _count: { action: true },
+    }),
   ]);
+
+  // Movie interaction breakdown from DB
+  const movieStatusMap = new Map(movieCountsByStatus.map((g) => [g.status, g._count.status]));
+  const watched = movieStatusMap.get("WATCHED") || 0;
+  const notWatched = movieStatusMap.get("NOT_WATCHED") || 0;
+  const unsure = movieStatusMap.get("UNSURE") || 0;
+  const totalMovieInteractionCount = watched + notWatched + unsure;
 
   const progression = getProgressionForCount(totalMovieInteractionCount);
 
-  // Movie interaction breakdown
-  const watched = user.interactions.filter((i: any) => i.status === "WATCHED").length;
-  const notWatched = user.interactions.filter((i: any) => i.status === "NOT_WATCHED").length;
-  const unsure = user.interactions.filter((i: any) => i.status === "UNSURE").length;
+  // TV interaction breakdown from DB
+  const tvStatusMap = new Map(tvCountsByStatus.map((g) => [g.status, g._count.status]));
+  const tvWatched = tvStatusMap.get("WATCHED") || 0;
+  const tvPartiallyWatched = tvStatusMap.get("PARTIALLY_WATCHED") || 0;
+  const tvNotWatched = tvStatusMap.get("NOT_WATCHED") || 0;
+  const tvUnsure = tvStatusMap.get("UNSURE") || 0;
+  const totalTvInteractionCount = tvWatched + tvPartiallyWatched + tvNotWatched + tvUnsure;
 
-  // TV interaction breakdown
-  const tvWatched = user.tvInteractions.filter((i: any) => i.status === "WATCHED").length;
-  const tvPartiallyWatched = user.tvInteractions.filter((i: any) => i.status === "PARTIALLY_WATCHED").length;
-  const tvNotWatched = user.tvInteractions.filter((i: any) => i.status === "NOT_WATCHED").length;
-  const tvUnsure = user.tvInteractions.filter((i: any) => i.status === "UNSURE").length;
-
-  // Movie feedback breakdown
-  const watchLaterCount = user.recommendationFeedbacks.filter((f: any) => f.action === "WATCH_LATER").length;
-  const notInterestedCount = user.recommendationFeedbacks.filter((f: any) => f.action === "NOT_INTERESTED").length;
-  const positiveFeedbackCount = user.recommendationFeedbacks.filter(
-    (f: any) => f.action === "WATCH_LATER" || f.action === "WATCHED_FROM_RECOMMENDATION"
-  ).length;
+  // Movie feedback breakdown from DB
+  const movieFeedbackMap = new Map(movieFeedbackCounts.map((g) => [g.action, g._count.action]));
+  const watchLaterCount = movieFeedbackMap.get("WATCH_LATER") || 0;
+  const notInterestedCount = movieFeedbackMap.get("NOT_INTERESTED") || 0;
+  const alreadyWatchedCount = movieFeedbackMap.get("ALREADY_WATCHED") || 0;
+  const watchedFromRecCount = movieFeedbackMap.get("WATCHED_FROM_RECOMMENDATION") || 0;
+  const positiveFeedbackCount = watchLaterCount + watchedFromRecCount;
   const negativeFeedbackCount = notInterestedCount;
+  const totalRecommendationFeedbacks =
+    watchLaterCount + notInterestedCount + alreadyWatchedCount + watchedFromRecCount;
 
-  // TV feedback breakdown
-  const tvWatchLaterCount = user.tvRecommendationFeedbacks.filter((f: any) => f.action === "WATCH_LATER").length;
-  const tvNotInterestedCount = user.tvRecommendationFeedbacks.filter((f: any) => f.action === "NOT_INTERESTED").length;
-  const tvPositiveFeedbackCount = user.tvRecommendationFeedbacks.filter(
-    (f: any) => f.action === "WATCH_LATER" || f.action === "WATCHED_FROM_RECOMMENDATION"
-  ).length;
+  // TV feedback breakdown from DB
+  const tvFeedbackMap = new Map(tvFeedbackCounts.map((g) => [g.action, g._count.action]));
+  const tvWatchLaterCount = tvFeedbackMap.get("WATCH_LATER") || 0;
+  const tvNotInterestedCount = tvFeedbackMap.get("NOT_INTERESTED") || 0;
+  const tvAlreadyWatchedCount = tvFeedbackMap.get("ALREADY_WATCHED") || 0;
+  const tvWatchedFromRecCount = tvFeedbackMap.get("WATCHED_FROM_RECOMMENDATION") || 0;
+  const tvPositiveFeedbackCount = tvWatchLaterCount + tvWatchedFromRecCount;
   const tvNegativeFeedbackCount = tvNotInterestedCount;
+  const totalTvRecommendationFeedbacks =
+    tvWatchLaterCount + tvNotInterestedCount + tvAlreadyWatchedCount + tvWatchedFromRecCount;
 
   return {
     user: {
@@ -494,13 +527,13 @@ export async function getAdminUserDetailData(id: string) {
         positiveFeedbackCount,
         negativeFeedbackCount,
         watchLaterCount,
-        totalFeedbacks: user.recommendationFeedbacks.length,
+        totalFeedbacks: totalRecommendationFeedbacks,
       },
       tvRecommendationLearning: {
         positiveFeedbackCount: tvPositiveFeedbackCount,
         negativeFeedbackCount: tvNegativeFeedbackCount,
         watchLaterCount: tvWatchLaterCount,
-        totalFeedbacks: user.tvRecommendationFeedbacks.length,
+        totalFeedbacks: totalTvRecommendationFeedbacks,
       },
       interactions: user.interactions.map((i: any) => ({
         id: i.id,

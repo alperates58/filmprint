@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import type {
   CatalogIngestionOverviewStatus,
   CatalogMediaStatusView,
@@ -16,6 +17,7 @@ export default function AdminCatalogIngestionPage() {
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [cursorModalMedia, setCursorModalMedia] = useState<"FILM" | "TV" | null>(null);
   const [newCursorValue, setNewCursorValue] = useState<number>(0);
+  const [confirmAction, setConfirmAction] = useState<{ action: string; title: string; desc: string } | null>(null);
 
   // Editable config form state
   const [formMasterEnabled, setFormMasterEnabled] = useState(true);
@@ -39,7 +41,7 @@ export default function AdminCatalogIngestionPage() {
     try {
       setLoading(true);
       const res = await fetch("/api/admin/catalog-ingestion");
-      if (!res.ok) throw new Error("Failed to load catalog ingestion status");
+      if (!res.ok) throw new Error("Katalog motor durumu yüklenemedi.");
       const data = await res.json();
       if (data.status) {
         setStatus(data.status);
@@ -89,7 +91,7 @@ export default function AdminCatalogIngestionPage() {
       if (!res.ok || !data.success) {
         throw new Error(data.error || data.message || "İşlem başarısız.");
       }
-      setFeedbackMessage({ type: "success", text: data.message || "İşlem tamamlandı." });
+      setFeedbackMessage({ type: "success", text: data.message || "İşlem başarıyla tamamlandı." });
       if (data.status) {
         setStatus(data.status);
         syncFormState(data.status);
@@ -98,6 +100,7 @@ export default function AdminCatalogIngestionPage() {
       setFeedbackMessage({ type: "error", text: err instanceof Error ? err.message : "Hata oluştu." });
     } finally {
       setActionLoading(null);
+      setConfirmAction(null);
     }
   };
 
@@ -139,7 +142,7 @@ export default function AdminCatalogIngestionPage() {
         throw new Error(data.error || "Ayarlar kaydedilemedi.");
       }
 
-      setFeedbackMessage({ type: "success", text: "Katalog altyapı ayarları başarıyla güncellendi." });
+      setFeedbackMessage({ type: "success", text: "Katalog motor ayarları başarıyla kaydedildi." });
       setConfigModalOpen(false);
       if (data.status) {
         setStatus(data.status);
@@ -182,114 +185,112 @@ export default function AdminCatalogIngestionPage() {
     const isCircuitOpen = media.circuitState === "OPEN";
     const isPaused = media.mode === "PAUSED" || !media.enabled || !status?.masterEnabled;
 
-    let statusBadgeColor = "bg-success/20 text-success border-success/30";
-    let statusText = "ÇALIŞIYOR (RUNNING)";
+    let statusKey = "RUNNING";
+    let statusLabel = "Çalışıyor";
 
     if (!status?.masterEnabled) {
-      statusBadgeColor = "bg-destructive/20 text-destructive border-destructive/30";
-      statusText = "MASTER KAPALI";
+      statusKey = "PAUSED";
+      statusLabel = "Master Kapalı";
     } else if (isCircuitOpen) {
-      statusBadgeColor = "bg-warning/20 text-warning border-warning/30";
-      statusText = "DEVRE AÇIK (CIRCUIT OPEN)";
-    } else if (!media.enabled || media.mode === "PAUSED") {
-      statusBadgeColor = "bg-surface-elevated text-text-muted border-border";
-      statusText = "DURAKLATILDI (PAUSED)";
+      statusKey = "CIRCUIT_OPEN";
+      statusLabel = "Devre Açık (Hata)";
+    } else if (isPaused) {
+      statusKey = "PAUSED";
+      statusLabel = "Duraklatıldı";
     } else if (media.processedToday >= media.targetDailyItems) {
-      statusBadgeColor = "bg-accent/20 text-accent border-accent/30";
-      statusText = "GÜNLÜK HEDEF DOLDU";
+      statusKey = "DAILY_LIMIT";
+      statusLabel = "Günlük Limit Doldu";
     }
 
     return (
-      <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-5 shadow-lg flex flex-col justify-between">
+      <div className="p-6 rounded-2xl bg-surface-1 border border-border space-y-5 shadow-sm flex flex-col justify-between">
         <div className="space-y-4">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">{icon}</span>
+              <span className="text-2xl select-none">{icon}</span>
               <div>
                 <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-2">
                   <span>{title}</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-surface-elevated border border-border text-text-secondary">
+                  <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-surface-2 border border-border text-text-secondary">
                     {media.mode}
                   </span>
                 </h2>
-                <p className="text-[11px] text-text-muted font-mono">
-                  {media.catalogTotal.toLocaleString("tr-TR")} kayıt / ~{media.eligibleTotal.toLocaleString("tr-TR")} usable
+                <p className="text-xs text-text-muted font-mono mt-0.5">
+                  {media.catalogTotal.toLocaleString("tr-TR")} kayıt / ~{media.eligibleTotal.toLocaleString("tr-TR")} uygun
                 </p>
               </div>
             </div>
-            <span className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border ${statusBadgeColor}`}>
-              {statusText}
-            </span>
+            <AdminStatusBadge status={statusKey} label={statusLabel} size="md" />
           </div>
 
           {/* Progress Bar */}
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs font-mono">
-              <span className="text-text-muted">Hedef İlerlemesi:</span>
-              <span className="font-bold text-text-primary">
+          <div className="space-y-1.5 font-sans">
+            <div className="flex justify-between text-xs">
+              <span className="text-text-muted">Katalog Hedef İlerlemesi:</span>
+              <span className="font-mono font-bold text-text-primary">
                 {media.eligibleTotal.toLocaleString("tr-TR")} / {media.initialTarget.toLocaleString("tr-TR")} (%{media.progressPercent})
               </span>
             </div>
-            <div className="w-full h-2.5 rounded-full bg-surface-elevated overflow-hidden border border-border/60">
+            <div className="w-full h-2.5 rounded-full bg-surface-2 overflow-hidden border border-border">
               <div
-                className="h-full bg-accent transition-all duration-500 rounded-full"
+                className="h-full bg-gradient-to-r from-accent to-accent-hover transition-all duration-500 rounded-full"
                 style={{ width: `${media.progressPercent}%` }}
               />
             </div>
           </div>
 
           {/* Today's Counters */}
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 p-3 rounded-xl bg-surface-elevated border border-border/60 text-center font-mono">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 p-3 rounded-xl bg-surface-2 border border-border text-center font-sans">
             <div>
-              <p className="text-[10px] text-text-muted">İşlenen</p>
-              <p className="text-xs font-bold text-text-primary mt-0.5">{media.processedToday}</p>
+              <p className="text-[10px] text-text-muted font-medium">İşlenen</p>
+              <p className="text-xs font-bold text-text-primary font-mono mt-0.5">{media.processedToday}</p>
             </div>
             <div>
-              <p className="text-[10px] text-text-muted">Eklenen</p>
-              <p className="text-xs font-bold text-success mt-0.5">{media.insertedToday}</p>
+              <p className="text-[10px] text-text-muted font-medium">Eklenen</p>
+              <p className="text-xs font-bold text-emerald-400 font-mono mt-0.5">{media.insertedToday}</p>
             </div>
             <div>
-              <p className="text-[10px] text-text-muted">Güncellenen</p>
-              <p className="text-xs font-bold text-text-secondary mt-0.5">{media.updatedToday}</p>
+              <p className="text-[10px] text-text-muted font-medium">Güncellenen</p>
+              <p className="text-xs font-bold text-text-secondary font-mono mt-0.5">{media.updatedToday}</p>
             </div>
             <div>
-              <p className="text-[10px] text-text-muted">Reddedilen</p>
-              <p className="text-xs font-bold text-warning mt-0.5">{media.rejectedToday}</p>
+              <p className="text-[10px] text-text-muted font-medium">Reddedilen</p>
+              <p className="text-xs font-bold text-amber-400 font-mono mt-0.5">{media.rejectedToday}</p>
             </div>
             <div>
-              <p className="text-[10px] text-text-muted">429 Sınırı</p>
-              <p className="text-xs font-bold text-amber-500 mt-0.5">{media.rateLimitedToday}</p>
+              <p className="text-[10px] text-text-muted font-medium">429 Sınırı</p>
+              <p className="text-xs font-bold text-amber-500 font-mono mt-0.5">{media.rateLimitedToday}</p>
             </div>
             <div>
-              <p className="text-[10px] text-text-muted">Hatalı</p>
-              <p className="text-xs font-bold text-destructive mt-0.5">{media.failedToday}</p>
+              <p className="text-[10px] text-text-muted font-medium">Hatalı</p>
+              <p className="text-xs font-bold text-red-400 font-mono mt-0.5">{media.failedToday}</p>
             </div>
           </div>
 
           {/* Detailed Specs */}
-          <div className="space-y-1.5 text-[11px] font-mono text-text-secondary pt-1">
-            <div className="flex justify-between py-0.5 border-b border-border/30">
+          <div className="space-y-1.5 text-xs font-sans text-text-secondary pt-1">
+            <div className="flex justify-between py-0.5 border-b border-border/60">
               <span className="text-text-muted">Hız / Eşzamanlılık:</span>
-              <span className="text-text-primary font-bold">{media.requestsPerSecond} req/s • {media.concurrency} concurrent</span>
+              <span className="text-text-primary font-mono font-medium">{media.requestsPerSecond} req/s • {media.concurrency} concurrent</span>
             </div>
-            <div className="flex justify-between py-0.5 border-b border-border/30">
+            <div className="flex justify-between py-0.5 border-b border-border/60">
               <span className="text-text-muted">Günlük Limit:</span>
-              <span className="text-text-primary">{media.targetDailyItems.toLocaleString("tr-TR")} / gün</span>
+              <span className="text-text-primary font-mono">{media.targetDailyItems.toLocaleString("tr-TR")} / gün</span>
             </div>
-            <div className="flex justify-between py-0.5 border-b border-border/30">
+            <div className="flex justify-between py-0.5 border-b border-border/60">
               <span className="text-text-muted">Kaynak / Cursor:</span>
-              <span className="text-accent font-bold truncate max-w-[200px]">
+              <span className="text-accent font-mono font-medium truncate max-w-[200px]">
                 {media.sourceDate || "N/A"} • satır {media.sourceCursor.toLocaleString("tr-TR")}
               </span>
             </div>
-            <div className="flex justify-between py-0.5 border-b border-border/30">
+            <div className="flex justify-between py-0.5 border-b border-border/60">
               <span className="text-text-muted">Son Başarılı İşlem:</span>
-              <span className="text-text-primary">
+              <span className="text-text-primary font-mono">
                 {media.lastSuccessAt ? new Date(media.lastSuccessAt).toLocaleTimeString("tr-TR") : "Henüz yok"}
               </span>
             </div>
             {media.lastError && (
-              <div className="flex justify-between py-0.5 text-destructive">
+              <div className="flex justify-between py-0.5 text-red-400 font-mono text-[11px]">
                 <span>Son Hata:</span>
                 <span className="truncate max-w-[220px]">{media.lastError}</span>
               </div>
@@ -303,7 +304,7 @@ export default function AdminCatalogIngestionPage() {
             <button
               onClick={() => handleAction(mediaKey === "FILM" ? "START_MOVIE" : "START_TV")}
               disabled={actionLoading !== null}
-              className="flex-1 px-3 py-2 rounded-xl bg-success/20 hover:bg-success/30 border border-success/40 text-success text-xs font-mono font-bold transition-all"
+              className="flex-1 min-h-[40px] px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 text-xs font-semibold transition-all"
             >
               ▶ Başlat
             </button>
@@ -311,7 +312,7 @@ export default function AdminCatalogIngestionPage() {
             <button
               onClick={() => handleAction(mediaKey === "FILM" ? "PAUSE_MOVIE" : "PAUSE_TV")}
               disabled={actionLoading !== null}
-              className="flex-1 px-3 py-2 rounded-xl bg-surface-elevated hover:bg-surface border border-border text-text-secondary hover:text-text-primary text-xs font-mono font-bold transition-all"
+              className="flex-1 min-h-[40px] px-3 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border text-text-secondary hover:text-text-primary text-xs font-semibold transition-all"
             >
               ⏸ Duraklat
             </button>
@@ -320,7 +321,7 @@ export default function AdminCatalogIngestionPage() {
           <button
             onClick={() => handleAction("RUN_BATCH", { mediaType: mediaKey, batchSize: 25 })}
             disabled={actionLoading !== null}
-            className="px-3 py-2 rounded-xl bg-accent/15 hover:bg-accent/25 border border-accent/30 text-accent text-xs font-mono font-bold transition-all"
+            className="min-h-[40px] px-3.5 py-2 rounded-xl bg-accent/15 hover:bg-accent/25 border border-accent/30 text-accent text-xs font-semibold transition-all"
           >
             ⚡ Test Batch (25)
           </button>
@@ -331,10 +332,10 @@ export default function AdminCatalogIngestionPage() {
               setNewCursorValue(media.sourceCursor);
             }}
             disabled={actionLoading !== null}
-            className="px-2.5 py-2 rounded-xl bg-surface-elevated hover:bg-surface border border-border text-text-muted hover:text-text-primary text-xs font-mono transition-all"
+            className="min-h-[40px] px-3 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border text-text-muted hover:text-text-primary text-xs font-mono transition-all"
             title="Cursor Sıfırla / Düzenle"
           >
-            📍
+            📍 Cursor
           </button>
         </div>
       </div>
@@ -345,27 +346,30 @@ export default function AdminCatalogIngestionPage() {
     <AdminLayout>
       <div className="space-y-6 max-w-6xl">
         {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="font-display text-2xl font-bold tracking-tight text-text-primary flex items-center gap-2.5">
-              <span>📦</span> TMDB Katalog İçe Aktarma Motoru
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent/10 border border-accent/25 text-accent text-xs font-semibold">
+              <span>📦 TMDB INGESTION</span>
+            </div>
+            <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
+              Katalog İçe Aktarma Motoru
             </h1>
-            <p className="text-xs text-text-secondary font-mono mt-0.5">
+            <p className="text-xs text-text-secondary font-sans">
               Film ve Dizi kataloglarını TMDB Daily ID Export üzerinden arka planda, güvenli ve sürekli büyüten altyapı motoru
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={fetchStatus}
               disabled={loading}
-              className="px-3 py-2 rounded-xl bg-surface-elevated border border-border text-xs font-mono text-text-secondary hover:text-text-primary transition-all flex items-center gap-1.5"
+              className="min-h-[40px] px-3.5 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border text-xs font-medium text-text-secondary hover:text-text-primary transition-all flex items-center gap-1.5"
             >
               <span>🔄</span> {loading ? "Yenileniyor..." : "Yenile"}
             </button>
             <button
               onClick={() => setConfigModalOpen(true)}
-              className="px-3 py-2 rounded-xl bg-accent text-white text-xs font-mono font-bold shadow-md hover:bg-accent/90 transition-all flex items-center gap-1.5"
+              className="min-h-[40px] px-4 py-2 rounded-xl bg-accent text-white text-xs font-semibold shadow-sm hover:bg-accent-hover transition-all flex items-center gap-1.5"
             >
               <span>⚙️</span> Ayarları Düzenle
             </button>
@@ -375,10 +379,10 @@ export default function AdminCatalogIngestionPage() {
         {/* Feedback Alert */}
         {feedbackMessage && (
           <div
-            className={`p-4 rounded-xl border text-xs font-mono flex items-center justify-between animate-fadeIn ${
+            className={`p-4 rounded-xl border text-xs font-sans flex items-center justify-between animate-fadeIn ${
               feedbackMessage.type === "success"
-                ? "bg-success/15 border-success/30 text-success"
-                : "bg-destructive/15 border-destructive/30 text-destructive"
+                ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+                : "bg-red-500/10 border-red-500/25 text-red-400"
             }`}
           >
             <span>{feedbackMessage.text}</span>
@@ -389,13 +393,13 @@ export default function AdminCatalogIngestionPage() {
         )}
 
         {/* Master Control Banner */}
-        <div className="p-5 rounded-2xl bg-surface border border-border/80 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="p-5 md:p-6 rounded-2xl bg-surface-1 border border-border shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div
-              className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold font-mono border ${
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold font-mono border ${
                 status?.masterEnabled
-                  ? "bg-success/20 text-success border-success/40"
-                  : "bg-destructive/20 text-destructive border-destructive/40"
+                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                  : "bg-red-500/15 text-red-400 border-red-500/30"
               }`}
             >
               {status?.masterEnabled ? "ON" : "OFF"}
@@ -403,41 +407,51 @@ export default function AdminCatalogIngestionPage() {
             <div>
               <h2 className="font-display text-sm font-bold text-text-primary flex items-center gap-2">
                 <span>Ana Sistem Şalteri (Master Switch):</span>
-                <span className={status?.masterEnabled ? "text-success" : "text-destructive"}>
+                <span className={status?.masterEnabled ? "text-emerald-400" : "text-red-400"}>
                   {status?.masterEnabled ? "AÇIK (AKTİF)" : "KAPALI (DEVRE DIŞI)"}
                 </span>
               </h2>
-              <p className="text-xs text-text-muted font-mono mt-0.5">
+              <p className="text-xs text-text-muted font-sans mt-0.5">
                 Master switch kapalıyken Film ve TV arka plan işleyicileri hiçbir TMDB isteği göndermez.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
             <button
               onClick={handleToggleMaster}
               disabled={actionLoading !== null}
-              className={`flex-1 md:flex-initial px-4 py-2.5 rounded-xl font-mono text-xs font-bold border transition-all ${
+              className={`min-h-[40px] px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all ${
                 status?.masterEnabled
-                  ? "bg-destructive/15 border-destructive/30 text-destructive hover:bg-destructive/25"
-                  : "bg-success/20 border-success/40 text-success hover:bg-success/30"
+                  ? "bg-red-500/10 border-red-500/25 text-red-400 hover:bg-red-500/20"
+                  : "bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25"
               }`}
             >
               {status?.masterEnabled ? "⏹ Master Durdur" : "▶ Master Başlat"}
             </button>
             <button
-              onClick={() => handleAction("RESET_DAILY_COUNTERS")}
+              onClick={() =>
+                setConfirmAction({
+                  action: "RESET_DAILY_COUNTERS",
+                  title: "Günlük Sayaçları Sıfırla",
+                  desc: "Bugün işlenen, eklenen ve reddedilen sayaçları sıfırlamak istediğinize emin misiniz?",
+                })
+              }
               disabled={actionLoading !== null}
-              className="px-3 py-2.5 rounded-xl bg-surface-elevated border border-border text-text-secondary hover:text-text-primary text-xs font-mono transition-all"
-              title="Tüm günlük sayaçları sıfırla"
+              className="min-h-[40px] px-3.5 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border text-text-secondary hover:text-text-primary text-xs font-medium transition-all"
             >
               Sayaçları Sıfırla
             </button>
             <button
-              onClick={() => handleAction("RESET_CIRCUIT_BREAKER")}
+              onClick={() =>
+                setConfirmAction({
+                  action: "RESET_CIRCUIT_BREAKER",
+                  title: "Circuit Breaker Kilidini Kaldır",
+                  desc: "Açık olan devre kesici kilidini hemen sıfırlamak ve istekleri yeniden başlatmak istiyor musunuz?",
+                })
+              }
               disabled={actionLoading !== null}
-              className="px-3 py-2.5 rounded-xl bg-surface-elevated border border-border text-warning hover:bg-warning/10 text-xs font-mono transition-all"
-              title="Circuit breaker kilidini kaldır"
+              className="min-h-[40px] px-3.5 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border text-amber-400 hover:text-amber-300 text-xs font-medium transition-all"
             >
               Circuit Reset
             </button>
@@ -451,38 +465,102 @@ export default function AdminCatalogIngestionPage() {
             {renderMediaCard("Dizi Katalog İçe Aktarımı", "📺", status.tv, "TV")}
           </div>
         ) : (
-          <div className="p-12 text-center text-text-muted font-mono text-xs">
+          <div className="p-12 text-center text-text-muted font-sans text-xs bg-surface-1 border border-border rounded-2xl">
             Katalog durumu yükleniyor...
           </div>
         )}
 
         {/* Global Architecture Guardrails Info */}
-        <div className="p-5 rounded-2xl bg-surface border border-border/80 space-y-3 text-xs font-mono shadow-sm">
-          <h3 className="font-display font-bold text-text-primary uppercase tracking-wider text-text-muted">
+        <div className="p-6 rounded-2xl bg-surface-1 border border-border space-y-3 text-xs shadow-sm font-sans">
+          <h3 className="font-display font-bold text-text-primary uppercase tracking-wider text-xs">
             🛡️ Altyapı ve Güvenlik Kuralları (Guardrails)
           </h3>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-text-secondary list-disc list-inside">
-            <li>Kullanıcı calibration ve recommendation endpoint'leri ingestion beklemez (DB-first decoupled).</li>
-            <li>Global Hard Cap: En fazla <strong>{status?.globalMaxRps || 4.0} req/s</strong> token-bucket sınırı korunur.</li>
-            <li>TMDB 429 yanıtlarında <code className="text-accent">Retry-After</code> başlığına ve üstel geri çekilmeye uyulur.</li>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-text-secondary list-disc list-inside leading-relaxed">
+            <li>Kullanıcı calibration ve recommendation endpoint&apos;leri ingestion beklemez (DB-first decoupled).</li>
+            <li>Global Hard Cap: En fazla <strong className="text-text-primary font-mono">{status?.globalMaxRps || 4.0} req/s</strong> token-bucket sınırı korunur.</li>
+            <li>TMDB 429 yanıtlarında <code className="text-accent bg-surface-2 px-1.5 py-0.5 rounded font-mono">Retry-After</code> başlığına ve üstel geri çekilmeye uyulur.</li>
             <li>10 ardışık bağlantı hatasında <strong>Circuit Breaker</strong> açılarak TMDB 5 dakika süreyle korunur.</li>
-            <li>Özet bilgisi bulunmayan placeholder metinler (<code className="text-accent">film hakkında özet bilgi...</code>) veritabanına yazılmaz.</li>
-            <li>Sayısal başlıklar (<code className="text-accent">1917</code>, <code className="text-accent">2012</code>) geçerlidir; Latin alfabesi karşılığı olmayan başlıklar reddedilir.</li>
+            <li>Özet bilgisi bulunmayan placeholder metinler veritabanına yazılmaz.</li>
+            <li>Sayısal başlıklar (<code className="text-accent bg-surface-2 px-1.5 py-0.5 rounded font-mono">1917</code>, <code className="text-accent bg-surface-2 px-1.5 py-0.5 rounded font-mono">2012</code>) geçerlidir; Latin karşılığı olmayanlar filtrelenir.</li>
           </ul>
         </div>
       </div>
 
+      {/* Confirmation Modal for Dangerous Actions */}
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm p-4 flex items-center justify-center animate-fadeIn">
+          <div className="bg-surface-1 border border-border rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <h3 className="font-display text-base font-bold text-text-primary">{confirmAction.title}</h3>
+            <p className="text-xs text-text-secondary font-sans leading-relaxed">{confirmAction.desc}</p>
+            <div className="flex gap-2 justify-end pt-2 font-sans text-xs">
+              <button
+                onClick={() => setConfirmAction(null)}
+                className="px-4 py-2.5 rounded-xl bg-surface-2 border border-border text-text-secondary hover:text-text-primary"
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={() => handleAction(confirmAction.action)}
+                className="px-4 py-2.5 rounded-xl bg-accent text-white font-semibold hover:bg-accent-hover"
+              >
+                Onayla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cursor Modal */}
+      {cursorModalMedia && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm p-4 flex items-center justify-center animate-fadeIn">
+          <div className="bg-surface-1 border border-border rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl font-sans">
+            <h3 className="font-display text-base font-bold text-text-primary">
+              📍 {cursorModalMedia === "FILM" ? "Film" : "Dizi"} Cursor Konumu
+            </h3>
+            <div className="space-y-1.5">
+              <label className="text-xs text-text-muted">Export Dosyasındaki Satır Numarası</label>
+              <input
+                type="number"
+                min="0"
+                value={newCursorValue}
+                onChange={(e) => setNewCursorValue(parseInt(e.target.value, 10) || 0)}
+                className="w-full p-3 rounded-xl bg-surface-2 border border-border text-sm font-mono text-text-primary focus:outline-none focus:border-accent"
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-2 text-xs">
+              <button
+                onClick={() => setCursorModalMedia(null)}
+                className="px-4 py-2.5 rounded-xl bg-surface-2 border border-border text-text-secondary hover:text-text-primary"
+              >
+                İptal
+              </button>
+              <button
+                onClick={() => {
+                  handleAction(cursorModalMedia === "FILM" ? "SET_MOVIE_CURSOR" : "SET_TV_CURSOR", {
+                    cursor: newCursorValue,
+                  });
+                  setCursorModalMedia(null);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-accent text-white font-semibold hover:bg-accent-hover"
+              >
+                Kaydet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Configuration Edit Modal */}
       {configModalOpen && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm p-4 flex items-center justify-center animate-fadeIn">
-          <div className="bg-surface border border-border rounded-2xl max-w-2xl w-full p-6 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto font-mono text-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-border/60">
-              <h2 className="font-display text-base font-bold text-text-primary">
-                ⚙️ Katalog İçe Aktarma Ayarları
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm p-4 flex items-center justify-center animate-fadeIn">
+          <div className="bg-surface-1 border border-border rounded-3xl max-w-2xl w-full p-6 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto font-sans text-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-2">
+                <span>⚙️</span> Katalog İçe Aktarma Ayarları
               </h2>
               <button
                 onClick={() => setConfigModalOpen(false)}
-                className="text-text-muted hover:text-text-primary text-sm font-bold"
+                className="text-text-muted hover:text-text-primary text-sm font-bold w-8 h-8 rounded-full bg-surface-2 border border-border flex items-center justify-center"
               >
                 ✕
               </button>
@@ -490,22 +568,22 @@ export default function AdminCatalogIngestionPage() {
 
             <form onSubmit={handleSaveConfig} className="space-y-6">
               {/* Global Settings */}
-              <div className="space-y-3 p-4 rounded-xl bg-surface-elevated border border-border/60">
-                <h3 className="font-bold text-accent uppercase tracking-wider">Global Ayarlar</h3>
+              <div className="space-y-3 p-4 rounded-2xl bg-surface-2 border border-border">
+                <h3 className="font-bold text-accent uppercase tracking-wider text-[11px]">Global Ayarlar</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-text-muted mb-1">Master Switch</label>
+                    <label className="block text-text-muted mb-1 font-medium">Master Switch</label>
                     <select
                       value={formMasterEnabled ? "true" : "false"}
                       onChange={(e) => setFormMasterEnabled(e.target.value === "true")}
-                      className="w-full p-2 rounded-lg bg-surface border border-border text-text-primary"
+                      className="w-full p-2.5 rounded-xl bg-surface-1 border border-border text-text-primary focus:outline-none focus:border-accent"
                     >
                       <option value="true">AÇIK (Enabled)</option>
                       <option value="false">KAPALI (Disabled)</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-text-muted mb-1">Global Max RPS</label>
+                    <label className="block text-text-muted mb-1 font-medium">Global Max RPS</label>
                     <input
                       type="number"
                       step="0.1"
@@ -513,35 +591,35 @@ export default function AdminCatalogIngestionPage() {
                       max="10.0"
                       value={formGlobalMaxRps}
                       onChange={(e) => setFormGlobalMaxRps(parseFloat(e.target.value))}
-                      className="w-full p-2 rounded-lg bg-surface border border-border text-text-primary"
+                      className="w-full p-2.5 rounded-xl bg-surface-1 border border-border text-text-primary font-mono focus:outline-none focus:border-accent"
                     />
                   </div>
                   <div>
-                    <label className="block text-text-muted mb-1">Stale Metadata (Gün)</label>
+                    <label className="block text-text-muted mb-1 font-medium">Stale Metadata (Gün)</label>
                     <input
                       type="number"
                       min="30"
                       max="365"
                       value={formStaleDays}
                       onChange={(e) => setFormStaleDays(parseInt(e.target.value, 10))}
-                      className="w-full p-2 rounded-lg bg-surface border border-border text-text-primary"
+                      className="w-full p-2.5 rounded-xl bg-surface-1 border border-border text-text-primary font-mono focus:outline-none focus:border-accent"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Film Settings */}
-              <div className="space-y-3 p-4 rounded-xl bg-surface-elevated border border-border/60">
-                <h3 className="font-bold text-text-primary flex items-center gap-2">
+              <div className="space-y-3 p-4 rounded-2xl bg-surface-2 border border-border">
+                <h3 className="font-bold text-text-primary flex items-center gap-2 text-[11px] uppercase tracking-wider">
                   <span>🎬</span> Film Ingestion Ayarları
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-text-muted mb-1">Mod</label>
+                    <label className="block text-text-muted mb-1 font-medium">Mod</label>
                     <select
                       value={formFilmMode}
                       onChange={(e) => setFormFilmMode(e.target.value as CatalogIngestionMode)}
-                      className="w-full p-2 rounded-lg bg-surface border border-border text-text-primary"
+                      className="w-full p-2.5 rounded-xl bg-surface-1 border border-border text-text-primary focus:outline-none focus:border-accent"
                     >
                       <option value="INITIAL_FILL">INITIAL_FILL</option>
                       <option value="MAINTENANCE">MAINTENANCE</option>
@@ -549,18 +627,18 @@ export default function AdminCatalogIngestionPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-text-muted mb-1">Hedef (Daily Items)</label>
+                    <label className="block text-text-muted mb-1 font-medium">Günlük Hedef (Items)</label>
                     <input
                       type="number"
                       min="100"
                       max="50000"
                       value={formFilmDailyTarget}
                       onChange={(e) => setFormFilmDailyTarget(parseInt(e.target.value, 10))}
-                      className="w-full p-2 rounded-lg bg-surface border border-border text-text-primary"
+                      className="w-full p-2.5 rounded-xl bg-surface-1 border border-border text-text-primary font-mono focus:outline-none focus:border-accent"
                     />
                   </div>
                   <div>
-                    <label className="block text-text-muted mb-1">RPS (req/s)</label>
+                    <label className="block text-text-muted mb-1 font-medium">RPS (req/s)</label>
                     <input
                       type="number"
                       step="0.1"
@@ -568,46 +646,46 @@ export default function AdminCatalogIngestionPage() {
                       max={formGlobalMaxRps}
                       value={formFilmRps}
                       onChange={(e) => setFormFilmRps(parseFloat(e.target.value))}
-                      className="w-full p-2 rounded-lg bg-surface border border-border text-text-primary"
+                      className="w-full p-2.5 rounded-xl bg-surface-1 border border-border text-text-primary font-mono focus:outline-none focus:border-accent"
                     />
                   </div>
                   <div>
-                    <label className="block text-text-muted mb-1">Eşzamanlılık (1-4)</label>
+                    <label className="block text-text-muted mb-1 font-medium">Eşzamanlılık (1-4)</label>
                     <input
                       type="number"
                       min="1"
                       max="4"
                       value={formFilmConcurrency}
                       onChange={(e) => setFormFilmConcurrency(parseInt(e.target.value, 10))}
-                      className="w-full p-2 rounded-lg bg-surface border border-border text-text-primary"
+                      className="w-full p-2.5 rounded-xl bg-surface-1 border border-border text-text-primary font-mono focus:outline-none focus:border-accent"
                     />
                   </div>
                   <div>
-                    <label className="block text-text-muted mb-1">Başlangıç Hedefi</label>
+                    <label className="block text-text-muted mb-1 font-medium">Başlangıç Hedefi</label>
                     <input
                       type="number"
                       min="1000"
                       max="300000"
                       value={formFilmInitialTarget}
                       onChange={(e) => setFormFilmInitialTarget(parseInt(e.target.value, 10))}
-                      className="w-full p-2 rounded-lg bg-surface border border-border text-text-primary"
+                      className="w-full p-2.5 rounded-xl bg-surface-1 border border-border text-text-primary font-mono focus:outline-none focus:border-accent"
                     />
                   </div>
                 </div>
               </div>
 
               {/* TV Settings */}
-              <div className="space-y-3 p-4 rounded-xl bg-surface-elevated border border-border/60">
-                <h3 className="font-bold text-text-primary flex items-center gap-2">
+              <div className="space-y-3 p-4 rounded-2xl bg-surface-2 border border-border">
+                <h3 className="font-bold text-text-primary flex items-center gap-2 text-[11px] uppercase tracking-wider">
                   <span>📺</span> Dizi Ingestion Ayarları
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-text-muted mb-1">Mod</label>
+                    <label className="block text-text-muted mb-1 font-medium">Mod</label>
                     <select
                       value={formTvMode}
                       onChange={(e) => setFormTvMode(e.target.value as CatalogIngestionMode)}
-                      className="w-full p-2 rounded-lg bg-surface border border-border text-text-primary"
+                      className="w-full p-2.5 rounded-xl bg-surface-1 border border-border text-text-primary focus:outline-none focus:border-accent"
                     >
                       <option value="INITIAL_FILL">INITIAL_FILL</option>
                       <option value="MAINTENANCE">MAINTENANCE</option>
@@ -615,18 +693,18 @@ export default function AdminCatalogIngestionPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-text-muted mb-1">Hedef (Daily Items)</label>
+                    <label className="block text-text-muted mb-1 font-medium">Günlük Hedef (Items)</label>
                     <input
                       type="number"
                       min="100"
-                      max="20000"
+                      max="50000"
                       value={formTvDailyTarget}
                       onChange={(e) => setFormTvDailyTarget(parseInt(e.target.value, 10))}
-                      className="w-full p-2 rounded-lg bg-surface border border-border text-text-primary"
+                      className="w-full p-2.5 rounded-xl bg-surface-1 border border-border text-text-primary font-mono focus:outline-none focus:border-accent"
                     />
                   </div>
                   <div>
-                    <label className="block text-text-muted mb-1">RPS (req/s)</label>
+                    <label className="block text-text-muted mb-1 font-medium">RPS (req/s)</label>
                     <input
                       type="number"
                       step="0.1"
@@ -634,96 +712,51 @@ export default function AdminCatalogIngestionPage() {
                       max={formGlobalMaxRps}
                       value={formTvRps}
                       onChange={(e) => setFormTvRps(parseFloat(e.target.value))}
-                      className="w-full p-2 rounded-lg bg-surface border border-border text-text-primary"
+                      className="w-full p-2.5 rounded-xl bg-surface-1 border border-border text-text-primary font-mono focus:outline-none focus:border-accent"
                     />
                   </div>
                   <div>
-                    <label className="block text-text-muted mb-1">Eşzamanlılık (1-4)</label>
+                    <label className="block text-text-muted mb-1 font-medium">Eşzamanlılık (1-4)</label>
                     <input
                       type="number"
                       min="1"
                       max="4"
                       value={formTvConcurrency}
                       onChange={(e) => setFormTvConcurrency(parseInt(e.target.value, 10))}
-                      className="w-full p-2 rounded-lg bg-surface border border-border text-text-primary"
+                      className="w-full p-2.5 rounded-xl bg-surface-1 border border-border text-text-primary font-mono focus:outline-none focus:border-accent"
                     />
                   </div>
                   <div>
-                    <label className="block text-text-muted mb-1">Başlangıç Hedefi</label>
+                    <label className="block text-text-muted mb-1 font-medium">Başlangıç Hedefi</label>
                     <input
                       type="number"
                       min="1000"
-                      max="100000"
+                      max="300000"
                       value={formTvInitialTarget}
                       onChange={(e) => setFormTvInitialTarget(parseInt(e.target.value, 10))}
-                      className="w-full p-2 rounded-lg bg-surface border border-border text-text-primary"
+                      className="w-full p-2.5 rounded-xl bg-surface-1 border border-border text-text-primary font-mono focus:outline-none focus:border-accent"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-border/60">
+              <div className="flex justify-end gap-3 pt-3 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setConfigModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-surface-elevated border border-border text-text-secondary hover:text-text-primary"
+                  className="px-4 py-2.5 rounded-xl bg-surface-2 border border-border text-text-secondary hover:text-text-primary font-medium"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading !== null}
-                  className="px-5 py-2 rounded-xl bg-accent text-white font-bold hover:bg-accent/90 shadow-md"
+                  className="px-5 py-2.5 rounded-xl bg-accent text-white font-semibold hover:bg-accent-hover shadow-sm"
                 >
-                  {actionLoading === "save_config" ? "Kaydediliyor..." : "Kaydet ve Uygula"}
+                  {actionLoading === "save_config" ? "Kaydediliyor..." : "Ayarları Kaydet"}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Cursor Reset Modal */}
-      {cursorModalMedia && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm p-4 flex items-center justify-center animate-fadeIn">
-          <div className="bg-surface border border-border rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl font-mono text-xs">
-            <h2 className="font-display text-sm font-bold text-text-primary">
-              📍 {cursorModalMedia} Cursor Sıfırla / Değiştir
-            </h2>
-            <p className="text-text-muted">
-              Discovery dosyasındaki satır indeksini değiştirir. 0 değeri dosyanın en başına döner.
-            </p>
-            <div>
-              <label className="block text-text-muted mb-1">Yeni Cursor Değeri (Satır İndeksi):</label>
-              <input
-                type="number"
-                min="0"
-                value={newCursorValue}
-                onChange={(e) => setNewCursorValue(parseInt(e.target.value, 10) || 0)}
-                className="w-full p-2 rounded-lg bg-surface-elevated border border-border text-text-primary text-sm font-bold"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-border/60">
-              <button
-                onClick={() => setCursorModalMedia(null)}
-                className="px-3 py-2 rounded-xl bg-surface-elevated text-text-secondary"
-              >
-                İptal
-              </button>
-              <button
-                onClick={async () => {
-                  await handleAction("RESET_CURSOR", {
-                    mediaType: cursorModalMedia,
-                    resetCursorValue: newCursorValue,
-                  });
-                  setCursorModalMedia(null);
-                }}
-                disabled={actionLoading !== null}
-                className="px-4 py-2 rounded-xl bg-accent text-white font-bold"
-              >
-                Cursorı Güncelle
-              </button>
-            </div>
           </div>
         </div>
       )}

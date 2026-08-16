@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 
 export default function AdminSettingsPage() {
   const [calibrationTarget, setCalibrationTarget] = useState(30);
@@ -23,7 +24,7 @@ export default function AdminSettingsPage() {
   const [tvAiTasteRefreshEvidenceCount, setTvAiTasteRefreshEvidenceCount] = useState(25);
   const [tvAiRerankShortlistSize, setTvAiRerankShortlistSize] = useState(50);
 
-  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -132,9 +133,13 @@ export default function AdminSettingsPage() {
       });
 
       const data = await res.json();
-      setStatusMsg(data.message || data.error);
+      if (!res.ok) {
+        setStatusMsg({ type: "error", text: data.error || "Ayarlar kaydedilemedi." });
+      } else {
+        setStatusMsg({ type: "success", text: data.message || "Ayarlar başarıyla güncellendi." });
+      }
     } catch {
-      setStatusMsg("Ayarlar kaydedilirken hata oluştu.");
+      setStatusMsg({ type: "error", text: "Ayarlar kaydedilirken bir hata oluştu." });
     } finally {
       setIsSaving(false);
     }
@@ -142,88 +147,98 @@ export default function AdminSettingsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6 max-w-4xl">
-        <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight text-text-primary">
-            Sistem & Öneri Motoru Ayarları
-          </h1>
-          <p className="text-xs text-text-secondary font-mono mt-0.5">
-            Kalibrasyon hedefi, Match Engine v3.2 ve Hibrit AI Semantic Reranker parametreleri
-          </p>
+      <div className="space-y-6 max-w-4xl font-sans">
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent/10 border border-accent/25 text-accent text-xs font-semibold">
+              <span>⚙️ SİSTEM VE MOTOR KONFİGÜRASYONU</span>
+            </div>
+            <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
+              Sistem & Öneri Ayarları
+            </h1>
+            <p className="text-xs text-text-secondary">
+              Kalibrasyon hedefi, Match Engine v3.2 ve Hibrit AI Semantic Reranker parametreleri
+            </p>
+          </div>
         </div>
 
         {isLoading ? (
-          <div className="p-8 text-center text-text-muted font-mono text-xs">
+          <div className="p-12 text-center text-text-muted text-xs bg-surface-1 border border-border rounded-2xl">
             Ayarlar yükleniyor...
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             {statusMsg && (
-              <div className="p-3.5 rounded-xl bg-surface-elevated border border-border text-xs font-mono text-text-primary">
-                {statusMsg}
+              <div
+                className={`p-4 rounded-xl border text-xs flex items-center justify-between animate-fadeIn ${
+                  statusMsg.type === "success"
+                    ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+                    : "bg-red-500/10 border-red-500/25 text-red-400"
+                }`}
+              >
+                <span>{statusMsg.text}</span>
+                <button type="button" onClick={() => setStatusMsg(null)} className="ml-4 font-bold opacity-70 hover:opacity-100">
+                  ✕
+                </button>
               </div>
             )}
 
-            {/* Section 1: Recommendation Engine & Hybrid AI Settings */}
-            <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-6 shadow-md">
-              <div className="flex items-center justify-between border-b border-border/60 pb-3">
+            {/* Section 1: Film Hybrid Recommendation Settings */}
+            <div className="p-6 rounded-2xl bg-surface-1 border border-border space-y-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4">
                 <div>
-                  <h2 className="font-display text-lg font-bold text-text-primary">
-                    Recommendation Engine — Hybrid AI Settings
+                  <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-2">
+                    <span>🎬</span> Film Öneri Motoru — Hibrit AI Ağırlıkları
                   </h2>
-                  <p className="text-xs text-text-muted font-mono">
-                    Deterministic-First + DeepSeek İkinci Aşama Semantik Sıralayıcı (Phase 9.5)
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Deterministic-First + DeepSeek Semantik Sıralayıcı (Phase 9.5)
                   </p>
                 </div>
-                <span
-                  className={`text-[11px] font-mono px-2.5 py-1 rounded-full font-bold ${
+                <AdminStatusBadge
+                  status={!aiEnabled ? "PAUSED" : hybridRerankEnabled ? "RUNNING" : "PAUSED"}
+                  label={
                     !aiEnabled
-                      ? "bg-warning/15 border border-warning/30 text-warning"
+                      ? "AI Global Kapalı"
                       : hybridRerankEnabled
-                      ? "bg-success/15 border border-success/30 text-success"
-                      : "bg-surface-elevated border border-border text-text-muted"
-                  }`}
-                >
-                  {!aiEnabled
-                    ? "AI Global Kapalı"
-                    : hybridRerankEnabled
-                    ? `Film Hibrit AI Aktif (%${hybridMatchWeight} / %${hybridAiWeight})`
-                    : "Tam Deterministik (v3.2)"}
-                </span>
+                      ? `Hibrit AI Aktif (%${hybridMatchWeight} / %${hybridAiWeight})`
+                      : "Deterministik (v3.2)"
+                  }
+                />
               </div>
 
               {/* Hybrid Reranker Toggle */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
+              <div className="space-y-1.5 p-4 rounded-xl bg-surface-2 border border-border">
+                <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     id="hybridRerankToggle"
                     checked={hybridRerankEnabled}
                     onChange={(e) => setHybridRerankEnabled(e.target.checked)}
-                    className="rounded bg-surface-elevated border-border text-accent focus:ring-0"
+                    className="w-4 h-4 rounded bg-surface-1 border-border text-accent focus:ring-0 cursor-pointer"
                   />
-                  <label htmlFor="hybridRerankToggle" className="text-sm font-bold text-text-primary">
-                    Hibrit AI Semantik Reranker'ı Aktif Et
-                  </label>
-                </div>
-                <p className="text-xs text-text-muted">
+                  <span className="text-xs font-semibold text-text-primary">
+                    Film Hibrit AI Semantik Reranker&apos;ı Aktif Et
+                  </span>
+                </label>
+                <p className="text-[11px] text-text-muted pl-7">
                   Açık olduğunda: Match Engine v3.2 tarafından filtrelenmiş güvenli adaylar (≥65 eşleşme) Yapay Zeka (AI) Taste Profile ile semantik olarak yeniden sıralanır. Kapalıyken exact v3.2 deterministik çıktısı korunur.
                 </p>
               </div>
 
               {/* Presets */}
-              <div className="space-y-2 pt-3 border-t border-border/60">
-                <label className="text-xs font-bold text-text-secondary uppercase tracking-wider font-mono">
-                  Hızlı Ağırlık Şablonları (Presets)
+              <div className="space-y-2">
+                <label className="text-[11px] font-semibold text-text-muted uppercase tracking-wider font-mono">
+                  HIZLI AĞIRLIK ŞABLONLARI
                 </label>
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => applyPreset(100, 0)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
                       hybridMatchWeight === 100 && hybridAiWeight === 0
-                        ? "bg-accent/20 border-accent text-accent font-bold"
-                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                        ? "bg-accent text-white font-bold border-accent shadow-sm"
+                        : "bg-surface-2 border-border text-text-secondary hover:text-text-primary"
                     }`}
                   >
                     Deterministic (100 / 0)
@@ -233,8 +248,8 @@ export default function AdminSettingsPage() {
                     onClick={() => applyPreset(75, 25)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
                       hybridMatchWeight === 75 && hybridAiWeight === 25
-                        ? "bg-accent/20 border-accent text-accent font-bold"
-                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                        ? "bg-accent text-white font-bold border-accent shadow-sm"
+                        : "bg-surface-2 border-border text-text-secondary hover:text-text-primary"
                     }`}
                   >
                     Conservative (75 / 25)
@@ -244,8 +259,8 @@ export default function AdminSettingsPage() {
                     onClick={() => applyPreset(60, 40)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
                       hybridMatchWeight === 60 && hybridAiWeight === 40
-                        ? "bg-accent/20 border-accent text-accent font-bold"
-                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                        ? "bg-accent text-white font-bold border-accent shadow-sm"
+                        : "bg-surface-2 border-border text-text-secondary hover:text-text-primary"
                     }`}
                   >
                     Balanced (60 / 40)
@@ -255,8 +270,8 @@ export default function AdminSettingsPage() {
                     onClick={() => applyPreset(55, 45)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
                       hybridMatchWeight === 55 && hybridAiWeight === 45
-                        ? "bg-accent/20 border-accent text-accent font-bold"
-                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                        ? "bg-accent text-white font-bold border-accent shadow-sm"
+                        : "bg-surface-2 border-border text-text-secondary hover:text-text-primary"
                     }`}
                   >
                     Recommended (55 / 45) [Önerilen]
@@ -266,8 +281,8 @@ export default function AdminSettingsPage() {
                     onClick={() => applyPreset(50, 50)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
                       hybridMatchWeight === 50 && hybridAiWeight === 50
-                        ? "bg-accent/20 border-accent text-accent font-bold"
-                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                        ? "bg-accent text-white font-bold border-accent shadow-sm"
+                        : "bg-surface-2 border-border text-text-secondary hover:text-text-primary"
                     }`}
                   >
                     AI-Forward Test (50 / 50)
@@ -276,9 +291,9 @@ export default function AdminSettingsPage() {
               </div>
 
               {/* Weight Controls */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3 border-t border-border/60">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 {/* Match Engine Weight */}
-                <div className="space-y-2 p-4 rounded-xl bg-surface-elevated border border-border">
+                <div className="space-y-2 p-4 rounded-xl bg-surface-2 border border-border">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-text-primary">
                       Match Engine v3.2 Ağırlığı
@@ -288,7 +303,7 @@ export default function AdminSettingsPage() {
                     </span>
                   </div>
                   <p className="text-[11px] text-text-muted">
-                    Film DNA, kalite, dönem, tür, geri bildirim ve deterministik eşleşme motorunun final sıralamadaki ağırlığı.
+                    Film DNA, kalite, dönem, tür ve deterministik filtreleme motorunun final sıralamadaki ağırlığı.
                   </p>
                   <input
                     type="range"
@@ -297,7 +312,7 @@ export default function AdminSettingsPage() {
                     step="1"
                     value={hybridMatchWeight}
                     onChange={(e) => handleMatchWeightChange(parseInt(e.target.value, 10))}
-                    className="w-full accent-accent"
+                    className="w-full accent-accent cursor-pointer"
                   />
                   <div className="flex justify-between text-[10px] text-text-muted font-mono">
                     <span>Min %50</span>
@@ -306,7 +321,7 @@ export default function AdminSettingsPage() {
                 </div>
 
                 {/* AI Semantic Weight */}
-                <div className="space-y-2 p-4 rounded-xl bg-surface-elevated border border-border">
+                <div className="space-y-2 p-4 rounded-xl bg-surface-2 border border-border">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-text-primary">
                       AI Semantic Reranker Ağırlığı
@@ -316,7 +331,7 @@ export default function AdminSettingsPage() {
                     </span>
                   </div>
                   <p className="text-[11px] text-text-muted">
-                    AI Taste Profile'ın hikâye, tema, anlatım biçimi ve semantik zevk yakınlığı değerlendirmesinin etkisi (Güvenlik tavanı: Max %50).
+                    AI Taste Profile semantik hikâye ve tema değerlendirmesinin etkisi (Güvenlik tavanı: Max %50).
                   </p>
                   <input
                     type="range"
@@ -325,7 +340,7 @@ export default function AdminSettingsPage() {
                     step="1"
                     value={hybridAiWeight}
                     onChange={(e) => handleAiWeightChange(parseInt(e.target.value, 10))}
-                    className="w-full accent-accent"
+                    className="w-full accent-accent cursor-pointer"
                   />
                   <div className="flex justify-between text-[10px] text-text-muted font-mono">
                     <span>Min %0</span>
@@ -335,13 +350,13 @@ export default function AdminSettingsPage() {
               </div>
 
               {/* Refresh Threshold & Shortlist Size */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3 border-t border-border/60">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-text-primary">
-                    AI Taste Profile Yenileme Eşiği (Refresh Threshold)
+                    AI Taste Profile Yenileme Eşiği
                   </label>
                   <p className="text-[11px] text-text-muted">
-                    Son profil oluşturulduktan sonra gereken yeni puanlanan film sayısı (Taste-bearing interactions: LOVE/LIKE/NEUTRAL/DISLIKE).
+                    Gereken yeni puanlanan film sayısı (LOVE/LIKE/NEUTRAL/DISLIKE).
                   </p>
                   <input
                     type="number"
@@ -349,16 +364,16 @@ export default function AdminSettingsPage() {
                     max="100"
                     value={aiTasteRefreshEvidenceCount}
                     onChange={(e) => setAiTasteRefreshEvidenceCount(parseInt(e.target.value, 10) || 25)}
-                    className="w-36 px-3 py-2 rounded-xl bg-surface-elevated border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                    className="w-36 px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-text-primary">
-                    AI Aday Kısa Liste Boyutu (Shortlist Size)
+                    AI Aday Kısa Liste Boyutu
                   </label>
                   <p className="text-[11px] text-text-muted">
-                    Deterministik motorun AI tekli batch çağrısına gönderdiği güvenli aday sayısı (40–60 arası).
+                    AI tekli batch çağrısına gönderilen güvenli aday sayısı (40–60 arası).
                   </p>
                   <input
                     type="number"
@@ -366,72 +381,67 @@ export default function AdminSettingsPage() {
                     max="60"
                     value={aiRerankShortlistSize}
                     onChange={(e) => setAiRerankShortlistSize(parseInt(e.target.value, 10) || 50)}
-                    className="w-36 px-3 py-2 rounded-xl bg-surface-elevated border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                    className="w-36 px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Section 1.5: TV Series Hybrid AI Recommendation Engine */}
-            <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-6 shadow-md">
-              <div>
-                <div className="flex items-center justify-between border-b border-border/60 pb-3">
-                  <h2 className="font-display text-lg font-bold text-text-primary flex items-center gap-2">
-                    <span>📺</span> Dizi Hibrit AI Öneri Motoru (TV Hybrid AI)
+            {/* Section 2: TV Series Hybrid AI Recommendation Engine */}
+            <div className="p-6 rounded-2xl bg-surface-1 border border-border space-y-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4">
+                <div>
+                  <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-2">
+                    <span>📺</span> Dizi Öneri Motoru — Hibrit AI Ağırlıkları
                   </h2>
-                  <span
-                    className={`text-[11px] font-mono px-2.5 py-1 rounded-full font-bold ${
-                      !aiEnabled
-                        ? "bg-warning/15 border border-warning/30 text-warning"
-                        : tvHybridRerankEnabled
-                        ? "bg-success/15 border border-success/30 text-success"
-                        : "bg-surface-elevated border border-border text-text-muted"
-                    }`}
-                  >
-                    {!aiEnabled
+                  <p className="text-xs text-text-muted mt-0.5">
+                    TV Match Engine v1 ve TV AI Taste Profile arasındaki bağımsız ağırlık dağılımı
+                  </p>
+                </div>
+                <AdminStatusBadge
+                  status={!aiEnabled ? "PAUSED" : tvHybridRerankEnabled ? "RUNNING" : "PAUSED"}
+                  label={
+                    !aiEnabled
                       ? "AI Global Kapalı"
                       : tvHybridRerankEnabled
                       ? `TV Hibrit AI Aktif (%${tvHybridMatchWeight} / %${tvHybridAiWeight})`
-                      : "Tam Deterministik (TV v1)"}
-                  </span>
-                </div>
-                <p className="text-xs text-text-secondary mt-2">
-                  TV Match Engine v1 ve TV AI Taste Profile arasındaki bağımsız ağırlık dağılımı.
-                </p>
+                      : "Deterministik (TV v1)"
+                  }
+                />
               </div>
 
               {/* TV Hybrid Enable Toggle */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
+              <div className="space-y-1.5 p-4 rounded-xl bg-surface-2 border border-border">
+                <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     id="tvHybridRerankToggle"
                     checked={tvHybridRerankEnabled}
                     onChange={(e) => setTvHybridRerankEnabled(e.target.checked)}
-                    className="rounded bg-surface-elevated border-border text-accent focus:ring-0"
+                    className="w-4 h-4 rounded bg-surface-1 border-border text-accent focus:ring-0 cursor-pointer"
                   />
-                  <label htmlFor="tvHybridRerankToggle" className="text-sm font-bold text-text-primary">
-                    TV Hibrit AI Semantik Reranker'ı Aktif Et
-                  </label>
-                </div>
-                <p className="text-xs text-text-muted">
+                  <span className="text-xs font-semibold text-text-primary">
+                    TV Hibrit AI Semantik Reranker&apos;ı Aktif Et
+                  </span>
+                </label>
+                <p className="text-[11px] text-text-muted pl-7">
                   Açık olduğunda: TV Match Engine v1 adayları (≥65 eşleşme) Yapay Zeka (AI) Taste Profile ile semantik olarak yeniden sıralanır. Kapalıyken exact v1 deterministik çıktısı korunur.
                 </p>
               </div>
 
               {/* TV Presets */}
-              <div className="space-y-2 pt-3 border-t border-border/60">
-                <label className="text-xs font-bold text-text-secondary uppercase tracking-wider font-mono">
-                  TV Hızlı Ağırlık Şablonları (Presets)
+              <div className="space-y-2">
+                <label className="text-[11px] font-semibold text-text-muted uppercase tracking-wider font-mono">
+                  TV HIZLI AĞIRLIK ŞABLONLARI
                 </label>
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => applyTvPreset(100, 0)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
                       tvHybridMatchWeight === 100 && tvHybridAiWeight === 0
-                        ? "bg-accent/20 border-accent text-accent font-bold"
-                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                        ? "bg-accent text-white font-bold border-accent shadow-sm"
+                        : "bg-surface-2 border-border text-text-secondary hover:text-text-primary"
                     }`}
                   >
                     Deterministic (100 / 0)
@@ -441,8 +451,8 @@ export default function AdminSettingsPage() {
                     onClick={() => applyTvPreset(75, 25)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
                       tvHybridMatchWeight === 75 && tvHybridAiWeight === 25
-                        ? "bg-accent/20 border-accent text-accent font-bold"
-                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                        ? "bg-accent text-white font-bold border-accent shadow-sm"
+                        : "bg-surface-2 border-border text-text-secondary hover:text-text-primary"
                     }`}
                   >
                     Conservative (75 / 25)
@@ -452,8 +462,8 @@ export default function AdminSettingsPage() {
                     onClick={() => applyTvPreset(60, 40)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
                       tvHybridMatchWeight === 60 && tvHybridAiWeight === 40
-                        ? "bg-accent/20 border-accent text-accent font-bold"
-                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                        ? "bg-accent text-white font-bold border-accent shadow-sm"
+                        : "bg-surface-2 border-border text-text-secondary hover:text-text-primary"
                     }`}
                   >
                     Recommended (60 / 40) [Önerilen]
@@ -463,8 +473,8 @@ export default function AdminSettingsPage() {
                     onClick={() => applyTvPreset(55, 45)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
                       tvHybridMatchWeight === 55 && tvHybridAiWeight === 45
-                        ? "bg-accent/20 border-accent text-accent font-bold"
-                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                        ? "bg-accent text-white font-bold border-accent shadow-sm"
+                        : "bg-surface-2 border-border text-text-secondary hover:text-text-primary"
                     }`}
                   >
                     AI-Emphasized (55 / 45)
@@ -474,8 +484,8 @@ export default function AdminSettingsPage() {
                     onClick={() => applyTvPreset(50, 50)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all border ${
                       tvHybridMatchWeight === 50 && tvHybridAiWeight === 50
-                        ? "bg-accent/20 border-accent text-accent font-bold"
-                        : "bg-surface-elevated border-border text-text-secondary hover:text-text-primary"
+                        ? "bg-accent text-white font-bold border-accent shadow-sm"
+                        : "bg-surface-2 border-border text-text-secondary hover:text-text-primary"
                     }`}
                   >
                     AI-Forward Test (50 / 50)
@@ -484,9 +494,9 @@ export default function AdminSettingsPage() {
               </div>
 
               {/* TV Weight Controls */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3 border-t border-border/60">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 {/* TV Match Engine Weight */}
-                <div className="space-y-2 p-4 rounded-xl bg-surface-elevated border border-border">
+                <div className="space-y-2 p-4 rounded-xl bg-surface-2 border border-border">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-text-primary">
                       TV Match Engine v1 Ağırlığı
@@ -496,7 +506,7 @@ export default function AdminSettingsPage() {
                     </span>
                   </div>
                   <p className="text-[11px] text-text-muted">
-                    Dizi DNA, Bayesian kalite, format, sezon uzunluğu, bölüm süresi, dönem ve dil uyumunun ağırlığı.
+                    Dizi DNA, Bayesian kalite, format, sezon uzunluğu ve dönem uyumunun ağırlığı.
                   </p>
                   <input
                     type="range"
@@ -505,7 +515,7 @@ export default function AdminSettingsPage() {
                     step="1"
                     value={tvHybridMatchWeight}
                     onChange={(e) => handleTvMatchWeightChange(parseInt(e.target.value, 10))}
-                    className="w-full accent-accent"
+                    className="w-full accent-accent cursor-pointer"
                   />
                   <div className="flex justify-between text-[10px] text-text-muted font-mono">
                     <span>Min %50</span>
@@ -514,7 +524,7 @@ export default function AdminSettingsPage() {
                 </div>
 
                 {/* TV AI Semantic Weight */}
-                <div className="space-y-2 p-4 rounded-xl bg-surface-elevated border border-border">
+                <div className="space-y-2 p-4 rounded-xl bg-surface-2 border border-border">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-text-primary">
                       TV AI Semantic Reranker Ağırlığı
@@ -524,7 +534,7 @@ export default function AdminSettingsPage() {
                     </span>
                   </div>
                   <p className="text-[11px] text-text-muted">
-                    Dizi AI Taste Profile'ın hikâyeleme, anlatı karmaşıklığı ve karakter derinliği değerlendirmesi (Güvenlik tavanı: Max %50).
+                    Dizi AI Taste Profile anlatı ve karakter derinliği değerlendirmesi (Güvenlik tavanı: Max %50).
                   </p>
                   <input
                     type="range"
@@ -533,7 +543,7 @@ export default function AdminSettingsPage() {
                     step="1"
                     value={tvHybridAiWeight}
                     onChange={(e) => handleTvAiWeightChange(parseInt(e.target.value, 10))}
-                    className="w-full accent-accent"
+                    className="w-full accent-accent cursor-pointer"
                   />
                   <div className="flex justify-between text-[10px] text-text-muted font-mono">
                     <span>Min %0</span>
@@ -543,13 +553,13 @@ export default function AdminSettingsPage() {
               </div>
 
               {/* TV Refresh Threshold & Shortlist Size */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3 border-t border-border/60">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-text-primary">
-                    TV AI Taste Profile Yenileme Eşiği (Refresh Threshold)
+                    TV AI Taste Profile Yenileme Eşiği
                   </label>
                   <p className="text-[11px] text-text-muted">
-                    Son profilden sonra gereken yeni taste-bearing TV etkileşimi (WATCHED/PARTIAL ile puanlama).
+                    Gereken yeni taste-bearing TV etkileşimi (WATCHED/PARTIAL ile puanlama).
                   </p>
                   <input
                     type="number"
@@ -557,13 +567,13 @@ export default function AdminSettingsPage() {
                     max="100"
                     value={tvAiTasteRefreshEvidenceCount}
                     onChange={(e) => setTvAiTasteRefreshEvidenceCount(parseInt(e.target.value, 10) || 25)}
-                    className="w-36 px-3 py-2 rounded-xl bg-surface-elevated border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                    className="w-36 px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-text-primary">
-                    TV AI Aday Kısa Liste Boyutu (Shortlist Size)
+                    TV AI Aday Kısa Liste Boyutu
                   </label>
                   <p className="text-[11px] text-text-muted">
                     DeepSeek tekli batch çağrısına gönderilen güvenli TV aday sayısı (40–60 arası).
@@ -574,21 +584,21 @@ export default function AdminSettingsPage() {
                     max="60"
                     value={tvAiRerankShortlistSize}
                     onChange={(e) => setTvAiRerankShortlistSize(parseInt(e.target.value, 10) || 50)}
-                    className="w-36 px-3 py-2 rounded-xl bg-surface-elevated border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                    className="w-36 px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Section 2: Calibration & General Settings */}
-            <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-6 shadow-md">
-              <h2 className="font-display text-lg font-bold text-text-primary border-b border-border/60 pb-3">
+            {/* Section 3: Calibration & General Settings */}
+            <div className="p-6 rounded-2xl bg-surface-1 border border-border space-y-6 shadow-sm">
+              <h2 className="font-display text-base font-bold text-text-primary border-b border-border pb-3">
                 Genel Kalibrasyon & Kuyruk Parametreleri
               </h2>
 
               {/* Calibration Target Setting */}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-text-primary">
+                <label className="text-xs font-bold text-text-primary">
                   Kalibrasyon Eşik Hedefi (Initial Calibration Target)
                 </label>
                 <p className="text-xs text-text-muted">
@@ -600,32 +610,32 @@ export default function AdminSettingsPage() {
                   max="500"
                   value={calibrationTarget}
                   onChange={(e) => setCalibrationTarget(parseInt(e.target.value, 10) || 30)}
-                  className="w-48 px-3.5 py-2 rounded-xl bg-surface-elevated border border-border text-sm text-text-primary font-mono focus:outline-none focus:border-accent"
+                  className="w-48 px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent min-h-[40px]"
                 />
               </div>
 
               {/* Active Learning Strategy Toggle */}
-              <div className="space-y-2 pt-4 border-t border-border/60">
-                <div className="flex items-center gap-3">
+              <div className="space-y-1.5 pt-4 border-t border-border">
+                <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     id="activeLearningToggle"
                     checked={activeLearningEnabled}
                     onChange={(e) => setActiveLearningEnabled(e.target.checked)}
-                    className="rounded bg-surface-elevated border-border text-accent focus:ring-0"
+                    className="w-4 h-4 rounded bg-surface-1 border-border text-accent focus:ring-0 cursor-pointer"
                   />
-                  <label htmlFor="activeLearningToggle" className="text-sm font-bold text-text-primary">
+                  <span className="text-xs font-semibold text-text-primary">
                     Intelligent Calibration / Active Learning (v1.0) Aktif
-                  </label>
-                </div>
-                <p className="text-xs text-text-muted">
+                  </span>
+                </label>
+                <p className="text-[11px] text-text-muted pl-7">
                   Kullanıcıya gösterilecek sıradaki filmleri deterministik bilgi kazancı (Information Gain) skorlamasına göre seçer.
                 </p>
               </div>
 
               {/* Queue Preload Count */}
-              <div className="space-y-2 pt-4 border-t border-border/60">
-                <label className="text-sm font-bold text-text-primary">
+              <div className="space-y-2 pt-4 border-t border-border">
+                <label className="text-xs font-bold text-text-primary">
                   Film Kuyruğu Ön Bellekleme Sayısı (Queue Preload Count)
                 </label>
                 <p className="text-xs text-text-muted">
@@ -637,25 +647,25 @@ export default function AdminSettingsPage() {
                   max="20"
                   value={queuePreloadCount}
                   onChange={(e) => setQueuePreloadCount(parseInt(e.target.value, 10) || 5)}
-                  className="w-48 px-3.5 py-2 rounded-xl bg-surface-elevated border border-border text-sm text-text-primary font-mono focus:outline-none focus:border-accent"
+                  className="w-48 px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent min-h-[40px]"
                 />
               </div>
 
               {/* AI Global Toggle */}
-              <div className="space-y-2 pt-4 border-t border-border/60">
-                <div className="flex items-center gap-3">
+              <div className="space-y-1.5 pt-4 border-t border-border">
+                <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     id="globalAiToggle"
                     checked={aiEnabled}
                     onChange={(e) => setAiEnabled(e.target.checked)}
-                    className="rounded bg-surface-elevated border-border text-accent focus:ring-0"
+                    className="w-4 h-4 rounded bg-surface-1 border-border text-accent focus:ring-0 cursor-pointer"
                   />
-                  <label htmlFor="globalAiToggle" className="text-sm font-bold text-text-primary">
+                  <span className="text-xs font-semibold text-text-primary">
                     Yapay Zeka Servislerini Global Olarak Aktif Et
-                  </label>
-                </div>
-                <p className="text-xs text-text-muted">
+                  </span>
+                </label>
+                <p className="text-[11px] text-text-muted pl-7">
                   DeepSeek provider erişim yetkisini global olarak kontrol eder.
                 </p>
               </div>
@@ -665,7 +675,7 @@ export default function AdminSettingsPage() {
               <button
                 type="submit"
                 disabled={isSaving}
-                className="px-6 py-3 rounded-xl bg-accent text-white font-medium text-xs hover:bg-accent-hover transition-all disabled:opacity-50 shadow-md"
+                className="min-h-[44px] px-6 py-2.5 rounded-xl bg-accent text-white font-semibold text-xs hover:bg-accent-hover transition-all disabled:opacity-50 shadow-sm"
               >
                 {isSaving ? "Kaydediliyor..." : "Sistem & Hibrit Motor Ayarlarını Kaydet"}
               </button>

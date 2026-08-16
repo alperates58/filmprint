@@ -182,6 +182,20 @@ function LibraryContent() {
     }
   };
 
+  const activeCounts =
+    mediaType === "FILM"
+      ? counts.films
+      : mediaType === "TV"
+      ? counts.tv
+      : {
+          watchlist: counts.watchlist,
+          watched: counts.watched,
+          notWatched: counts.notWatched,
+          favorites: counts.favorites,
+          dropped: counts.dropped,
+          total: counts.total,
+        };
+
   return (
     <div className="min-h-screen bg-bg-base text-text-primary flex flex-col font-sans selection:bg-accent/20">
       <Header />
@@ -203,13 +217,13 @@ function LibraryContent() {
 
           <button
             onClick={handleFetchTonightPicks}
-            disabled={isTonightLoading || counts.watchlist === 0}
+            disabled={isTonightLoading || activeCounts.watchlist === 0}
             className="px-5 py-3 rounded-2xl bg-accent text-white font-sans text-xs font-semibold hover:bg-accent-hover active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2 self-start md:self-auto disabled:opacity-50 disabled:cursor-not-allowed group flex-shrink-0 min-h-[48px]"
           >
             <span className="text-base">🍿</span>
             <span>{isTonightLoading ? "Seçiliyor..." : "Bu Akşam Ne İzlesem?"}</span>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/20 text-white font-mono font-bold">
-              {counts.watchlist}
+              {activeCounts.watchlist}
             </span>
           </button>
         </div>
@@ -273,12 +287,12 @@ function LibraryContent() {
           {/* Main State Tabs */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs font-sans">
             {[
-              { key: "WATCHLIST", label: "İzleme Listem", count: counts.watchlist, icon: "🔖" },
-              { key: "WATCHED", label: "İzlediklerim", count: counts.watched, icon: "👁️" },
-              { key: "NOT_WATCHED", label: "İzlemediklerim", count: counts.notWatched, icon: "🙈" },
-              { key: "FAVORITES", label: "Favorilerim", count: counts.favorites, icon: "⭐" },
-              { key: "DROPPED", label: "Bıraktıklarım", count: counts.dropped, icon: "🚫" },
-              { key: "ALL", label: "Tümü", count: counts.total, icon: "📁" },
+              { key: "WATCHLIST", label: "İzleme Listem", count: activeCounts.watchlist, icon: "🔖" },
+              { key: "WATCHED", label: "İzlediklerim", count: activeCounts.watched, icon: "👁️" },
+              { key: "NOT_WATCHED", label: "İzlemediklerim", count: activeCounts.notWatched, icon: "🙈" },
+              { key: "FAVORITES", label: "Favorilerim", count: activeCounts.favorites, icon: "⭐" },
+              { key: "DROPPED", label: "Bıraktıklarım", count: activeCounts.dropped, icon: "🚫" },
+              { key: "ALL", label: "Tümü", count: activeCounts.total, icon: "📁" },
             ].map((tab) => {
               const isActive = currentTab === tab.key;
               return (

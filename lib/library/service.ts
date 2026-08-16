@@ -574,14 +574,20 @@ export async function getUserLibraryData(
     totalPages: Math.ceil(filteredTotalCount / safeLimit) || 1,
     currentPage: page,
     counts: {
-      total: totalCount,
+      total: totalCount + notWatchedCount,
       watchlist: watchlistCount,
       watched: watchedCount,
       notWatched: notWatchedCount,
       dropped: droppedCount,
       favorites: favoritesCount,
-      films: filmCounts,
-      tv: tvCounts,
+      films: {
+        ...filmCounts,
+        total: filmCounts.total + filmCounts.notWatched,
+      },
+      tv: {
+        ...tvCounts,
+        total: tvCounts.total + tvCounts.notWatched,
+      },
     },
   };
 }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 
 export default function AdminIntegrationsPage() {
   const [integrations, setIntegrations] = useState<any>(null);
@@ -9,7 +10,7 @@ export default function AdminIntegrationsPage() {
 
   // TMDB State
   const [tmdbKey, setTmdbKey] = useState("");
-  const [tmdbStatusMsg, setTmdbStatusMsg] = useState<string | null>(null);
+  const [tmdbStatusMsg, setTmdbStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isSavingTmdb, setIsSavingTmdb] = useState(false);
   const [isTestingTmdb, setIsTestingTmdb] = useState(false);
 
@@ -18,7 +19,7 @@ export default function AdminIntegrationsPage() {
   const [deepseekBaseUrl, setDeepseekBaseUrl] = useState("https://api.deepseek.com");
   const [deepseekModelId, setDeepseekModelId] = useState("deepseek-chat");
   const [deepseekEnabled, setDeepseekEnabled] = useState(true);
-  const [deepseekStatusMsg, setDeepseekStatusMsg] = useState<string | null>(null);
+  const [deepseekStatusMsg, setDeepseekStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isSavingDeepseek, setIsSavingDeepseek] = useState(false);
   const [isTestingDeepseek, setIsTestingDeepseek] = useState(false);
 
@@ -59,13 +60,15 @@ export default function AdminIntegrationsPage() {
         body: JSON.stringify({ apiKey: tmdbKey }),
       });
       const data = await res.json();
-      setTmdbStatusMsg(data.message || data.error);
       if (res.ok) {
+        setTmdbStatusMsg({ type: "success", text: data.message || "TMDB API anahtarı başarıyla güncellendi." });
         setTmdbKey("");
         fetchIntegrations();
+      } else {
+        setTmdbStatusMsg({ type: "error", text: data.error || "Kayıt sırasında hata oluştu." });
       }
     } catch {
-      setTmdbStatusMsg("Kayıt sırasında hata oluştu.");
+      setTmdbStatusMsg({ type: "error", text: "Kayıt sırasında bağlantı hatası oluştu." });
     } finally {
       setIsSavingTmdb(false);
     }
@@ -78,9 +81,13 @@ export default function AdminIntegrationsPage() {
     try {
       const res = await fetch("/api/admin/integrations/tmdb/test", { method: "POST" });
       const data = await res.json();
-      setTmdbStatusMsg(data.message);
+      if (res.ok) {
+        setTmdbStatusMsg({ type: "success", text: data.message || "TMDB bağlantısı başarılı." });
+      } else {
+        setTmdbStatusMsg({ type: "error", text: data.error || data.message || "Test başarısız." });
+      }
     } catch {
-      setTmdbStatusMsg("Test sırasında hata oluştu.");
+      setTmdbStatusMsg({ type: "error", text: "Test sırasında bağlantı hatası oluştu." });
     } finally {
       setIsTestingTmdb(false);
     }
@@ -103,13 +110,15 @@ export default function AdminIntegrationsPage() {
         }),
       });
       const data = await res.json();
-      setDeepseekStatusMsg(data.message || data.error);
       if (res.ok) {
+        setDeepseekStatusMsg({ type: "success", text: data.message || "DeepSeek ayarları güncellendi." });
         setDeepseekKey("");
         fetchIntegrations();
+      } else {
+        setDeepseekStatusMsg({ type: "error", text: data.error || "Kayıt sırasında hata oluştu." });
       }
     } catch {
-      setDeepseekStatusMsg("Kayıt sırasında hata oluştu.");
+      setDeepseekStatusMsg({ type: "error", text: "Kayıt sırasında bağlantı hatası oluştu." });
     } finally {
       setIsSavingDeepseek(false);
     }
@@ -122,9 +131,13 @@ export default function AdminIntegrationsPage() {
     try {
       const res = await fetch("/api/admin/integrations/deepseek/test", { method: "POST" });
       const data = await res.json();
-      setDeepseekStatusMsg(data.message);
+      if (res.ok) {
+        setDeepseekStatusMsg({ type: "success", text: data.message || "DeepSeek bağlantısı başarılı." });
+      } else {
+        setDeepseekStatusMsg({ type: "error", text: data.error || data.message || "Test başarısız." });
+      }
     } catch {
-      setDeepseekStatusMsg("Test sırasında hata oluştu.");
+      setDeepseekStatusMsg({ type: "error", text: "Test sırasında bağlantı hatası oluştu." });
     } finally {
       setIsTestingDeepseek(false);
     }
@@ -132,56 +145,68 @@ export default function AdminIntegrationsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight text-text-primary">
-            Dış Servis Entegrasyonları
-          </h1>
-          <p className="text-xs text-text-secondary font-mono mt-0.5">
-            Katalog API ve Yapay Zeka (AI) kimlik bilgisi yönetimi (AES-256-GCM şifrelenmiş depolama)
-          </p>
+      <div className="space-y-6 max-w-5xl font-sans">
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent/10 border border-accent/25 text-accent text-xs font-semibold">
+              <span>🔌 SERVİS BAĞLANTILARI</span>
+            </div>
+            <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
+              Dış Servis Entegrasyonları
+            </h1>
+            <p className="text-xs text-text-secondary">
+              Katalog API ve Yapay Zeka (AI) kimlik bilgisi yönetimi (AES-256-GCM şifrelenmiş depolama)
+            </p>
+          </div>
         </div>
 
         {isLoading ? (
-          <div className="p-8 text-center text-text-muted font-mono text-xs">
+          <div className="p-12 text-center text-text-muted text-xs bg-surface-1 border border-border rounded-2xl">
             Entegrasyonlar yükleniyor...
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Catalog Data Provider Card */}
-            <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-5 shadow-md">
-              <div className="flex items-center justify-between">
+            <div className="p-6 rounded-2xl bg-surface-1 border border-border space-y-5 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4">
                 <div>
-                  <h2 className="font-display text-lg font-bold text-text-primary">
-                    Katalog Veri Sağlayıcı API
+                  <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-2">
+                    <span>🎬</span> Katalog API Sağlayıcı (TMDB)
                   </h2>
-                  <p className="text-xs text-text-muted font-mono">
+                  <p className="text-xs text-text-muted mt-0.5">
                     Film & dizi metadata ve afiş sunucusu entegrasyonu
                   </p>
                 </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-mono font-medium ${
+                <AdminStatusBadge
+                  status={integrations?.tmdb?.isConfigured ? "ACTIVE" : "PAUSED"}
+                  label={
                     integrations?.tmdb?.isConfigured
-                      ? "bg-success/15 border border-success/30 text-success"
-                      : "bg-warning/15 border border-warning/30 text-warning"
-                  }`}
-                >
-                  {integrations?.tmdb?.isConfigured
-                    ? `Aktif (••••${integrations.tmdb.lastFour})`
-                    : "Dev Fallback"}
-                </span>
+                      ? `Aktif (••••${integrations.tmdb.lastFour})`
+                      : "Dev Fallback"
+                  }
+                />
               </div>
 
               {tmdbStatusMsg && (
-                <div className="p-3 rounded-xl bg-surface-elevated border border-border text-xs text-text-primary font-mono">
-                  {tmdbStatusMsg}
+                <div
+                  className={`p-3.5 rounded-xl border text-xs flex items-center justify-between ${
+                    tmdbStatusMsg.type === "success"
+                      ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+                      : "bg-red-500/10 border-red-500/25 text-red-400"
+                  }`}
+                >
+                  <span>{tmdbStatusMsg.text}</span>
+                  <button type="button" onClick={() => setTmdbStatusMsg(null)} className="ml-2 font-bold opacity-70">
+                    ✕
+                  </button>
                 </div>
               )}
 
               <form onSubmit={handleSaveTmdb} className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-xs text-text-secondary font-medium">
-                    Katalog API Anahtarı (API Key)
+                    TMDB API Anahtarı (API Key)
                   </label>
                   <input
                     type="password"
@@ -192,15 +217,15 @@ export default function AdminIntegrationsPage() {
                         ? `••••••••••••${integrations.tmdb.lastFour} (Değiştirmek için yazın)`
                         : "API Anahtarını yapıştırın"
                     }
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-surface-elevated border border-border text-sm text-text-primary focus:outline-none focus:border-accent font-mono transition-colors"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-surface-2 border border-border text-xs text-text-primary focus:outline-none focus:border-accent font-mono transition-colors min-h-[40px]"
                   />
                 </div>
 
-                <div className="flex items-center gap-3 pt-2">
+                <div className="flex flex-wrap items-center gap-2.5 pt-2">
                   <button
                     type="submit"
                     disabled={isSavingTmdb || !tmdbKey.trim()}
-                    className="px-4 py-2.5 rounded-xl bg-accent text-white font-medium text-xs hover:bg-accent-hover transition-all disabled:opacity-50"
+                    className="min-h-[40px] px-4 py-2 rounded-xl bg-accent text-white font-semibold text-xs hover:bg-accent-hover transition-all disabled:opacity-50 shadow-sm"
                   >
                     {isSavingTmdb ? "Kaydediliyor..." : "Anahtarı Kaydet"}
                   </button>
@@ -209,7 +234,7 @@ export default function AdminIntegrationsPage() {
                     type="button"
                     onClick={handleTestTmdb}
                     disabled={isTestingTmdb || !integrations?.tmdb?.isConfigured}
-                    className="px-4 py-2.5 rounded-xl bg-surface-elevated border border-border text-text-primary font-medium text-xs hover:bg-border/60 transition-all disabled:opacity-50"
+                    className="min-h-[40px] px-4 py-2 rounded-xl bg-surface-2 border border-border text-text-primary font-medium text-xs hover:bg-surface-3 transition-all disabled:opacity-50"
                   >
                     {isTestingTmdb ? "Test Ediliyor..." : "Bağlantıyı Test Et"}
                   </button>
@@ -218,32 +243,38 @@ export default function AdminIntegrationsPage() {
             </div>
 
             {/* AI Provider Integration Card */}
-            <div className="p-6 rounded-2xl bg-surface border border-border/80 space-y-5 shadow-md">
-              <div className="flex items-center justify-between">
+            <div className="p-6 rounded-2xl bg-surface-1 border border-border space-y-5 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4">
                 <div>
-                  <h2 className="font-display text-lg font-bold text-text-primary">
-                    Yapay Zeka (AI) Sağlayıcı
+                  <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-2">
+                    <span>🤖</span> Yapay Zeka (AI) Sağlayıcı
                   </h2>
-                  <p className="text-xs text-text-muted font-mono">
-                    Film DNA ve recommendation yapay zeka servisi
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Film/Dizi DNA ve hibrit öneri yapay zeka servisi (DeepSeek)
                   </p>
                 </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-mono font-medium ${
+                <AdminStatusBadge
+                  status={integrations?.deepseek?.isConfigured ? "ACTIVE" : "PAUSED"}
+                  label={
                     integrations?.deepseek?.isConfigured
-                      ? "bg-success/15 border border-success/30 text-success"
-                      : "bg-surface border border-border text-text-muted"
-                  }`}
-                >
-                  {integrations?.deepseek?.isConfigured
-                    ? `Aktif (••••${integrations.deepseek.lastFour})`
-                    : "Yapılandırılmadı"}
-                </span>
+                      ? `Aktif (••••${integrations.deepseek.lastFour})`
+                      : "Yapılandırılmadı"
+                  }
+                />
               </div>
 
               {deepseekStatusMsg && (
-                <div className="p-3 rounded-xl bg-surface-elevated border border-border text-xs text-text-primary font-mono">
-                  {deepseekStatusMsg}
+                <div
+                  className={`p-3.5 rounded-xl border text-xs flex items-center justify-between ${
+                    deepseekStatusMsg.type === "success"
+                      ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+                      : "bg-red-500/10 border-red-500/25 text-red-400"
+                  }`}
+                >
+                  <span>{deepseekStatusMsg.text}</span>
+                  <button type="button" onClick={() => setDeepseekStatusMsg(null)} className="ml-2 font-bold opacity-70">
+                    ✕
+                  </button>
                 </div>
               )}
 
@@ -259,18 +290,18 @@ export default function AdminIntegrationsPage() {
                         ? `••••••••••••${integrations.deepseek.lastFour} (Değiştirmek için yazın)`
                         : "AI API Anahtarını yapıştırın"
                     }
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-surface-elevated border border-border text-sm text-text-primary focus:outline-none focus:border-accent font-mono transition-colors"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-surface-2 border border-border text-xs text-text-primary focus:outline-none focus:border-accent font-mono transition-colors min-h-[40px]"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-xs text-text-secondary font-medium">Base URL</label>
                     <input
                       type="text"
                       value={deepseekBaseUrl}
                       onChange={(e) => setDeepseekBaseUrl(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                      className="w-full px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent min-h-[40px]"
                     />
                   </div>
 
@@ -281,29 +312,31 @@ export default function AdminIntegrationsPage() {
                       value={deepseekModelId}
                       onChange={(e) => setDeepseekModelId(e.target.value)}
                       placeholder="deepseek-chat"
-                      className="w-full px-3.5 py-2 rounded-xl bg-surface-elevated border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                      className="w-full px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent min-h-[40px]"
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="checkbox"
-                    id="deepseekEnabled"
-                    checked={deepseekEnabled}
-                    onChange={(e) => setDeepseekEnabled(e.target.checked)}
-                    className="rounded bg-surface-elevated border-border text-accent focus:ring-0"
-                  />
-                  <label htmlFor="deepseekEnabled" className="text-xs text-text-secondary font-mono">
-                    Provider Servisi Aktif Olsun
+                <div className="space-y-1.5 p-3 rounded-xl bg-surface-2 border border-border">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id="deepseekEnabled"
+                      checked={deepseekEnabled}
+                      onChange={(e) => setDeepseekEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded bg-surface-1 border-border text-accent focus:ring-0 cursor-pointer"
+                    />
+                    <span className="text-xs font-semibold text-text-primary">
+                      AI Provider Servisi Aktif Olsun
+                    </span>
                   </label>
                 </div>
 
-                <div className="flex items-center gap-3 pt-2">
+                <div className="flex flex-wrap items-center gap-2.5 pt-2">
                   <button
                     type="submit"
                     disabled={isSavingDeepseek}
-                    className="px-4 py-2.5 rounded-xl bg-accent text-white font-medium text-xs hover:bg-accent-hover transition-all disabled:opacity-50"
+                    className="min-h-[40px] px-4 py-2 rounded-xl bg-accent text-white font-semibold text-xs hover:bg-accent-hover transition-all disabled:opacity-50 shadow-sm"
                   >
                     {isSavingDeepseek ? "Kaydediliyor..." : "Ayarları Kaydet"}
                   </button>
@@ -312,7 +345,7 @@ export default function AdminIntegrationsPage() {
                     type="button"
                     onClick={handleTestDeepseek}
                     disabled={isTestingDeepseek || !integrations?.deepseek?.isConfigured}
-                    className="px-4 py-2.5 rounded-xl bg-surface-elevated border border-border text-text-primary font-medium text-xs hover:bg-border/60 transition-all disabled:opacity-50"
+                    className="min-h-[40px] px-4 py-2 rounded-xl bg-surface-2 border border-border text-text-primary font-medium text-xs hover:bg-surface-3 transition-all disabled:opacity-50"
                   >
                     {isTestingDeepseek ? "Test Ediliyor..." : "Bağlantıyı Test Et"}
                   </button>

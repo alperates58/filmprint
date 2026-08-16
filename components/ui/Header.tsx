@@ -58,15 +58,13 @@ export function Header({
       ? progressCount
       : fetchedCount ?? (typeof progressCount === "number" ? progressCount : 0);
 
-  const progression = getProgressionForCount(activeCount);
-
-  return (
+  const progression = getProgressionForCount(activeCount);  return (
     <header className="w-full border-b border-border/60 bg-background/90 backdrop-blur-md sticky top-0 z-50 transition-all duration-300">
-      <div className="max-w-5xl mx-auto px-3 md:px-4 h-14 md:h-16 flex items-center justify-between">
+      <div className="max-w-7xl w-full mx-auto px-3 sm:px-4 md:px-6 h-14 md:h-16 flex items-center justify-between gap-2 lg:gap-4">
         {/* Brand Logo & Mode Switcher */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
           <Link href={isTvMode ? "/tv" : "/"} className="flex items-center gap-3 group">
-            <div className="w-8 h-8 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center shadow-sm group-hover:bg-accent/25 transition-colors">
+            <div className="w-8 h-8 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center shadow-sm group-hover:bg-accent/25 transition-colors flex-shrink-0">
               <div className="w-3 h-3 rounded-full bg-accent animate-pulse" />
             </div>
             <span className="font-display text-xl font-bold tracking-wider text-text-primary">
@@ -75,7 +73,7 @@ export function Header({
           </Link>
 
           {/* Desktop Mode Switcher */}
-          <div className="hidden sm:flex items-center p-1 rounded-xl bg-surface-elevated border border-border/80 text-xs font-mono">
+          <div className="hidden sm:flex items-center p-1 rounded-xl bg-surface-elevated border border-border/80 text-xs font-mono flex-shrink-0">
             <Link
               href="/"
               className={`px-3 py-1 rounded-lg transition-all ${
@@ -100,14 +98,14 @@ export function Header({
         </div>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-2 lg:gap-4 flex-shrink-0">
           <nav className="flex items-center gap-1">
             {!isTvMode ? (
               // Movie Mode Navigation Links
               <>
                 <Link
                   href="/"
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
                     pathname === "/"
                       ? "bg-surface-elevated text-text-primary font-semibold border border-border"
                       : "text-text-muted hover:text-text-primary"
@@ -118,7 +116,7 @@ export function Header({
 
                 <Link
                   href="/calibrate"
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
                     pathname === "/calibrate"
                       ? "bg-surface-elevated text-text-primary font-semibold border border-border"
                       : "text-text-muted hover:text-text-primary"
@@ -129,7 +127,7 @@ export function Header({
 
                 <Link
                   href="/profile"
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
                     pathname === "/profile"
                       ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
                       : "text-text-muted hover:text-text-primary"
@@ -140,7 +138,7 @@ export function Header({
 
                 <Link
                   href="/recommendations"
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
                     pathname === "/recommendations"
                       ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
                       : "text-text-muted hover:text-text-primary"
@@ -151,7 +149,7 @@ export function Header({
 
                 <Link
                   href="/library"
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
                     pathname.startsWith("/library")
                       ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
                       : "text-text-muted hover:text-text-primary"
@@ -162,7 +160,7 @@ export function Header({
 
                 <Link
                   href="/night"
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
                     pathname.startsWith("/night")
                       ? "bg-accent text-white font-semibold shadow-sm"
                       : "text-accent hover:bg-accent/10 border border-accent/30"
@@ -176,7 +174,7 @@ export function Header({
               <>
                 <Link
                   href="/tv"
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
                     pathname === "/tv"
                       ? "bg-surface-elevated text-text-primary font-semibold border border-border"
                       : "text-text-muted hover:text-text-primary"
@@ -187,7 +185,7 @@ export function Header({
 
                 <Link
                   href="/tv/calibration"
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
                     pathname === "/tv/calibration"
                       ? "bg-surface-elevated text-text-primary font-semibold border border-border"
                       : "text-text-muted hover:text-text-primary"
@@ -198,7 +196,7 @@ export function Header({
 
                 <Link
                   href="/tv/profile"
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
                     pathname === "/tv/profile"
                       ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
                       : "text-text-muted hover:text-text-primary"
@@ -209,7 +207,7 @@ export function Header({
 
                 <Link
                   href="/tv/recommendations"
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
                     pathname === "/tv/recommendations"
                       ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
                       : "text-text-muted hover:text-text-primary"
@@ -220,7 +218,7 @@ export function Header({
 
                 <Link
                   href="/tv/library"
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
+                  className={`px-2.5 lg:px-3 py-1.5 rounded-xl text-xs font-mono transition-all whitespace-nowrap ${
                     pathname.startsWith("/tv/library")
                       ? "bg-accent/15 text-text-primary font-semibold border border-accent/30"
                       : "text-text-muted hover:text-text-primary"
@@ -233,34 +231,42 @@ export function Header({
           </nav>
 
           {/* Progress Pill & User Identity Dropdown */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
             {isLoadingUser && fetchedCount === null && typeof progressCount !== "number" ? (
-              <div className="w-32 h-7 rounded-full bg-surface-elevated border border-border animate-pulse" />
+              <div className="w-32 h-7 rounded-full bg-surface-elevated border border-border animate-pulse flex-shrink-0" />
             ) : (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated border border-border text-xs font-mono font-medium text-text-primary">
-                <span className="w-2 h-2 rounded-full bg-accent" />
-                <span className="text-text-secondary">
-                  {isTvMode
-                    ? `${activeCount} dizi değerlendirildi`
-                    : `${progression.currentRank.label} • ${activeCount}${progression.nextRank ? `/${progression.nextRank.minimum}` : ""}`}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated border border-border text-xs font-mono font-medium text-text-primary whitespace-nowrap flex-shrink-0">
+                <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
+                <span className="text-text-secondary whitespace-nowrap">
+                  {isTvMode ? (
+                    `${activeCount} dizi değerlendirildi`
+                  ) : (
+                    <>
+                      <span className="hidden xl:inline">{progression.currentRank.label} • </span>
+                      <span>
+                        {activeCount}
+                        {progression.nextRank ? `/${progression.nextRank.minimum}` : ""}
+                      </span>
+                    </>
+                  )}
                 </span>
               </div>
             )}
 
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               <button
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-elevated border border-border/80 text-xs font-mono hover:border-accent transition-colors"
+                className="flex items-center gap-2 px-2.5 lg:px-3 py-1.5 rounded-full bg-surface-elevated border border-border/80 text-xs font-mono hover:border-accent transition-colors whitespace-nowrap flex-shrink-0"
               >
                 {avatar ? (
-                  <img src={avatar} alt={displayName || "User"} className="w-5 h-5 rounded-full object-cover" />
+                  <img src={avatar} alt={displayName || "User"} className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
                 ) : (
-                  <span className="w-5 h-5 rounded-full bg-accent/25 text-accent text-[10px] flex items-center justify-center font-bold">
+                  <span className="w-5 h-5 rounded-full bg-accent/25 text-accent text-[10px] flex items-center justify-center font-bold flex-shrink-0">
                     {(displayName || "F").charAt(0).toUpperCase()}
                   </span>
                 )}
-                <span className="font-semibold text-text-primary">{displayName || "Hesabım"}</span>
-                <span className="text-[10px] text-text-muted">▾</span>
+                <span className="font-semibold text-text-primary max-w-[120px] truncate">{displayName || "Hesabım"}</span>
+                <span className="text-[10px] text-text-muted flex-shrink-0">▾</span>
               </button>
 
               {userDropdownOpen && (

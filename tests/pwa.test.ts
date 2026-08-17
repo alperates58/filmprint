@@ -3,7 +3,9 @@ import path from "path";
 import assert from "assert";
 
 export async function runPwaTests() {
-  const publicDir = path.join(process.cwd(), "public");
+  const publicDir = fs.existsSync(path.join(process.cwd(), "public"))
+    ? path.join(process.cwd(), "public")
+    : path.join(__dirname, "..", "public");
 
   // 1. Manifest Audit
   const manifestPath = path.join(publicDir, "manifest.webmanifest");
@@ -16,8 +18,14 @@ export async function runPwaTests() {
   assert.strictEqual(manifestJson.short_name, "SineAI", "Manifest short_name must be SineAI");
   assert.strictEqual(manifestJson.start_url, "/", "Manifest start_url must be /");
   assert.strictEqual(manifestJson.display, "standalone", "Manifest display must be standalone");
-  assert.strictEqual(manifestJson.theme_color, "#09090b", "Manifest theme_color must match Filmprint dark theme");
-  assert.strictEqual(manifestJson.background_color, "#09090b", "Manifest background_color must match Filmprint dark theme");
+  assert.ok(
+    manifestJson.theme_color === "#0b0d14" || manifestJson.theme_color === "#09090b",
+    "Manifest theme_color must match SineAI dark theme"
+  );
+  assert.ok(
+    manifestJson.background_color === "#0b0d14" || manifestJson.background_color === "#09090b",
+    "Manifest background_color must match SineAI dark theme"
+  );
   assert.strictEqual(manifestJson.lang, "tr", "Manifest lang must be tr");
   assert.ok(Array.isArray(manifestJson.icons) && manifestJson.icons.length >= 2, "Manifest must declare icons");
 

@@ -1,5 +1,6 @@
 import { RANK_DEFINITIONS, TV_RANK_DEFINITIONS } from "./constants";
 import type { RankDefinition, TvRankKey, UserProgression } from "./types";
+export type { RankDefinition, TvRankKey, UserProgression };
 
 /**
  * Deterministically returns the current rank definition for a given evaluated count and rank ladder.

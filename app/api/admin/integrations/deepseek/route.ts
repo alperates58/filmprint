@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession, logAdminAudit } from "@/lib/admin/auth";
-import { saveIntegrationSecret, updateIntegrationMetadata } from "@/lib/config/service";
+import { saveIntegrationSecret, updateIntegrationMetadata, normalizeDeepSeekModel } from "@/lib/config/service";
 
 export async function PUT(request: Request) {
   try {
@@ -10,7 +10,7 @@ export async function PUT(request: Request) {
 
     const metadata: Record<string, unknown> = {};
     if (baseUrl) metadata.baseUrl = baseUrl.trim();
-    if (modelId) metadata.modelId = modelId.trim();
+    if (modelId) metadata.modelId = normalizeDeepSeekModel(modelId.trim());
     if (typeof enabled === "boolean") metadata.enabled = enabled;
 
     if (apiKey && typeof apiKey === "string" && apiKey.trim().length > 0) {

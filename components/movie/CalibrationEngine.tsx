@@ -6,7 +6,7 @@ import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { MovieCard, MovieItem } from "@/components/movie/MovieCard";
 import { MovieCardSkeleton } from "@/components/movie/MovieCardSkeleton";
-import { getProgressionForCount } from "@/lib/progression/service";
+import { getProgressionForCount, RankDefinition } from "@/lib/progression/service";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
 
 interface CalibrationEngineProps {
@@ -28,6 +28,20 @@ export function CalibrationEngine({
   const [isLoading, setIsLoading] = useState<boolean>(initialMovies.length === 0);
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Dynamic Rank Up & DNA Reanalysis State
+  const [rankUpData, setRankUpData] = useState<{
+    oldRank: RankDefinition;
+    newRank: RankDefinition;
+    answeredCount: number;
+  } | null>(null);
+  const [showRankUpModal, setShowRankUpModal] = useState<boolean>(false);
+  const [isRecalculatingDna, setIsRecalculatingDna] = useState<boolean>(false);
+
+  // Soft Session Checkpoint State
+  const [showSoftBreak, setShowSoftBreak] = useState<boolean>(false);
+  const sessionEvalCount = useRef<number>(0);
+
   const isFetchingRef = useRef<boolean>(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const milestoneTarget = 30;
@@ -96,7 +110,7 @@ export function CalibrationEngine({
     }
   }, [initialMovies, fetchQueue, preloadUpcomingImages]);
 
-  // Submit interaction handler (Optimistic UI)
+  // Submit interaction handler (Optimistic UI + Dynamic Rank Up)
   const handleAnswer = async (
     status: "WATCHED" | "NOT_WATCHED" | "UNSURE",
     rating: "LOVE" | "LIKE" | "NEUTRAL" | "DISLIKE" | null
@@ -108,15 +122,46 @@ export function CalibrationEngine({
     }
 
     const currentMovie = queue[0];
+    const prevProgression = getProgressionForCount(answeredCount);
+    const newAnsweredCount = answeredCount + 1;
+    const nextProgression = getProgressionForCount(newAnsweredCount);
+
+    sessionEvalCount.current += 1;
 
     // 1. Optimistic UI transition (150ms perceived latency)
     setIsTransitioning(true);
-    const newAnsweredCount = answeredCount + 1;
     setAnsweredCount(newAnsweredCount);
 
-    // Trigger milestone screen right when hitting 30 interactions for the first time
+    // Initial 30-films milestone trigger
     if (newAnsweredCount === milestoneTarget) {
       setShowMilestoneScreen(true);
+    }
+
+    // Dynamic Rank-Up Milestone Check (e.g. Cinephile, Curator, Master...)
+    if (prevProgression.currentRank.key !== nextProgression.currentRank.key) {
+      const milestoneStorageKey = `filmprint_milestone_FILM_${nextProgression.currentRank.key}`;
+      const alreadySeen = typeof window !== "undefined" && localStorage.getItem(milestoneStorageKey);
+
+      if (!alreadySeen) {
+        try {
+          localStorage.setItem(milestoneStorageKey, "true");
+        } catch {}
+
+        setRankUpData({
+          oldRank: prevProgression.currentRank,
+          newRank: nextProgression.currentRank,
+          answeredCount: newAnsweredCount,
+        });
+        setShowRankUpModal(true);
+        setIsRecalculatingDna(true);
+
+        // Trigger background DNA recalculation
+        fetch("/api/profile?forceRefresh=true")
+          .catch((e) => console.warn("[DNA Reanalysis Error]:", e))
+          .finally(() => setIsRecalculatingDna(false));
+      }
+    } else if (sessionEvalCount.current >= 18 && !showRankUpModal && !showMilestoneScreen) {
+      setShowSoftBreak(true);
     }
 
     setTimeout(() => {
@@ -163,10 +208,8 @@ export function CalibrationEngine({
       <Header progressCount={answeredCount} progressTarget={milestoneTarget} userName={userName} />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 py-3 md:py-12 flex flex-col items-center justify-center space-y-4 md:space-y-8">
-
-
         {/* Minimal First-Use Onboarding Hero Banner */}
-        {showOnboarding && !showMilestoneScreen && (
+        {showOnboarding && !showMilestoneScreen && !showRankUpModal && (
           <div className="w-full max-w-4xl mx-auto p-6 md:p-8 rounded-3xl bg-surface border border-accent/30 shadow-cinematic text-center space-y-4 animate-fadeIn relative overflow-hidden">
             <div className="space-y-2">
               <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold flex items-center justify-center gap-2">
@@ -193,9 +236,108 @@ export function CalibrationEngine({
           </div>
         )}
 
+        {/* Dynamic Rank-Up Milestone Modal */}
+        {showRankUpModal && rankUpData && (
+          <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface-1 border border-accent/40 rounded-3xl p-8 md:p-12 shadow-2xl animate-fadeIn relative overflow-hidden">
+            <div className="w-16 h-16 rounded-2xl bg-accent-subtle border border-accent/40 text-accent flex items-center justify-center mx-auto text-3xl font-bold">
+              {rankUpData.newRank.badgeIcon}
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold">
+                YENİ RÜTBE KAZANILDI
+              </span>
+              <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
+                Tebrikler! {rankUpData.newRank.label} Oldun!
+              </h2>
+              <p className="text-text-secondary text-sm md:text-base leading-relaxed font-sans">
+                <strong className="text-text-primary">{rankUpData.answeredCount} film</strong> değerlendirmesine ulaştınız. Film DNA profiliniz çok daha keskinleşti.
+              </p>
+            </div>
+
+            {/* DNA Reanalysis Progress State */}
+            <div className="p-4 rounded-2xl bg-surface-2 border border-border flex items-center justify-center gap-3 text-xs font-sans">
+              {isRecalculatingDna ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                  <span className="text-text-secondary">Film DNA profiliniz arka planda yeniden analiz ediliyor...</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-emerald-400 font-bold">✓</span>
+                  <span className="text-text-primary font-medium">Film DNA profiliniz güncellendi!</span>
+                </>
+              )}
+            </div>
+
+            <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                href="/profile"
+                className="px-6 py-3.5 rounded-xl bg-accent text-white font-semibold text-sm hover:bg-accent-hover active:scale-95 transition-all shadow-sm text-center"
+              >
+                Yeni Film DNA&apos;mı Gör →
+              </Link>
+
+              <button
+                onClick={() => {
+                  setShowRankUpModal(false);
+                  if (queue.length <= 2) fetchQueue(5);
+                }}
+                className="px-6 py-3.5 rounded-xl bg-surface-2 border border-border text-text-primary font-medium text-sm hover:bg-surface-3 active:scale-95 transition-all shadow-sm"
+              >
+                Değerlendirmeye Devam Et
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Soft Session Break Checkpoint */}
+        {showSoftBreak && !showRankUpModal && !showMilestoneScreen && (
+          <div className="w-full max-w-lg mx-auto text-center space-y-5 bg-surface-1 border border-border/80 rounded-3xl p-7 md:p-9 shadow-lg animate-fadeIn">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto text-xl">
+              ☕
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="font-display text-xl font-bold text-text-primary">
+                Harika İlerleme!
+              </h3>
+              <p className="text-text-secondary text-sm font-sans leading-relaxed">
+                Bu oturumda <strong className="text-text-primary">{sessionEvalCount.current} filmi</strong> değerlendirdiniz. Film DNA profiliniz için yeterli yeni sinyal toplandı.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-2 text-xs font-semibold">
+              <Link
+                href="/recommendations"
+                className="px-5 py-3 rounded-xl bg-accent text-white hover:bg-accent-hover transition-all text-center"
+              >
+                Önerilerime Git →
+              </Link>
+
+              <Link
+                href="/profile"
+                className="px-5 py-3 rounded-xl bg-surface-2 border border-border text-text-primary hover:bg-surface-3 transition-all text-center"
+              >
+                DNA&apos;mı Gör
+              </Link>
+
+              <button
+                onClick={() => {
+                  sessionEvalCount.current = 0;
+                  setShowSoftBreak(false);
+                }}
+                className="px-5 py-3 rounded-xl bg-surface-2 border border-border text-text-secondary hover:text-text-primary transition-all"
+              >
+                Devam Et
+              </button>
+            </div>
+          </div>
+        )}
+
         {isLoading ? (
           <MovieCardSkeleton />
-        ) : showMilestoneScreen ? (
+        ) : showMilestoneScreen && !showRankUpModal ? (
           /* Milestone Reached State View (30 Films Milestone) */
           <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface-1 border border-border/80 rounded-3xl p-8 md:p-12 shadow-md animate-fadeIn">
             <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto text-2xl font-bold">
@@ -234,7 +376,7 @@ export function CalibrationEngine({
               </button>
             </div>
           </div>
-        ) : activeMovie ? (
+        ) : activeMovie && !showRankUpModal && !showSoftBreak ? (
           /* Active Interactive Movie Card */
           <div ref={cardRef} className="w-full space-y-3">
             {(() => {
@@ -264,7 +406,7 @@ export function CalibrationEngine({
               isTransitioning={isTransitioning}
             />
           </div>
-        ) : (
+        ) : !showRankUpModal && !showSoftBreak ? (
           /* Queue Empty / Retry Fallback State */
           <div className="w-full max-w-lg mx-auto text-center space-y-5 bg-surface-1 border border-border/80 rounded-3xl p-8 shadow-md">
             <div className={`w-12 h-12 rounded-2xl ${errorMessage ? "bg-rose-500/15 border border-rose-500/30 text-rose-400" : "bg-accent-subtle border border-accent/30 text-accent"} flex items-center justify-center mx-auto text-xl font-bold`}>
@@ -299,7 +441,7 @@ export function CalibrationEngine({
               </button>
             </div>
           </div>
-        )}
+        ) : null}
       </main>
 
       <Footer />

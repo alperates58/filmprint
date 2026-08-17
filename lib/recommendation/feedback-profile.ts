@@ -377,19 +377,19 @@ export function calculateMovieFeedbackAdjustment(
   if (profile.totalFeedbacks === 0) return 0;
 
   // 1. Direct Content-Level Signals
-  if (profile.droppedMovieIds.has(movieId)) {
+  if (profile.droppedMovieIds?.has(movieId)) {
     return FEEDBACK_ADJUSTMENT_BOUNDS.MIN; // -15.0 (hard penalty)
   }
-  if (profile.dislikedMovieIds.has(movieId)) {
+  if (profile.dislikedMovieIds?.has(movieId)) {
     return FEEDBACK_ADJUSTMENT_BOUNDS.MIN; // -15.0
   }
-  if (profile.favoriteMovieIds.has(movieId)) {
+  if (profile.favoriteMovieIds?.has(movieId)) {
     return FEEDBACK_ADJUSTMENT_BOUNDS.MAX; // +10.0 max
   }
-  if (profile.watchlistMovieIds.has(movieId)) {
+  if (profile.watchlistMovieIds?.has(movieId)) {
     return FEEDBACK_ADJUSTMENT_BOUNDS.MAX; // +10.0
   }
-  if (profile.likedMovieIds.has(movieId)) {
+  if (profile.likedMovieIds?.has(movieId)) {
     return 6.0;
   }
 
@@ -403,7 +403,7 @@ export function calculateMovieFeedbackAdjustment(
       genreSum += profile.genreSignals[g];
     }
   }
-  similarityAdjustment += Math.max(-6, Math.min(5, genreSum));
+  similarityAdjustment += Math.max(-8, Math.min(8, genreSum));
 
   // Keyword signals (capped at +3 / -4)
   const candidateKeywords = Array.isArray(metadata.keywords) ? (metadata.keywords as string[]) : [];

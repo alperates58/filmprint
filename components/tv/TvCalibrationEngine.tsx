@@ -8,8 +8,7 @@ import { TvCard } from "@/components/tv/TvCard";
 import { TvCardSkeleton } from "@/components/tv/TvCardSkeleton";
 import { TvShowItem, TvInteractionStatusType, TvRatingStatusType } from "@/components/tv/types";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
-import { getTvProgressionForCount } from "@/lib/progression/service";
-
+import { getTvProgressionForCount, RankDefinition } from "@/lib/progression/service";
 
 interface TvCalibrationEngineProps {
   initialTvShows?: TvShowItem[];
@@ -22,14 +21,25 @@ export function TvCalibrationEngine({
 }: TvCalibrationEngineProps) {
   const [queue, setQueue] = useState<TvShowItem[]>(initialTvShows);
   const [answeredCount, setAnsweredCount] = useState<number>(initialAnsweredCount);
-  // A mature user must not see the first milestone again on every page load.
-  // It is shown only when this client session crosses the threshold.
   const [showMilestoneScreen, setShowMilestoneScreen] = useState<boolean>(false);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(initialAnsweredCount === 0);
   const [userName, setUserName] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(initialTvShows.length === 0);
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Dynamic Rank Up & TV DNA Reanalysis State
+  const [rankUpData, setRankUpData] = useState<{
+    oldRank: RankDefinition;
+    newRank: RankDefinition;
+    answeredCount: number;
+  } | null>(null);
+  const [showRankUpModal, setShowRankUpModal] = useState<boolean>(false);
+  const [isRecalculatingDna, setIsRecalculatingDna] = useState<boolean>(false);
+
+  // Soft Session Checkpoint State
+  const [showSoftBreak, setShowSoftBreak] = useState<boolean>(false);
+  const sessionEvalCount = useRef<number>(0);
 
   const isFetchingRef = useRef<boolean>(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -104,7 +114,7 @@ export function TvCalibrationEngine({
     }
   }, [initialTvShows, fetchQueue, preloadUpcomingImages]);
 
-  // Submit interaction handler (Optimistic UI)
+  // Submit interaction handler (Optimistic UI + Dynamic Rank Up)
   const handleAnswer = async (
     status: TvInteractionStatusType,
     rating: TvRatingStatusType | null
@@ -116,15 +126,46 @@ export function TvCalibrationEngine({
     }
 
     const currentShow = queue[0];
+    const prevProgression = getTvProgressionForCount(answeredCount);
+    const newAnsweredCount = answeredCount + 1;
+    const nextProgression = getTvProgressionForCount(newAnsweredCount);
+
+    sessionEvalCount.current += 1;
 
     // 1. Optimistic UI transition (150ms perceived latency)
     setIsTransitioning(true);
-    const newAnsweredCount = answeredCount + 1;
     setAnsweredCount(newAnsweredCount);
 
-    // Trigger milestone screen right when hitting 15 interactions for the first time in session
+    // Initial 15-shows milestone trigger
     if (answeredCount < milestoneTarget && newAnsweredCount >= milestoneTarget) {
       setShowMilestoneScreen(true);
+    }
+
+    // Dynamic Rank-Up Milestone Check
+    if (prevProgression.currentRank.key !== nextProgression.currentRank.key) {
+      const milestoneStorageKey = `filmprint_milestone_TV_${nextProgression.currentRank.key}`;
+      const alreadySeen = typeof window !== "undefined" && localStorage.getItem(milestoneStorageKey);
+
+      if (!alreadySeen) {
+        try {
+          localStorage.setItem(milestoneStorageKey, "true");
+        } catch {}
+
+        setRankUpData({
+          oldRank: prevProgression.currentRank,
+          newRank: nextProgression.currentRank,
+          answeredCount: newAnsweredCount,
+        });
+        setShowRankUpModal(true);
+        setIsRecalculatingDna(true);
+
+        // Trigger background TV DNA recalculation
+        fetch("/api/tv/profile?forceRefresh=true")
+          .catch((e) => console.warn("[TV DNA Reanalysis Error]:", e))
+          .finally(() => setIsRecalculatingDna(false));
+      }
+    } else if (sessionEvalCount.current >= 18 && !showRankUpModal && !showMilestoneScreen) {
+      setShowSoftBreak(true);
     }
 
     setTimeout(() => {
@@ -176,7 +217,7 @@ export function TvCalibrationEngine({
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 py-3 md:py-12 flex flex-col items-center justify-center space-y-4 md:space-y-8">
         {/* Minimal First-Use Onboarding Hero Banner */}
-        {showOnboarding && !showMilestoneScreen && (
+        {showOnboarding && !showMilestoneScreen && !showRankUpModal && (
           <div className="w-full max-w-4xl mx-auto p-6 md:p-8 rounded-3xl bg-surface border border-accent/30 shadow-cinematic text-center space-y-4 animate-fadeIn relative overflow-hidden">
             <div className="space-y-2">
               <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold flex items-center justify-center gap-2">
@@ -203,9 +244,108 @@ export function TvCalibrationEngine({
           </div>
         )}
 
+        {/* Dynamic Rank-Up Milestone Modal */}
+        {showRankUpModal && rankUpData && (
+          <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface-1 border border-accent/40 rounded-3xl p-8 md:p-12 shadow-2xl animate-fadeIn relative overflow-hidden">
+            <div className="w-16 h-16 rounded-2xl bg-accent-subtle border border-accent/40 text-accent flex items-center justify-center mx-auto text-3xl font-bold">
+              {rankUpData.newRank.badgeIcon}
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold">
+                YENİ RÜTBE KAZANILDI
+              </span>
+              <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
+                Tebrikler! {rankUpData.newRank.label} Oldun!
+              </h2>
+              <p className="text-text-secondary text-sm md:text-base leading-relaxed font-sans">
+                <strong className="text-text-primary">{rankUpData.answeredCount} dizi</strong> değerlendirmesine ulaştınız. Dizi DNA profiliniz çok daha keskinleşti.
+              </p>
+            </div>
+
+            {/* DNA Reanalysis Progress State */}
+            <div className="p-4 rounded-2xl bg-surface-2 border border-border flex items-center justify-center gap-3 text-xs font-sans">
+              {isRecalculatingDna ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                  <span className="text-text-secondary">Dizi DNA profiliniz arka planda yeniden analiz ediliyor...</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-emerald-400 font-bold">✓</span>
+                  <span className="text-text-primary font-medium">Dizi DNA profiliniz güncellendi!</span>
+                </>
+              )}
+            </div>
+
+            <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                href="/tv/profile"
+                className="px-6 py-3.5 rounded-xl bg-accent text-white font-semibold text-sm hover:bg-accent-hover active:scale-95 transition-all shadow-sm text-center"
+              >
+                Yeni Dizi DNA&apos;mı Gör →
+              </Link>
+
+              <button
+                onClick={() => {
+                  setShowRankUpModal(false);
+                  if (queue.length <= 2) fetchQueue(5);
+                }}
+                className="px-6 py-3.5 rounded-xl bg-surface-2 border border-border text-text-primary font-medium text-sm hover:bg-surface-3 active:scale-95 transition-all shadow-sm"
+              >
+                Değerlendirmeye Devam Et
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Soft Session Break Checkpoint */}
+        {showSoftBreak && !showRankUpModal && !showMilestoneScreen && (
+          <div className="w-full max-w-lg mx-auto text-center space-y-5 bg-surface-1 border border-border/80 rounded-3xl p-7 md:p-9 shadow-lg animate-fadeIn">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto text-xl">
+              ☕
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="font-display text-xl font-bold text-text-primary">
+                Harika İlerleme!
+              </h3>
+              <p className="text-text-secondary text-sm font-sans leading-relaxed">
+                Bu oturumda <strong className="text-text-primary">{sessionEvalCount.current} diziyi</strong> değerlendirdiniz. Dizi DNA profiliniz için yeterli yeni sinyal toplandı.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-2 text-xs font-semibold">
+              <Link
+                href="/tv/recommendations"
+                className="px-5 py-3 rounded-xl bg-accent text-white hover:bg-accent-hover transition-all text-center"
+              >
+                Önerilerime Git →
+              </Link>
+
+              <Link
+                href="/tv/profile"
+                className="px-5 py-3 rounded-xl bg-surface-2 border border-border text-text-primary hover:bg-surface-3 transition-all text-center"
+              >
+                DNA&apos;mı Gör
+              </Link>
+
+              <button
+                onClick={() => {
+                  sessionEvalCount.current = 0;
+                  setShowSoftBreak(false);
+                }}
+                className="px-5 py-3 rounded-xl bg-surface-2 border border-border text-text-secondary hover:text-text-primary transition-all"
+              >
+                Devam Et
+              </button>
+            </div>
+          </div>
+        )}
+
         {isLoading ? (
           <TvCardSkeleton />
-        ) : showMilestoneScreen ? (
+        ) : showMilestoneScreen && !showRankUpModal ? (
           /* Milestone Reached State View (15 Shows Milestone) */
           <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface-1 border border-border/80 rounded-3xl p-8 md:p-12 shadow-md animate-fadeIn">
             <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto text-2xl font-bold">
@@ -244,7 +384,7 @@ export function TvCalibrationEngine({
               </button>
             </div>
           </div>
-        ) : activeShow ? (
+        ) : activeShow && !showRankUpModal && !showSoftBreak ? (
           /* Active Interactive TV Card */
           <div ref={cardRef} className="w-full space-y-3">
             {(() => {
@@ -260,13 +400,9 @@ export function TvCalibrationEngine({
                     </span>
                   </div>
 
-                  {progression.nextRank ? (
+                  {progression.nextRank && (
                     <span className="text-text-secondary text-[11px]">
                       Sıradaki: <strong className="text-text-primary">{progression.nextRank.label}</strong> ({progression.remaining} dizi kaldı)
-                    </span>
-                  ) : (
-                    <span className="text-text-secondary text-[11px]">
-                      <strong className="text-text-primary">{progression.currentRank.label}</strong>
                     </span>
                   )}
                 </div>
@@ -278,11 +414,11 @@ export function TvCalibrationEngine({
               isTransitioning={isTransitioning}
             />
           </div>
-        ) : (
+        ) : !showRankUpModal && !showSoftBreak ? (
           /* Queue Empty / Retry Fallback State */
           <div className="w-full max-w-lg mx-auto text-center space-y-5 bg-surface-1 border border-border/80 rounded-3xl p-8 shadow-md">
             <div className={`w-12 h-12 rounded-2xl ${errorMessage ? "bg-rose-500/15 border border-rose-500/30 text-rose-400" : "bg-accent-subtle border border-accent/30 text-accent"} flex items-center justify-center mx-auto text-xl font-bold`}>
-              {errorMessage ? "!" : "✨"}
+              {errorMessage ? "!" : "📺"}
             </div>
 
             <div className="space-y-2">
@@ -307,13 +443,13 @@ export function TvCalibrationEngine({
               )}
               <button
                 onClick={() => fetchQueue(5)}
-                className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent-hover active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2"
+                className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent-hover active:scale-95 transition-all shadow-sm"
               >
-                <span>Yeniden Kontrol Et</span>
+                Yeniden Kontrol Et
               </button>
             </div>
           </div>
-        )}
+        ) : null}
       </main>
 
       <Footer />

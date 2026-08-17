@@ -35,6 +35,8 @@ import { runTmdbSharedLocalizationTests } from "./tmdb_shared_localization.test"
 import { runTvProgressionTests } from "./tv_progression.test";
 import { runCatalogIngestionTests } from "./catalog_ingestion.test";
 import { runCalibrationDatabaseFirstTests } from "./calibration_database_first.test";
+import { runDeepSeekModelMigrationTests } from "./deepseek_model_migration.test";
+import { runTvPersonalMatcherAndShortcutsTests } from "./tv_personal_matcher_and_shortcuts.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -80,10 +82,13 @@ async function runAllUnitAndRegressionTests() {
     { name: "TMDB Image Guard & Poster Path Validation Tests", fn: runTmdbImageGuardTests },
     { name: "TMDB Catalog Ingestion Engine Tests", fn: runCatalogIngestionTests },
     { name: "Database-First Calibration & Supply Tests", fn: runCalibrationDatabaseFirstTests },
+    { name: "DeepSeek Model Migration & Canonical Resolution Tests", fn: runDeepSeekModelMigrationTests },
+    { name: "TV Personal Matcher & Shortcuts Parity Tests", fn: runTvPersonalMatcherAndShortcutsTests },
   ];
 
   let passedSuites = 0;
   let failedSuites = 0;
+  const failedSuiteNames: string[] = [];
 
   for (const suite of testSuites) {
     try {
@@ -93,6 +98,7 @@ async function runAllUnitAndRegressionTests() {
     } catch (err) {
       console.error(`❌ Suite Failed: ${suite.name}`, err);
       failedSuites++;
+      failedSuiteNames.push(suite.name);
     }
   }
 
@@ -103,6 +109,9 @@ async function runAllUnitAndRegressionTests() {
   console.log(`Total Suites Run : ${testSuites.length}`);
   console.log(`Passed Suites    : ${passedSuites}`);
   console.log(`Failed Suites    : ${failedSuites}`);
+  if (failedSuiteNames.length > 0) {
+    console.log(`Failed Suite Names: \n - ${failedSuiteNames.join("\n - ")}`);
+  }
   console.log(`Execution Time   : ${durationSec}s`);
   console.log("===============================================================\n");
 

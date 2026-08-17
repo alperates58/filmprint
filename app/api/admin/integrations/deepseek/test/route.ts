@@ -14,21 +14,38 @@ export async function POST() {
       });
     }
 
-    // Call models list endpoint server-side to test key and connection
-    const targetUrl = `${config.baseUrl.replace(/\/+$/, "")}/models`;
+    // Test connection with a minimal prompt on the configured model
+    const targetUrl = `${config.baseUrl.replace(/\/+$/, "")}/chat/completions`;
 
-    const response = await fetch(targetUrl, {
-      method: "GET",
+    let response = await fetch(targetUrl, {
+      method: "POST",
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        model: config.modelId,
+        messages: [{ role: "user", content: "ping" }],
+        max_tokens: 1,
+      }),
     });
+
+    // If chat completions fails with 404/405, fallback to /models endpoint
+    if (!response.ok && (response.status === 404 || response.status === 405)) {
+      const modelsUrl = `${config.baseUrl.replace(/\/+$/, "")}/models`;
+      response = await fetch(modelsUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          "Content-Type": "application/json",
+        },
+      });
+    }
 
     if (!response.ok) {
       return NextResponse.json({
         success: false,
-        message: `AI bağlantı hatası (HTTP status ${response.status}). API anahtarınızı veya Base URL'i kontrol ediniz.`,
+        message: `AI bağlantı hatası (HTTP status ${response.status}). API anahtarınızı, Model ID (${config.modelId}) veya Base URL'i kontrol ediniz.`,
       });
     }
 

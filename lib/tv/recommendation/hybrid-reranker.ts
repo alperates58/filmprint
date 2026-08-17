@@ -154,7 +154,7 @@ export async function getOrGenerateTvRecommendationSnapshot(
   );
 
   const deepseekConfig = await getDeepSeekConfig();
-  const currentModel = deepseekConfig.modelId || "deepseek-chat";
+  const currentModel = deepseekConfig.modelId;
 
   // 3. Query existing Snapshot from database (Cache-First)
   if (!options.forceRefresh) {

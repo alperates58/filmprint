@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { TvDetailsModal } from "./TvDetailsModal";
@@ -27,12 +28,12 @@ interface TvDiscoveryHomeProps {
 }
 
 const TV_MOOD_SHORTCUTS = [
-  { id: "top-recs", label: "Günün Dizileri", icon: "✨" },
-  { id: "watchlist", label: "İzleme Listem", icon: "🔖" },
-  { id: "thriller", label: "Sürükleyici Gerilim", icon: "⚡" },
-  { id: "mini-series", label: "Mini Diziler", icon: "⏳" },
-  { id: "sci-fi", label: "Bilimkurgu & Gizem", icon: "🌀" },
-  { id: "masterpiece", label: "Ödüllü Başyapıtlar", icon: "👑" },
+  { id: "top-recs", targetModuleId: "tv-top-hero", label: "Günün Dizileri", icon: "✨", fallbackHref: "/tv/recommendations" },
+  { id: "watchlist", targetModuleId: "USER_WATCHLIST", label: "İzleme Listem", icon: "🔖", fallbackHref: "/library?mediaType=TV&state=WATCHLIST" },
+  { id: "thriller", targetModuleId: "MYSTERY_CRIME", label: "Sürükleyici Gerilim", icon: "⚡", fallbackHref: "/tv/recommendations" },
+  { id: "mini-series", targetModuleId: "MINISERIES", label: "Mini Diziler", icon: "⏳", fallbackHref: "/tv/recommendations" },
+  { id: "sci-fi", targetModuleId: "FOR_YOU", label: "Bilimkurgu & Gizem", icon: "🌀", fallbackHref: "/tv/recommendations" },
+  { id: "masterpiece", targetModuleId: "COMPLETED_GEMS", label: "Ödüllü Başyapıtlar", icon: "👑", fallbackHref: "/tv/recommendations" },
 ];
 
 export function TvDiscoveryHome({
@@ -43,6 +44,7 @@ export function TvDiscoveryHome({
   homeModules,
   topHeroMatch,
 }: TvDiscoveryHomeProps) {
+  const router = useRouter();
   const [selectedTvModal, setSelectedTvModal] = useState<{
     tvShowId: string;
     initialData?: any;
@@ -50,10 +52,19 @@ export function TvDiscoveryHome({
 
   const progression = getTvProgressionForCount(answeredCount);
 
-  const scrollToModule = (moduleId: string) => {
-    const el = document.getElementById(`module-${moduleId}`);
+  const handleShortcutClick = (shortcut: typeof TV_MOOD_SHORTCUTS[number]) => {
+    if (shortcut.targetModuleId === "tv-top-hero") {
+      const heroEl = document.getElementById("tv-top-hero-match");
+      if (heroEl) {
+        heroEl.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
+    }
+    const el = document.getElementById(`module-${shortcut.targetModuleId}`);
     if (el) {
       el.scrollIntoView({ behavior: "smooth" });
+    } else if (shortcut.fallbackHref) {
+      router.push(shortcut.fallbackHref);
     }
   };
 
@@ -132,7 +143,7 @@ export function TvDiscoveryHome({
                 {TV_MOOD_SHORTCUTS.map((mood) => (
                   <button
                     key={mood.id}
-                    onClick={() => scrollToModule(mood.id)}
+                    onClick={() => handleShortcutClick(mood)}
                     className="flex items-center gap-2 p-2.5 rounded-xl bg-surface-1 hover:bg-surface-3 border border-border/60 hover:border-accent/40 text-text-secondary hover:text-text-primary transition-all text-left group"
                   >
                     <span className="text-base group-hover:scale-110 transition-transform">
@@ -150,7 +161,7 @@ export function TvDiscoveryHome({
         {/* TOP MATCH TV HERO CARD (IF AVAILABLE)                                     */}
         {/* ========================================================================= */}
         {topHeroMatch && heroShow && (
-          <section className="space-y-4">
+          <section id="tv-top-hero-match" className="space-y-4">
             <SectionHeader
               badge="GÜNÜN ZİRVESİ"
               badgeIcon="⭐"

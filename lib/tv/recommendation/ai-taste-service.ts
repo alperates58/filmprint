@@ -192,7 +192,7 @@ export async function getOrGenerateTvAiTasteProfile(
   });
 
   const deepseekConfig = await getDeepSeekConfig();
-  const currentModel = deepseekConfig.modelId || "deepseek-chat";
+  const currentModel = deepseekConfig.modelId;
 
   // 4. Freshness Evaluation
   if (cached && !options.forceRefresh) {

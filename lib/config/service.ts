@@ -45,16 +45,37 @@ export async function getTMDBApiKey(): Promise<string | null> {
   return null;
 }
 
+export const CANONICAL_DEEPSEEK_MODEL = "deepseek-v4-flash";
+export const CANONICAL_DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+
 /**
- * Resolves DeepSeek AI configuration following hierarchy.
+ * Normalizes DeepSeek model identifier.
+ * Legacy models (deepseek-chat, deepseek-reasoner) and empty values are safely migrated to deepseek-v4-flash.
+ */
+export function normalizeDeepSeekModel(rawModel?: string | null): string {
+  if (!rawModel || typeof rawModel !== "string") {
+    return CANONICAL_DEEPSEEK_MODEL;
+  }
+  const trimmed = rawModel.trim();
+  if (!trimmed || trimmed === "deepseek-chat" || trimmed === "deepseek-reasoner") {
+    return CANONICAL_DEEPSEEK_MODEL;
+  }
+  return trimmed;
+}
+
+/**
+ * Resolves DeepSeek AI configuration following hierarchy:
+ * 1. Encrypted DB IntegrationSecret (with model normalization)
+ * 2. Environment variable (DEEPSEEK_API_KEY / DEEPSEEK_MODEL_ID)
+ * 3. Default (deepseek-v4-flash, disabled)
  */
 export async function getDeepSeekConfig(): Promise<DeepSeekConfig> {
   const secretRecord = await db.integrationSecret.findUnique({
     where: { provider: "deepseek" },
   });
 
-  const defaultBaseUrl = "https://api.deepseek.com";
-  const defaultModelId = "deepseek-chat";
+  const defaultBaseUrl = CANONICAL_DEEPSEEK_BASE_URL;
+  const defaultModelId = CANONICAL_DEEPSEEK_MODEL;
 
   if (secretRecord && secretRecord.encryptedValue) {
     try {
@@ -64,7 +85,7 @@ export async function getDeepSeekConfig(): Promise<DeepSeekConfig> {
       return {
         apiKey,
         baseUrl: (meta.baseUrl as string) || defaultBaseUrl,
-        modelId: (meta.modelId as string) || defaultModelId,
+        modelId: normalizeDeepSeekModel(meta.modelId as string),
         enabled: meta.enabled !== false,
         source: "database",
       };
@@ -77,7 +98,7 @@ export async function getDeepSeekConfig(): Promise<DeepSeekConfig> {
     return {
       apiKey: process.env.DEEPSEEK_API_KEY,
       baseUrl: process.env.DEEPSEEK_BASE_URL || defaultBaseUrl,
-      modelId: process.env.DEEPSEEK_MODEL_ID || defaultModelId,
+      modelId: normalizeDeepSeekModel(process.env.DEEPSEEK_MODEL_ID),
       enabled: true,
       source: "environment",
     };
@@ -101,12 +122,21 @@ export async function getIntegrationStatus(provider: string): Promise<Integratio
   });
 
   if (record && record.encryptedValue) {
+    const meta = (record.metadata as Record<string, unknown>) || {};
+    const normalizedMeta = provider === "deepseek"
+      ? {
+          ...meta,
+          baseUrl: meta.baseUrl || CANONICAL_DEEPSEEK_BASE_URL,
+          modelId: normalizeDeepSeekModel(meta.modelId as string),
+        }
+      : meta;
+
     return {
       provider,
       isConfigured: true,
       lastFour: record.lastFour,
       source: "database",
-      metadata: (record.metadata as Record<string, unknown>) || {},
+      metadata: normalizedMeta,
       updatedAt: record.updatedAt,
     };
   }
@@ -118,7 +148,7 @@ export async function getIntegrationStatus(provider: string): Promise<Integratio
       isConfigured: true,
       lastFour: envKey.length >= 4 ? envKey.slice(-4) : envKey,
       source: "environment",
-      metadata: provider === "deepseek" ? { baseUrl: "https://api.deepseek.com", modelId: "deepseek-chat", enabled: true } : {},
+      metadata: provider === "deepseek" ? { baseUrl: process.env.DEEPSEEK_BASE_URL || CANONICAL_DEEPSEEK_BASE_URL, modelId: normalizeDeepSeekModel(process.env.DEEPSEEK_MODEL_ID), enabled: true } : {},
       updatedAt: null,
     };
   }
@@ -128,7 +158,7 @@ export async function getIntegrationStatus(provider: string): Promise<Integratio
     isConfigured: false,
     lastFour: null,
     source: "none",
-    metadata: provider === "deepseek" ? { baseUrl: "https://api.deepseek.com", modelId: "deepseek-chat", enabled: false } : {},
+    metadata: provider === "deepseek" ? { baseUrl: CANONICAL_DEEPSEEK_BASE_URL, modelId: CANONICAL_DEEPSEEK_MODEL, enabled: false } : {},
     updatedAt: null,
   };
 }

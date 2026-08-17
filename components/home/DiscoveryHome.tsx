@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { MovieDetailsModal } from "@/components/movie/MovieDetailsModal";
@@ -45,12 +46,12 @@ interface DiscoveryHomeProps {
 }
 
 const MOOD_SHORTCUTS = [
-  { id: "top-picks", label: "Günün Önerileri", icon: "✨" },
-  { id: "watchlist", label: "İzleme Listem", icon: "🔖" },
-  { id: "mind-bending", label: "Zihin Büken", icon: "🌀" },
-  { id: "hidden-gems", label: "Gizli Kalmışlar", icon: "💎" },
-  { id: "night-watch", label: "Gece Seansı", icon: "🍿" },
-  { id: "rainy-day", label: "Yağmurlu Hava", icon: "🌧️" },
+  { id: "top-picks", targetModuleId: "top-hero", label: "Günün Önerileri", icon: "✨", fallbackHref: "/recommendations" },
+  { id: "watchlist", targetModuleId: "user_watchlist", label: "İzleme Listem", icon: "🔖", fallbackHref: "/library?mediaType=FILM&state=WATCHLIST" },
+  { id: "mind-bending", targetModuleId: "mind-bending", label: "Zihin Büken", icon: "🌀", fallbackHref: "/recommendations" },
+  { id: "hidden-gems", targetModuleId: "gems", label: "Gizli Kalmışlar", icon: "💎", fallbackHref: "/recommendations" },
+  { id: "night-watch", targetModuleId: "night", label: "Gece Seansı", icon: "🍿", fallbackHref: "/recommendations" },
+  { id: "rainy-day", targetModuleId: "rainy", label: "Yağmurlu Hava", icon: "🌧️", fallbackHref: "/recommendations" },
 ];
 
 export function DiscoveryHome({
@@ -58,6 +59,7 @@ export function DiscoveryHome({
   answeredCount,
   initialShowMilestone = false,
 }: DiscoveryHomeProps) {
+  const router = useRouter();
   const [modules, setModules] = useState<HomeModule[]>([]);
   const [topHeroMatch, setTopHeroMatch] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -89,10 +91,19 @@ export function DiscoveryHome({
     } catch {}
   };
 
-  const scrollToModule = (moduleId: string) => {
-    const el = document.getElementById(`module-${moduleId}`);
+  const handleShortcutClick = (shortcut: typeof MOOD_SHORTCUTS[number]) => {
+    if (shortcut.targetModuleId === "top-hero") {
+      const heroEl = document.getElementById("top-hero-match");
+      if (heroEl) {
+        heroEl.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
+    }
+    const el = document.getElementById(`module-${shortcut.targetModuleId}`);
     if (el) {
       el.scrollIntoView({ behavior: "smooth" });
+    } else if (shortcut.fallbackHref) {
+      router.push(shortcut.fallbackHref);
     }
   };
 
@@ -196,7 +207,7 @@ export function DiscoveryHome({
                 {MOOD_SHORTCUTS.map((mood) => (
                   <button
                     key={mood.id}
-                    onClick={() => scrollToModule(mood.id)}
+                    onClick={() => handleShortcutClick(mood)}
                     className="flex items-center gap-2 p-2.5 rounded-xl bg-surface-1 hover:bg-surface-3 border border-border/60 hover:border-accent/40 text-text-secondary hover:text-text-primary transition-all text-left group"
                   >
                     <span className="text-base group-hover:scale-110 transition-transform">
@@ -214,7 +225,7 @@ export function DiscoveryHome({
         {/* TOP MATCH HERO CARD (IF AVAILABLE)                                        */}
         {/* ========================================================================= */}
         {topHeroMatch && topHeroMatch.movie && (
-          <section className="space-y-4">
+          <section id="top-hero-match" className="space-y-4">
             <SectionHeader
               badge="GÜNÜN ZİRVESİ"
               badgeIcon="⭐"

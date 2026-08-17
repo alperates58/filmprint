@@ -17,7 +17,7 @@ export default function AdminIntegrationsPage() {
   // DeepSeek State
   const [deepseekKey, setDeepseekKey] = useState("");
   const [deepseekBaseUrl, setDeepseekBaseUrl] = useState("https://api.deepseek.com");
-  const [deepseekModelId, setDeepseekModelId] = useState("deepseek-chat");
+  const [deepseekModelId, setDeepseekModelId] = useState("deepseek-v4-flash");
   const [deepseekEnabled, setDeepseekEnabled] = useState(true);
   const [deepseekStatusMsg, setDeepseekStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isSavingDeepseek, setIsSavingDeepseek] = useState(false);
@@ -311,7 +311,7 @@ export default function AdminIntegrationsPage() {
                       type="text"
                       value={deepseekModelId}
                       onChange={(e) => setDeepseekModelId(e.target.value)}
-                      placeholder="deepseek-chat"
+                      placeholder="deepseek-v4-flash"
                       className="w-full px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent min-h-[40px]"
                     />
                   </div>

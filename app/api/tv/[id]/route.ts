@@ -6,6 +6,7 @@ import { TvInteractionStatus, RatingStatus } from "@prisma/client";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
 import { evaluateContentIngestionSafety } from "@/lib/content/ingestion-safety";
 import { isMeaningfulOverview } from "@/lib/content/overview-safety";
+import { getTvPersonalMatch } from "@/lib/tv/recommendation/universal-matcher";
 
 export async function GET(
   request: Request,
@@ -149,6 +150,15 @@ export async function GET(
     const posterUrl = getTmdbImageUrl(show.posterPath, "w500");
     const backdropUrl = getTmdbImageUrl(show.backdropPath, "w1280");
 
+    let personalMatch = null;
+    if (currentUser) {
+      try {
+        personalMatch = await getTvPersonalMatch(currentUser.id, show.id);
+      } catch (e) {
+        console.error("[GET /api/tv/[id] Match Error]:", e);
+      }
+    }
+
     return NextResponse.json({
       id: show.id,
       tmdbId: show.tmdbId,
@@ -172,6 +182,7 @@ export async function GET(
       trailer: (meta.trailer as any) || null,
       userStatus,
       userRating,
+      personalMatch,
     });
   } catch (error) {
     console.error("[GET /api/tv/[id] Error]:", error);

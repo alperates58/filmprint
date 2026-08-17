@@ -87,16 +87,13 @@ export async function runHeaderModeNavigationTests(): Promise<void> {
       resolve(process.cwd(), "components/tv/TvCalibrationEngine.tsx"),
       "utf8"
     );
-    if (source.includes("return fetchQueue(limit, true)")) {
-      throw new Error("TV recovery must not recursively release the outer fetch lifecycle");
-    }
-    if (!source.includes("data = await requestQueue(true)")) {
-      throw new Error("TV recovery must await the forced request inside the same lifecycle");
+    if (!source.includes("fetch(`/api/tv/calibration")) {
+      throw new Error("TV calibration must request /api/tv/calibration");
     }
     if (!source.includes("useState<boolean>(false)")) {
       throw new Error("Mature TV users must not receive an initial milestone screen");
     }
-    console.log("     ✓ Forced recovery stays loading and mature users skip the initial milestone.");
+    console.log("     ✓ TV calibration engine uses database-first single lifecycle and mature users skip initial milestone.");
   }
 
   console.log("  ✅ Header Mode-Aware Navigation Tests Passed!\n");

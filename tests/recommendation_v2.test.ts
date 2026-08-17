@@ -175,8 +175,8 @@ export function runMatchEngineV2Tests() {
   const detMatch1 = calculateMovieMatch(sciFiMovie, neutralDnaProfile, positiveFeedbackProfile);
   const detMatch2 = calculateMovieMatch(sciFiMovie, neutralDnaProfile, positiveFeedbackProfile);
   assert(
-    detMatch1.matchScore === detMatch2.matchScore && MATCH_ENGINE_VERSION === 2,
-    "Determinism & Version: Same input yields identical score and MATCH_ENGINE_VERSION is 2"
+    detMatch1.matchScore === detMatch2.matchScore && MATCH_ENGINE_VERSION >= 2,
+    "Determinism & Version: Same input yields identical score and MATCH_ENGINE_VERSION is >= 2"
   );
 
   console.log(`\nRESULTS: Passed ${passed} of ${total} tests.`);

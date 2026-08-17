@@ -1,20 +1,15 @@
 import { db } from "../lib/db/client";
 import { getOrCalculateUserProfile } from "../lib/profile/service";
 import { getOrRecalculateTvTasteProfile } from "../lib/tv/profile/service";
-import { getOrRefreshUserAiTasteProfile, buildAiTastePromptPayload, generateAiTasteWithDeepSeek, validateAiTasteJson } from "../lib/recommendation/ai-taste-service";
+import { getOrRefreshUserAiTasteProfile, generateAiTasteWithDeepSeek } from "../lib/recommendation/ai-taste-service";
 import { getOrGenerateTvAiTasteProfile } from "../lib/tv/recommendation/ai-taste-service";
-import { buildTasteEvidenceProfile, getEvidenceForRecommendation } from "../lib/recommendation/evidence";
-import { buildUserFeedbackProfile } from "../lib/recommendation/feedback-profile";
-import { calculateMovieMatch, calibrateMatchScore } from "../lib/recommendation/matcher";
-import { generateRecommendationExplanation } from "../lib/recommendation/explanation";
 import { CANONICAL_DEEPSEEK_MODEL, getDeepSeekConfig } from "../lib/config/service";
-import type { CandidateMovie } from "../lib/calibration/types";
 import type { FilmDnaResult } from "../lib/profile/types";
 
 interface RefreshStats {
   filmRefreshed: number;
   tvRefreshed: number;
-  explanationsRefreshed: number;
+  snapshotsInvalidated: number;
   failedCount: number;
   failedIds: string[];
 }
@@ -43,10 +38,12 @@ export async function runLegacyArtifactRefresh() {
   const [
     filmProfiles,
     tvProfiles,
-    legacyExplanations,
-    snapshots,
+    legacySnapshots,
+    unknownModelExplanationsCount,
     initialMovieInteractions,
     initialTvInteractions,
+    initialFeedbacks,
+    initialLibrary,
   ] = await Promise.all([
     db.userAiTasteProfile.findMany({
       where: {
@@ -60,44 +57,57 @@ export async function runLegacyArtifactRefresh() {
         model: { not: CANONICAL_DEEPSEEK_MODEL },
       },
     }),
-    db.recommendationExplanation.findMany({
-      where: {
-        isAiGenerated: true,
-      },
-    }),
     db.aiRecommendationSnapshot.findMany({
       where: {
         model: { not: CANONICAL_DEEPSEEK_MODEL },
       },
+      select: { id: true, userId: true, mediaType: true, model: true },
+    }),
+    db.recommendationExplanation.count({
+      where: {
+        isAiGenerated: true,
+      },
     }),
     db.movieInteraction.count(),
     db.tvInteraction.count(),
+    db.recommendationFeedback.count(),
+    db.userContentLibrary.count(),
   ]);
+
+  const explanationsSelectedForRefresh = 0;
 
   console.log("--- 1. CANDIDATE ARTIFACT COUNTS (DRY RUN AUDIT) ---");
   console.log(`  - Film Profiles to Refresh (UserAiTasteProfile)    : ${filmProfiles.length}`);
   console.log(`  - TV Profiles to Refresh (UserAiTasteProfile)      : ${tvProfiles.length}`);
-  console.log(`  - Legacy AI Explanations (RecommendationExplanation): ${legacyExplanations.length}`);
-  console.log(`  - Snapshots to Refresh (AiRecommendationSnapshot)  : ${snapshots.length}`);
-  console.log(`  - Baseline User Evidence Counts (UNTOUCHED)        : Movie=${initialMovieInteractions}, TV=${initialTvInteractions}\n`);
+  console.log(`  - Legacy Snapshots to Invalidate (AiRecommendationSnapshot): ${legacySnapshots.length}`);
+  console.log(`  - AI Explanations with Unknown Model Provenance    : ${unknownModelExplanationsCount}`);
+  console.log(`  - AI Explanations Selected for Refresh             : ${explanationsSelectedForRefresh}`);
+  console.log(`  - Baseline User Evidence Counts (UNTOUCHED)        : Movie=${initialMovieInteractions}, TV=${initialTvInteractions}, Feedback=${initialFeedbacks}, Library=${initialLibrary}\n`);
 
   if (!isApply) {
     console.log("===============================================================");
     console.log("DRY RUN COMPLETE. To execute the live migration, run:");
     console.log("npm run deepseek:refresh-legacy-artifacts -- --apply");
     console.log("===============================================================\n");
-    return;
+    return {
+      isApply: false,
+      filmProfilesCount: filmProfiles.length,
+      tvProfilesCount: tvProfiles.length,
+      legacySnapshotsCount: legacySnapshots.length,
+      unknownModelExplanationsCount,
+      explanationsSelectedForRefresh,
+    };
   }
 
   // =========================================================================
   // 2. LIVE CONTROLLED REFRESH (--apply)
   // =========================================================================
-  console.log("--- 2. EXECUTING CONTROLLED BATCH REFRESH (CONCURRENCY: 2, RPS BOUNDED) ---\n");
+  console.log("--- 2. EXECUTING CONTROLLED REFRESH & SNAPSHOT INVALIDATION ---\n");
 
   const stats: RefreshStats = {
     filmRefreshed: 0,
     tvRefreshed: 0,
-    explanationsRefreshed: 0,
+    snapshotsInvalidated: 0,
     failedCount: 0,
     failedIds: [],
   };
@@ -132,13 +142,13 @@ export async function runLegacyArtifactRefresh() {
           }),
         ]);
 
-        const formatAnchor = (i: any) => {
-          const meta = (i.movie.metadata as Record<string, any>) || {};
+        const formatAnchor = (act: any) => {
+          const meta = (act.movie.metadata as Record<string, any>) || {};
           return {
-            title: i.movie.title,
-            year: i.movie.releaseYear,
+            title: act.movie.title,
+            year: act.movie.releaseYear,
             genres: (meta.genres as string[]) || [],
-            rating: i.rating,
+            rating: act.rating,
           };
         };
 
@@ -216,64 +226,18 @@ export async function runLegacyArtifactRefresh() {
     await delay(200); // 200ms rate pacing
   }
 
-  // 2.3 Refresh Legacy AI Explanations
-  console.log(`\n[Phase 3/3] Refreshing ${legacyExplanations.length} Legacy AI Explanations...`);
-  for (let i = 0; i < legacyExplanations.length; i++) {
-    const exp = legacyExplanations[i];
-    try {
-      const [movie, userProfileResponse, tasteEvidenceProfile, feedbackProfile] = await Promise.all([
-        db.movie.findUnique({ where: { id: exp.movieId } }),
-        getOrCalculateUserProfile(exp.userId),
-        buildTasteEvidenceProfile(exp.userId),
-        buildUserFeedbackProfile(exp.userId),
-      ]);
-
-      if (movie) {
-        const meta = (movie.metadata as Record<string, unknown>) || {};
-        const candidate: CandidateMovie = {
-          id: movie.id,
-          tmdbId: movie.tmdbId,
-          title: movie.title,
-          originalTitle: movie.originalTitle,
-          releaseYear: movie.releaseYear,
-          popularity: movie.popularity,
-          voteAverage: movie.voteAverage,
-          posterPath: movie.posterPath,
-          backdropPath: movie.backdropPath,
-          genres: (meta.genres as string[]) || [],
-          overview: (meta.overview as string) || "",
-        };
-
-        const dnaProfile = (userProfileResponse.profile || {}) as FilmDnaResult;
-        const evidence = getEvidenceForRecommendation(tasteEvidenceProfile, candidate);
-        const baseMatch = calculateMovieMatch(candidate, dnaProfile, feedbackProfile, evidence);
-        const displayMatchScore = calibrateMatchScore(baseMatch.rawMatchScore, evidence.hasStrongReference);
-
-        const explanationResult = await generateRecommendationExplanation(
-          candidate,
-          { ...baseMatch, matchScore: displayMatchScore },
-          dnaProfile,
-          evidence
-        );
-
-        await db.recommendationExplanation.update({
-          where: { id: exp.id },
-          data: {
-            headline: explanationResult.headline,
-            explanation: JSON.stringify(explanationResult.reasons),
-            isAiGenerated: explanationResult.isAiGenerated,
-          },
-        });
-
-        stats.explanationsRefreshed++;
-        console.log(`  ✓ [Explanation ${i + 1}/${legacyExplanations.length}] Refreshed explanation for movie "${movie.title}"`);
-      }
-    } catch (err) {
-      console.error(`  ❌ Error refreshing explanation ${exp.id}:`, (err as Error).message);
-      stats.failedCount++;
-      stats.failedIds.push(`exp_${exp.id.slice(-6)}`);
-    }
-    await delay(200);
+  // 2.3 Invalidate / Delete Legacy Snapshots (Strictly under --apply)
+  console.log(`\n[Phase 3/3] Invalidating ${legacySnapshots.length} Legacy Recommendation Snapshots...`);
+  if (legacySnapshots.length > 0) {
+    const deleteResult = await db.aiRecommendationSnapshot.deleteMany({
+      where: {
+        model: { not: CANONICAL_DEEPSEEK_MODEL },
+      },
+    });
+    stats.snapshotsInvalidated = deleteResult.count;
+    console.log(`  ✓ Invalidated ${deleteResult.count} legacy snapshots (fresh snapshots will generate on-demand).`);
+  } else {
+    console.log("  ✓ No legacy snapshots to invalidate.");
   }
 
   // =========================================================================
@@ -283,31 +247,42 @@ export async function runLegacyArtifactRefresh() {
 
   const [
     finalAiTasteProfiles,
+    finalSnapshots,
     finalMovieInteractions,
     finalTvInteractions,
+    finalFeedbacks,
+    finalLibrary,
   ] = await Promise.all([
     db.userAiTasteProfile.findMany({ select: { id: true, mediaType: true, model: true } }),
+    db.aiRecommendationSnapshot.findMany({ select: { id: true, model: true } }),
     db.movieInteraction.count(),
     db.tvInteraction.count(),
+    db.recommendationFeedback.count(),
+    db.userContentLibrary.count(),
   ]);
 
   const postStats = {
-    total: finalAiTasteProfiles.length,
-    v4Flash: finalAiTasteProfiles.filter((p) => p.model === CANONICAL_DEEPSEEK_MODEL).length,
-    legacyChat: finalAiTasteProfiles.filter((p) => p.model === "deepseek-chat").length,
-    legacyReasoner: finalAiTasteProfiles.filter((p) => p.model === "deepseek-reasoner").length,
-    unknown: finalAiTasteProfiles.filter((p) => p.model !== CANONICAL_DEEPSEEK_MODEL && p.model !== "deepseek-chat" && p.model !== "deepseek-reasoner").length,
+    totalProfiles: finalAiTasteProfiles.length,
+    v4FlashProfiles: finalAiTasteProfiles.filter((p) => p.model === CANONICAL_DEEPSEEK_MODEL).length,
+    legacyProfiles: finalAiTasteProfiles.filter((p) => p.model !== CANONICAL_DEEPSEEK_MODEL).length,
+    totalSnapshots: finalSnapshots.length,
+    legacySnapshots: finalSnapshots.filter((s) => s.model !== CANONICAL_DEEPSEEK_MODEL).length,
+    userEvidenceIntegrity:
+      finalMovieInteractions === initialMovieInteractions &&
+      finalTvInteractions === initialTvInteractions &&
+      finalFeedbacks === initialFeedbacks &&
+      finalLibrary === initialLibrary,
   };
 
-  console.log(`  - Total UserAiTasteProfile Records : ${postStats.total}`);
-  console.log(`  - Canonical deepseek-v4-flash     : ${postStats.v4Flash}`);
-  console.log(`  - Legacy deepseek-chat            : ${postStats.legacyChat} (Target: 0)`);
-  console.log(`  - Legacy deepseek-reasoner        : ${postStats.legacyReasoner} (Target: 0)`);
-  console.log(`  - Unknown Models                  : ${postStats.unknown} (Target: 0)`);
-  console.log(`  - User Evidence Integrity         : MovieInteractions=${finalMovieInteractions} (Intact), TvInteractions=${finalTvInteractions} (Intact)`);
+  console.log(`  - Total UserAiTasteProfile Records : ${postStats.totalProfiles}`);
+  console.log(`  - Canonical deepseek-v4-flash     : ${postStats.v4FlashProfiles}`);
+  console.log(`  - Legacy UserAiTasteProfile Count : ${postStats.legacyProfiles} (Target: 0)`);
+  console.log(`  - Remaining Legacy Snapshots      : ${postStats.legacySnapshots} (Target: 0)`);
+  console.log(`  - Historical Explanations Preserved: ${unknownModelExplanationsCount} (Untouched)`);
+  console.log(`  - User Evidence Integrity Check   : ${postStats.userEvidenceIntegrity ? "PASS (100% UNTOUCHED)" : "FAIL"}`);
 
   const durationSec = ((Date.now() - startTime) / 1000).toFixed(2);
-  const totalApiCalls = stats.filmRefreshed + stats.tvRefreshed + stats.explanationsRefreshed;
+  const totalApiCalls = stats.filmRefreshed + stats.tvRefreshed;
   const actualCostUSD = (totalApiCalls * 0.00020).toFixed(4);
 
   console.log("\n===============================================================");
@@ -319,7 +294,9 @@ export async function runLegacyArtifactRefresh() {
     isApply,
     filmProfilesCount: filmProfiles.length,
     tvProfilesCount: tvProfiles.length,
-    legacyExplanationsCount: legacyExplanations.length,
+    legacySnapshotsCount: legacySnapshots.length,
+    unknownModelExplanationsCount,
+    explanationsSelectedForRefresh,
     stats,
     postStats,
     durationSec,

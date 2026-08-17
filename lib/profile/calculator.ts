@@ -66,12 +66,26 @@ export function calculateFilmDna(interactions: RawInteractionData[]): FilmDnaRes
 
   const genreList: GenrePreference[] = Object.entries(genreStats)
     .map(([name, stat]) => {
-      // Bayesian shrinkage score to balance small sample sizes
-      const rawScore = (stat.weightSum + 1.0) / (stat.ratedCount + 2.0);
-      const normalizedScore = Math.max(0, Math.min(1, (rawScore + 1) / 3.0));
+      if (stat.ratedCount === 0) {
+        return {
+          name,
+          score: 0.50,
+          ratedCount: 0,
+          exposureCount: stat.exposureCount,
+        };
+      }
+
+      // Bayesian shrinkage score spanning [-2.0, +3.0] (5.0 range)
+      const smoothedWeight = (stat.weightSum + 2.0) / (stat.ratedCount + 2.0);
+      const satisfactionScore = Math.max(0.05, Math.min(0.98, (smoothedWeight + 2.0) / 5.0));
+
+      // Damped volume curve: scales affinity realistically with evidence depth
+      const volumeFactor = 0.88 + 0.12 * Math.min(1.0, Math.log10(stat.ratedCount + 1) / Math.log10(25));
+      const normalizedScore = Math.round(satisfactionScore * volumeFactor * 100) / 100;
+
       return {
         name,
-        score: Math.round(normalizedScore * 100) / 100,
+        score: normalizedScore,
         ratedCount: stat.ratedCount,
         exposureCount: stat.exposureCount,
       };
@@ -97,13 +111,24 @@ export function calculateFilmDna(interactions: RawInteractionData[]): FilmDnaRes
 
   const eraList: EraPreference[] = ERA_BUCKETS.map((bucket) => {
     const stat = eraStats[bucket.key];
-    const rawScore = stat.ratedCount > 0 ? (stat.weightSum + 1.0) / (stat.ratedCount + 2.0) : 0;
-    const normalizedScore = stat.ratedCount > 0 ? Math.max(0, Math.min(1, (rawScore + 1) / 3.0)) : 0;
+    if (stat.ratedCount === 0) {
+      return {
+        key: bucket.key,
+        label: bucket.label,
+        score: 0,
+        ratedCount: 0,
+      };
+    }
+
+    const smoothedWeight = (stat.weightSum + 2.0) / (stat.ratedCount + 2.0);
+    const satisfactionScore = Math.max(0.05, Math.min(0.98, (smoothedWeight + 2.0) / 5.0));
+    const volumeFactor = 0.88 + 0.12 * Math.min(1.0, Math.log10(stat.ratedCount + 1) / Math.log10(25));
+    const normalizedScore = Math.round(satisfactionScore * volumeFactor * 100) / 100;
 
     return {
       key: bucket.key,
       label: bucket.label,
-      score: Math.round(normalizedScore * 100) / 100,
+      score: normalizedScore,
       ratedCount: stat.ratedCount,
     };
   }).sort((a, b) => b.score - a.score || b.ratedCount - a.ratedCount);

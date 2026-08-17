@@ -205,22 +205,24 @@ export function calculateTvTasteProfile(interactions: TvInteractionData[]): TvDn
       };
     }
 
-    // Bayesian shrinkage score
-    const rawScore = (stat.weightSum + 1.0) / (stat.ratedCount + 2.0);
-    const normalizedScore = Math.max(0.0, Math.min(1.0, (rawScore + 1.0) / 3.0));
+    // Bayesian shrinkage score spanning [-2.0, +3.0] (5.0 range)
+    const smoothedWeight = (stat.weightSum + 2.0) / (stat.ratedCount + 2.0);
+    const satisfactionScore = Math.max(0.05, Math.min(0.98, (smoothedWeight + 2.0) / 5.0));
+    const volumeFactor = 0.88 + 0.12 * Math.min(1.0, Math.log10(stat.ratedCount + 1) / Math.log10(25));
+    const normalizedScore = Math.round(satisfactionScore * volumeFactor * 100) / 100;
     const genreConf = Math.min(1.0, stat.ratedCount / 8.0);
 
     let state: TvGenreState = "NEUTRAL";
-    if (normalizedScore >= 0.62 && stat.ratedCount >= 1) {
+    if (normalizedScore >= 0.55 && stat.ratedCount >= 1) {
       state = "POSITIVE";
-    } else if (normalizedScore <= 0.38 && stat.ratedCount >= 1) {
+    } else if (normalizedScore <= 0.45 && stat.ratedCount >= 1) {
       state = "NEGATIVE";
     }
 
     return {
       genreId: stat.id,
       name: stat.name,
-      score: Math.round(normalizedScore * 100) / 100,
+      score: normalizedScore,
       exposure: stat.exposureCount,
       ratedCount: stat.ratedCount,
       confidence: Math.round(genreConf * 100) / 100,
@@ -276,14 +278,27 @@ export function calculateTvTasteProfile(interactions: TvInteractionData[]): TvDn
   }
 
   const eraSignatures: TvEraSignature[] = Array.from(eraStats.values()).map((stat) => {
-    const rawScore = stat.ratedCount > 0 ? (stat.weightSum + 1.0) / (stat.ratedCount + 2.0) : 0;
-    const normalizedScore = stat.ratedCount > 0 ? Math.max(0.0, Math.min(1.0, (rawScore + 1.0) / 3.0)) : 0.0;
+    if (stat.ratedCount === 0) {
+      return {
+        key: stat.key,
+        label: stat.label,
+        score: 0.0,
+        exposure: stat.exposure,
+        ratedCount: 0,
+        confidence: 0.0,
+      };
+    }
+
+    const smoothedWeight = (stat.weightSum + 2.0) / (stat.ratedCount + 2.0);
+    const satisfactionScore = Math.max(0.05, Math.min(0.98, (smoothedWeight + 2.0) / 5.0));
+    const volumeFactor = 0.88 + 0.12 * Math.min(1.0, Math.log10(stat.ratedCount + 1) / Math.log10(25));
+    const normalizedScore = Math.round(satisfactionScore * volumeFactor * 100) / 100;
     const eraConf = Math.min(1.0, stat.ratedCount / 5.0);
 
     return {
       key: stat.key,
       label: stat.label,
-      score: Math.round(normalizedScore * 100) / 100,
+      score: normalizedScore,
       exposure: stat.exposure,
       ratedCount: stat.ratedCount,
       confidence: Math.round(eraConf * 100) / 100,

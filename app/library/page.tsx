@@ -508,7 +508,7 @@ function LibraryContent() {
                           className="px-2 py-1 rounded-lg bg-surface-2 border border-border text-[11px] font-sans font-medium text-emerald-400 flex items-center gap-1 hover:bg-surface-3 transition-colors"
                         >
                           <span>{item.userRating ? RATING_LABELS[item.userRating]?.emoji || "✓" : "✓"}</span>
-                          <span>{item.userRating ? RATING_LABELS[item.userRating]?.label || "✓ İzledim" : "✓ İzledim"}</span>
+                          <span>{item.userRating ? RATING_LABELS[item.userRating]?.label || "İzledim" : "İzledim"}</span>
                         </button>
                       ) : (
                         <button

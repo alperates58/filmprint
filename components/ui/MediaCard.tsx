@@ -55,17 +55,17 @@ export function MediaCard({
   return (
     <div
       onClick={onClick}
-      className={`group relative flex flex-col rounded-2xl bg-surface-1 border border-border/70 overflow-hidden shadow-sm hover:shadow-lg hover:border-accent/40 hover:-translate-y-1 transition-all duration-200 cursor-pointer select-none ${className}`}
+      className={`group relative flex flex-col h-full w-full rounded-2xl bg-surface-1 border border-border/70 overflow-hidden shadow-sm hover:shadow-lg hover:border-accent/40 hover:-translate-y-1 transition-all duration-200 cursor-pointer select-none ${className}`}
     >
       {/* 2:3 Aspect Ratio Poster Container */}
-      <div className="relative aspect-[2/3] w-full bg-surface-2 overflow-hidden">
+      <div className="relative aspect-[2/3] w-full bg-surface-2 overflow-hidden flex-shrink-0">
         {posterUrl && !imgError ? (
           <Image
             src={posterUrl}
             alt={title}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-500"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+            sizes="(max-width: 640px) 150px, (max-width: 1024px) 33vw, 20vw"
             onError={() => setImgError(true)}
           />
         ) : (

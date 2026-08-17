@@ -259,14 +259,14 @@ export function TvDiscoveryHome({
                 />
 
                 {/* Horizontal Scroll on Mobile, Grid on Desktop */}
-                <div className="flex sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 overflow-x-auto pb-3 sm:pb-0 scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
+                <div className="flex sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 overflow-x-auto pb-3 sm:pb-0 scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0 items-stretch">
                   {module.items.map((item) => {
                     const { tvShow, matchScore, matchLabel } = item;
                     const releaseYear = tvShow.firstAirDate ? tvShow.firstAirDate.slice(0, 4) : "";
                     const genres = tvShow.metadata?.genres || [];
 
                     return (
-                      <div key={tvShow.id} className="min-w-[150px] sm:min-w-0 snap-start flex-shrink-0 sm:flex-shrink">
+                      <div key={tvShow.id} className="w-[148px] sm:w-auto min-w-[148px] sm:min-w-0 max-w-[148px] sm:max-w-none snap-start flex-shrink-0 sm:flex-shrink flex flex-col">
                         <MediaCard
                           id={tvShow.id}
                           mediaType="TV"

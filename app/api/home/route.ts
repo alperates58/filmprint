@@ -183,7 +183,7 @@ export async function GET() {
     const rawModules = [
       {
         id: "known-unwatched",
-        title: "👀 Bunu İzlemediğini Söylemiştin",
+        title: "Bunu İzlemediğini Söylemiştin",
         icon: "👀",
         description: "Daha önce izlemediğini belirttiğin ama Film DNA'nla bugün güçlü eşleşen filmler.",
         movies: scoreCategoryMovies("KNOWN_UNWATCHED_ROW"),

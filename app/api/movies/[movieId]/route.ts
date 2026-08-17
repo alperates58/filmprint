@@ -89,23 +89,38 @@ export async function GET(
       }
     }
 
-    // 3. Resolve current user's interaction or feedback status
-    let userStatus: InteractionStatus | "WATCH_LATER" | null = null;
+    // 3. Resolve current user's interaction, favorite state, and library status
+    let userStatus: InteractionStatus | "WATCH_LATER" | "WATCHLIST" | null = null;
     let userRating: RatingStatus | null = null;
+    let isFavorite = false;
 
     if (currentUser) {
-      const [interaction, feedback] = await Promise.all([
+      const [interaction, feedback, libraryEntry] = await Promise.all([
         db.movieInteraction.findUnique({
           where: { userId_movieId: { userId: currentUser.id, movieId: movie.id } },
         }),
         db.recommendationFeedback.findUnique({
           where: { userId_movieId: { userId: currentUser.id, movieId: movie.id } },
         }),
+        db.userContentLibrary.findUnique({
+          where: {
+            userId_movieId: {
+              userId: currentUser.id,
+              movieId: movie.id,
+            },
+          },
+        }),
       ]);
+
+      if (libraryEntry) {
+        isFavorite = libraryEntry.isFavorite;
+      }
 
       if (interaction) {
         userStatus = interaction.status;
         userRating = interaction.rating;
+      } else if (libraryEntry?.state) {
+        userStatus = libraryEntry.state as any;
       } else if (feedback && feedback.action === "WATCH_LATER") {
         userStatus = "WATCH_LATER";
       }
@@ -140,6 +155,7 @@ export async function GET(
       trailer: (meta.trailer as any) || null,
       userStatus,
       userRating,
+      isFavorite,
       personalMatch,
     });
   } catch (error) {

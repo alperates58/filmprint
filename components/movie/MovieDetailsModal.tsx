@@ -19,6 +19,10 @@ export interface MovieDetailsModalProps {
     matchScore?: number;
     headline?: string;
     reasons?: string[];
+    userStatus?: string | null;
+    userRating?: string | null;
+    state?: string | null;
+    isFavorite?: boolean;
   };
   onInteractionUpdate?: (movieId: string, status: string, rating: string | null) => void;
 }
@@ -40,6 +44,7 @@ interface FullMovieDetails {
   trailer: { provider: "youtube"; key: string; youtubeKey?: string } | null;
   userStatus: "WATCHED" | "NOT_WATCHED" | "UNSURE" | "WATCH_LATER" | "WATCHLIST" | null;
   userRating: "LOVE" | "LIKE" | "NEUTRAL" | "DISLIKE" | null;
+  isFavorite?: boolean;
   personalMatch?: {
     movieId: string;
     rawScore: number;
@@ -70,9 +75,15 @@ export function MovieDetailsModal({
   const [error, setError] = useState<string | null>(null);
   const [isPlayingTrailer, setIsPlayingTrailer] = useState<boolean>(false);
   const [activeRatingMode, setActiveRatingMode] = useState<boolean>(false);
-  const [currentStatus, setCurrentStatus] = useState<string | null>(null);
-  const [currentRating, setCurrentRating] = useState<string | null>(null);
-  const [isFavorite, setIsFavorite] = useState<boolean>(false);
+  const [currentStatus, setCurrentStatus] = useState<string | null>(
+    initialData?.userStatus || initialData?.state || null
+  );
+  const [currentRating, setCurrentRating] = useState<string | null>(
+    initialData?.userRating || null
+  );
+  const [isFavorite, setIsFavorite] = useState<boolean>(
+    Boolean(initialData?.isFavorite)
+  );
 
   const modalContainerRef = useRef<HTMLDivElement>(null);
   const contentScrollRef = useRef<HTMLDivElement>(null);
@@ -114,25 +125,13 @@ export function MovieDetailsModal({
     setActiveRatingMode(false);
 
     try {
-      const [res, libRes] = await Promise.all([
-        fetch(`/api/movies/${movieId}`),
-        fetch(`/api/library?contentId=${movieId}`).catch(() => null),
-      ]);
+      const res = await fetch(`/api/movies/${movieId}`);
       if (!res.ok) throw new Error("Film detayları yüklenemedi.");
       const data: FullMovieDetails = await res.json();
       setDetails(data);
       setCurrentStatus(data.userStatus);
       setCurrentRating(data.userRating);
-
-      if (libRes && libRes.ok) {
-        const libData = await libRes.json();
-        if (libData.items && libData.items.length > 0) {
-          setIsFavorite(!!libData.items[0].isFavorite);
-          if (libData.items[0].state) {
-            setCurrentStatus(libData.items[0].state);
-          }
-        }
-      }
+      setIsFavorite(Boolean(data.isFavorite));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -376,7 +375,7 @@ export function MovieDetailsModal({
                   className="min-h-[48px] px-4 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold flex items-center gap-2 hover:bg-emerald-500/20 transition-all"
                 >
                   <span>{currentRating ? RATING_LABELS[currentRating]?.emoji || "✓" : "✓"}</span>
-                  <span>{currentRating ? RATING_LABELS[currentRating]?.label || "✓ İzledim" : "✓ İzledim"}</span>
+                  <span>{currentRating ? RATING_LABELS[currentRating]?.label || "İzledim" : "İzledim"}</span>
                 </button>
               ) : (
                 <button

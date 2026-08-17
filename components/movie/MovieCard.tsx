@@ -63,7 +63,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
 
   return (
     <div
-      className={`w-full max-w-4xl mx-auto rounded-3xl bg-surface-1 border border-border/80 p-4 sm:p-6 md:p-8 shadow-md relative overflow-hidden transition-all duration-200 ${
+      className={`w-full max-w-4xl mx-auto rounded-3xl bg-surface-1 border border-border/80 p-4 sm:p-6 md:p-8 shadow-md relative overflow-hidden transition-all duration-200 min-h-[480px] sm:min-h-[440px] md:min-h-[360px] flex flex-col justify-center ${
         isTransitioning ? "opacity-40 scale-[0.98] filter blur-[1px]" : "opacity-100 scale-100"
       }`}
     >
@@ -83,9 +83,9 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
       )}
 
       {/* Main Content Layout */}
-      <div className="relative z-10 flex flex-col md:flex-row gap-5 md:gap-8 items-center md:items-start">
+      <div className="relative z-10 flex flex-col md:flex-row gap-5 md:gap-8 items-center md:items-stretch flex-1">
         {/* Poster Column */}
-        <div className="w-32 sm:w-44 md:w-56 aspect-[2/3] rounded-2xl overflow-hidden bg-surface-2 border border-border-strong relative flex-shrink-0 shadow-md">
+        <div className="w-32 sm:w-44 md:w-56 aspect-[2/3] rounded-2xl overflow-hidden bg-surface-2 border border-border-strong relative flex-shrink-0 shadow-md self-center md:self-auto">
           {posterUrl && !imgError ? (
             <Image
               src={posterUrl}
@@ -112,15 +112,15 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
         </div>
 
         {/* Info & Decision Column */}
-        <div className="flex-1 w-full flex flex-col justify-between space-y-5">
-          <div className="space-y-2.5 text-center md:text-left">
+        <div className="flex-1 w-full flex flex-col justify-between self-stretch space-y-4">
+          <div className="space-y-2 text-center md:text-left flex-1 flex flex-col justify-start">
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-xs">
               {movie.releaseYear && (
                 <span className="px-2.5 py-0.5 rounded-lg bg-surface-2 border border-border font-sans font-semibold text-text-secondary">
                   {movie.releaseYear}
                 </span>
               )}
-              {movie.genres.map((genre) => (
+              {movie.genres.slice(0, 3).map((genre) => (
                 <span
                   key={genre}
                   className="px-2.5 py-0.5 rounded-lg bg-surface-2/70 border border-border/60 text-text-muted font-sans text-xs"
@@ -130,25 +130,26 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
               ))}
             </div>
 
-            <h1 className="font-display text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
+            <h1 className="font-display text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-text-primary line-clamp-2">
               {movie.title}
             </h1>
 
             {movie.originalTitle && movie.originalTitle !== movie.title && (
-              <p className="text-xs text-text-muted italic font-sans">{movie.originalTitle}</p>
+              <p className="text-xs text-text-muted italic font-sans truncate">{movie.originalTitle}</p>
             )}
 
-            {movie.overview && (
-              <p className="text-xs sm:text-sm text-text-secondary leading-relaxed line-clamp-3 md:line-clamp-4 font-sans pt-1">
-                {movie.overview}
+            {/* Fixed-Height Overview Slot to Anchor Action Buttons */}
+            <div className="min-h-[4.2rem] sm:min-h-[4.8rem] flex items-start pt-1">
+              <p className="text-xs sm:text-sm text-text-secondary leading-relaxed line-clamp-3 md:line-clamp-4 font-sans">
+                {movie.overview || "Bu yapım için henüz Türkçe özet bilgisi eklenmedi."}
               </p>
-            )}
+            </div>
           </div>
 
           {/* ========================================================================= */}
           {/* DECISION ACTION BUTTONS (48dp TOUCH TARGETS)                              */}
           {/* ========================================================================= */}
-          <div className="pt-2">
+          <div className="mt-auto pt-2 flex-shrink-0">
             {step === "step1" ? (
               <div className="space-y-3">
                 <p className="text-xs font-sans font-semibold text-text-muted text-center md:text-left uppercase tracking-wider">

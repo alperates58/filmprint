@@ -20,25 +20,27 @@ export function TvJourney({ evaluatedCount }: TvJourneyProps) {
       {/* Header & Main Rank Info */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-6">
         <div className="space-y-1.5">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-subtle border border-accent/30 text-accent text-xs font-semibold">
-            <span>📺 DİZİ YOLCULUĞU & RÜTBE</span>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-semibold">
+            <span>🏆 DİZİ YOLCULUĞU & RÜTBE</span>
           </div>
           <div className="flex items-center gap-3 pt-1">
-            <span className="text-3xl select-none">{currentRank.badgeIcon}</span>
+            <span className="text-3xl sm:text-4xl select-none p-2 rounded-2xl bg-surface-2 border border-border shadow-sm">
+              {currentRank.badgeIcon}
+            </span>
             <div>
-              <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
+              <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
                 {currentRank.label}
               </h2>
-              <p className="text-xs text-text-secondary font-sans">
+              <p className="text-xs sm:text-sm text-text-secondary font-sans mt-0.5">
                 {currentRank.description}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="px-4 py-3 rounded-2xl bg-surface-2 border border-border text-right self-start md:self-auto min-w-[160px]">
-          <p className="text-[11px] font-sans font-semibold text-text-muted">DEĞERLENDİRİLEN</p>
-          <p className="text-lg font-sans font-bold text-text-primary">
+        <div className="px-5 py-3.5 rounded-2xl bg-surface-2 border border-border text-right self-start md:self-auto min-w-[160px] font-sans shadow-sm">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">DEĞERLENDİRİLEN</p>
+          <p className="text-xl font-bold text-text-primary">
             {evaluatedCount} <span className="text-xs font-normal text-text-muted">Dizi</span>
           </p>
         </div>
@@ -49,12 +51,12 @@ export function TvJourney({ evaluatedCount }: TvJourneyProps) {
         <div className="flex justify-between items-center text-xs">
           <span className="text-text-muted">
             {isMaxRank
-              ? "En yüksek rütbeye ulaştınız! (Yaşayan Dizi Arşivi)"
+              ? "👑 En yüksek dizi rütbesine ulaştınız!"
               : `${evaluatedCount} / ${nextRank?.minimum} Dizi`}
           </span>
           {!isMaxRank && nextRank && (
             <span className="text-text-primary font-medium">
-              Sıradaki: <span className="text-accent font-semibold">{nextRank.label}</span> ({remaining} dizi kaldı)
+              Sıradaki: <span className="text-accent font-bold">{nextRank.label}</span> ({remaining} dizi kaldı)
             </span>
           )}
         </div>
@@ -66,34 +68,30 @@ export function TvJourney({ evaluatedCount }: TvJourneyProps) {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-label="Dizi Yolculuğu İlerlemesi"
-          className="w-full h-3 rounded-full bg-surface-2 overflow-hidden border border-border"
+          className="w-full h-3 rounded-full bg-surface-2 overflow-hidden border border-border/70"
         >
           <div
-            className="h-full rounded-full bg-gradient-to-r from-accent to-accent-hover transition-all duration-500 shadow-sm"
+            className="h-full rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-accent transition-all duration-700 shadow-sm"
             style={{ width: `${percent}%` }}
           />
         </div>
-
-        <p className="text-xs text-text-muted font-sans italic">
-          Dizi DNA&apos;nız daha fazla dizi değerlendirdikçe derinleşmeye ve keskinleşmeye devam eder.
-        </p>
       </div>
 
       {/* Upcoming Next 3 Ranks Preview */}
       {!isMaxRank && upcomingRanks && upcomingRanks.length > 0 && (
         <div className="space-y-3 pt-2">
-          <h4 className="font-display text-sm font-bold text-text-primary flex items-center gap-1.5">
+          <h3 className="font-display text-sm font-bold text-text-primary flex items-center gap-1.5">
             <span>🎯</span> Sıradaki Hedef Rütbeler
-          </h4>
+          </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {upcomingRanks.map((rank) => (
               <div
                 key={rank.key}
-                className="p-3.5 rounded-2xl bg-surface-2 border border-border space-y-1"
+                className="p-4 rounded-2xl bg-surface-2 border border-border space-y-1.5 shadow-sm"
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-xl select-none">{rank.badgeIcon}</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl select-none">{rank.badgeIcon}</span>
                   <div>
                     <p className="text-xs font-bold text-text-primary">{rank.label}</p>
                     <span className="text-[10px] text-text-muted font-sans font-medium">
@@ -101,45 +99,50 @@ export function TvJourney({ evaluatedCount }: TvJourneyProps) {
                     </span>
                   </div>
                 </div>
+                <p className="text-[11px] text-text-secondary leading-snug line-clamp-2">
+                  {rank.description}
+                </p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Toggle All 16 Ranks Matrix */}
-      <div className="pt-2">
+      {/* View All Ranks Accordion */}
+      <div className="pt-2 border-t border-border/50">
         <button
           onClick={() => setShowAllRanks((prev) => !prev)}
-          className="text-xs font-sans text-accent hover:underline flex items-center gap-1"
+          className="text-xs font-sans font-semibold text-accent hover:text-accent-hover hover:underline transition-colors flex items-center gap-1.5"
         >
-          <span>{showAllRanks ? "▲ Tüm Rütbeleri Gizle" : "▼ Tüm 16 Dizi Rütbesini Gör"}</span>
+          <span>{showAllRanks ? "▲ Rütbeler Tablosunu Gizle" : "▼ Tüm Rütbe Sistemini Gör (1 - 500+ Dizi)"}</span>
         </button>
 
         {showAllRanks && (
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-96 overflow-y-auto pr-1 animate-fadeIn font-sans">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-4 animate-fadeIn">
             {TV_RANK_DEFINITIONS.map((r) => {
+              const isAchieved = evaluatedCount >= r.minimum;
               const isCurrent = r.key === currentRank.key;
-              const isUnlocked = evaluatedCount >= r.minimum;
+
               return (
                 <div
                   key={r.key}
-                  className={`p-3 rounded-xl border text-xs flex items-center gap-2.5 transition-all ${
+                  className={`p-3 rounded-xl border text-xs font-sans transition-all ${
                     isCurrent
-                      ? "bg-accent-subtle border-accent text-text-primary font-bold shadow-sm"
-                      : isUnlocked
-                      ? "bg-surface-2 border-border text-text-secondary"
-                      : "bg-surface-2/40 border-border/40 text-text-muted opacity-60"
+                      ? "bg-amber-500/15 border-amber-500/50 text-amber-300 font-bold shadow-sm"
+                      : isAchieved
+                      ? "bg-surface-2/80 border-border text-text-primary"
+                      : "bg-surface-2/30 border-border/40 text-text-muted opacity-60"
                   }`}
                 >
-                  <span className="text-lg select-none">{r.badgeIcon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate font-semibold">{r.label}</p>
-                    <span className="text-[10px] text-text-muted">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{r.badgeIcon}</span>
+                      <span>{r.label}</span>
+                    </div>
+                    <span className="text-[10px] font-mono">
                       {r.minimum}+ Dizi
                     </span>
                   </div>
-                  {isUnlocked && <span className="text-emerald-400 text-xs font-bold">✓</span>}
                 </div>
               );
             })}

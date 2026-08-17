@@ -38,10 +38,6 @@ export function CalibrationEngine({
   const [showRankUpModal, setShowRankUpModal] = useState<boolean>(false);
   const [isRecalculatingDna, setIsRecalculatingDna] = useState<boolean>(false);
 
-  // Soft Session Checkpoint State
-  const [showSoftBreak, setShowSoftBreak] = useState<boolean>(false);
-  const sessionEvalCount = useRef<number>(0);
-
   const isFetchingRef = useRef<boolean>(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const milestoneTarget = 30;
@@ -126,8 +122,6 @@ export function CalibrationEngine({
     const newAnsweredCount = answeredCount + 1;
     const nextProgression = getProgressionForCount(newAnsweredCount);
 
-    sessionEvalCount.current += 1;
-
     // 1. Optimistic UI transition (150ms perceived latency)
     setIsTransitioning(true);
     setAnsweredCount(newAnsweredCount);
@@ -160,8 +154,6 @@ export function CalibrationEngine({
           .catch((e) => console.warn("[DNA Reanalysis Error]:", e))
           .finally(() => setIsRecalculatingDna(false));
       }
-    } else if (sessionEvalCount.current >= 18 && !showRankUpModal && !showMilestoneScreen) {
-      setShowSoftBreak(true);
     }
 
     setTimeout(() => {
@@ -291,50 +283,6 @@ export function CalibrationEngine({
           </div>
         )}
 
-        {/* Soft Session Break Checkpoint */}
-        {showSoftBreak && !showRankUpModal && !showMilestoneScreen && (
-          <div className="w-full max-w-lg mx-auto text-center space-y-5 bg-surface-1 border border-border/80 rounded-3xl p-7 md:p-9 shadow-lg animate-fadeIn">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto text-xl">
-              ☕
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="font-display text-xl font-bold text-text-primary">
-                Harika İlerleme!
-              </h3>
-              <p className="text-text-secondary text-sm font-sans leading-relaxed">
-                Bu oturumda <strong className="text-text-primary">{sessionEvalCount.current} filmi</strong> değerlendirdiniz. Film DNA profiliniz için yeterli yeni sinyal toplandı.
-              </p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-2 text-xs font-semibold">
-              <Link
-                href="/recommendations"
-                className="px-5 py-3 rounded-xl bg-accent text-white hover:bg-accent-hover transition-all text-center"
-              >
-                Önerilerime Git →
-              </Link>
-
-              <Link
-                href="/profile"
-                className="px-5 py-3 rounded-xl bg-surface-2 border border-border text-text-primary hover:bg-surface-3 transition-all text-center"
-              >
-                DNA&apos;mı Gör
-              </Link>
-
-              <button
-                onClick={() => {
-                  sessionEvalCount.current = 0;
-                  setShowSoftBreak(false);
-                }}
-                className="px-5 py-3 rounded-xl bg-surface-2 border border-border text-text-secondary hover:text-text-primary transition-all"
-              >
-                Devam Et
-              </button>
-            </div>
-          </div>
-        )}
-
         {isLoading ? (
           <MovieCardSkeleton />
         ) : showMilestoneScreen && !showRankUpModal ? (
@@ -376,7 +324,7 @@ export function CalibrationEngine({
               </button>
             </div>
           </div>
-        ) : activeMovie && !showRankUpModal && !showSoftBreak ? (
+        ) : activeMovie && !showRankUpModal ? (
           /* Active Interactive Movie Card */
           <div ref={cardRef} className="w-full space-y-3">
             {(() => {
@@ -406,7 +354,7 @@ export function CalibrationEngine({
               isTransitioning={isTransitioning}
             />
           </div>
-        ) : !showRankUpModal && !showSoftBreak ? (
+        ) : !showRankUpModal ? (
           /* Queue Empty / Retry Fallback State */
           <div className="w-full max-w-lg mx-auto text-center space-y-5 bg-surface-1 border border-border/80 rounded-3xl p-8 shadow-md">
             <div className={`w-12 h-12 rounded-2xl ${errorMessage ? "bg-rose-500/15 border border-rose-500/30 text-rose-400" : "bg-accent-subtle border border-accent/30 text-accent"} flex items-center justify-center mx-auto text-xl font-bold`}>

@@ -5,25 +5,94 @@ import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { getCurrentUser } from "@/lib/auth/service";
 import { getOrCalculateUserProfile } from "@/lib/profile/service";
+import { getProgressionForCount } from "@/lib/progression/service";
+import { deriveFilmCompoundInsights, CompoundInsight } from "@/lib/profile/dna-insights";
+import { ProfileHeroCard } from "@/components/profile/ProfileHeroCard";
+import { ProfileStatGrid, ProfileStatItem } from "@/components/profile/ProfileStatGrid";
+import { ProfileNarrativeCard } from "@/components/profile/ProfileNarrativeCard";
 import { GenreSignature } from "@/components/profile/GenreSignature";
 import { EraSignature } from "@/components/profile/EraSignature";
 import { TasteTraits } from "@/components/profile/TasteTraits";
+import { LibrarySnapshotCard } from "@/components/profile/LibrarySnapshotCard";
 import { FilmJourney } from "@/components/profile/FilmJourney";
 import { db } from "@/lib/db/client";
 import { InteractionStatus } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+
 export default async function ProfilePage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
-    redirect("/auth");
+    redirect("/auth?returnTo=/profile");
   }
-  const [data, watchedCount, notWatchedCount, unsureCount, watchLaterCount] = await Promise.all([
+
+  const [data, counts] = await Promise.all([
     getOrCalculateUserProfile(currentUser.id),
-    db.movieInteraction.count({ where: { userId: currentUser.id, status: InteractionStatus.WATCHED } }),
-    db.movieInteraction.count({ where: { userId: currentUser.id, status: InteractionStatus.NOT_WATCHED } }),
-    db.movieInteraction.count({ where: { userId: currentUser.id, status: InteractionStatus.UNSURE } }),
-    db.recommendationFeedback.count({ where: { userId: currentUser.id, action: "WATCH_LATER" } }),
+    Promise.all([
+      db.movieInteraction.count({ where: { userId: currentUser.id, status: InteractionStatus.WATCHED } }),
+      db.movieInteraction.count({ where: { userId: currentUser.id, status: InteractionStatus.NOT_WATCHED } }),
+      db.movieInteraction.count({ where: { userId: currentUser.id, status: InteractionStatus.UNSURE } }),
+      db.recommendationFeedback.count({ where: { userId: currentUser.id, action: "WATCH_LATER" } }),
+      db.userContentLibrary.count({ where: { userId: currentUser.id, mediaType: "FILM", isFavorite: true } }),
+    ]),
   ]);
+
+  const [watchedCount, notWatchedCount, unsureCount, watchLaterCount, favoriteCount] = counts;
+  const progression = getProgressionForCount(data.current);
+
+  // Prepare Stat Grid items if profile is ready
+  let statItems: ProfileStatItem[] = [];
+  let compoundInsights: CompoundInsight[] = [];
+
+  if (data.ready && data.profile) {
+    compoundInsights = deriveFilmCompoundInsights(data.profile);
+    const topGenre = data.profile.genres[0];
+    const topEra = data.profile.eras[0];
+
+    statItems = [
+      {
+        id: "stat-genre",
+        icon: "🍿",
+        category: "Baskın Tür",
+        value: topGenre?.name || "Sinema",
+        subValue: topGenre ? `%${Math.round(topGenre.score * 100)}` : undefined,
+        description: topGenre
+          ? `Toplam ${topGenre.ratedCount} oylama ile zevkinin en güçlü çekim merkezi.`
+          : "Değerlendirmelerinize göre şekilleniyor.",
+        metricPct: topGenre ? Math.round(topGenre.score * 100) : 75,
+        genreName: topGenre?.name,
+      },
+      {
+        id: "stat-era",
+        icon: "⌛",
+        category: "Zirve Dönem",
+        value: topEra?.label || "Çağdaş Sinema",
+        subValue: topEra?.key.toUpperCase(),
+        description: topEra
+          ? `${topEra.key} dönemi yapımlarında en yüksek izleme doyumuna ulaşıyorsun.`
+          : "Farklı dönemlerden filmler izlendikçe netleşir.",
+        metricPct: topEra ? Math.round(topEra.score * 100) : 80,
+      },
+      {
+        id: "stat-taste",
+        icon: "🎭",
+        category: "Karakter Eğilimi",
+        value: data.profile.traits[0] || "Dengeli Sinefil",
+        subValue: data.profile.traits[1],
+        description: "İzleme kararlarındaki belirgin anlatı ve atmosfer eğilimi.",
+        metricPct: 85,
+      },
+      {
+        id: "stat-discovery",
+        icon: "🧭",
+        category: "Keşif Dengesi",
+        value: data.profile.popularity.label || "Dengeli",
+        subValue: data.profile.familiarity.label === "discovery_heavy" ? "Kaşif" : "Seçici",
+        description: data.profile.familiarity.description || "Ana akım ile bağımsız sinema arasında dengeli dağılım.",
+        metricPct: Math.round((data.profile.familiarity.score || 0.6) * 100),
+      },
+    ];
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-bg-base text-text-primary selection:bg-accent selection:text-white">
@@ -35,37 +104,54 @@ export default async function ProfilePage() {
         userEmail={currentUser.email || undefined}
       />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-8">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-8 animate-fadeIn">
+        {/* Top Header Mode Switcher */}
+        <div className="flex items-center justify-between">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-300 text-xs font-sans font-bold tracking-wide">
+            <span>🧬 SİNEMA DNA PROFİLİ</span>
+          </div>
+
+          <Link
+            href="/tv/profile"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-surface-2 border border-border hover:border-accent text-text-secondary hover:text-text-primary text-xs font-sans font-semibold transition-all min-h-[38px] shadow-sm"
+          >
+            <span>📺</span>
+            <span>Dizi DNA&apos;ya Geç</span>
+          </Link>
+        </div>
+
         {!data.ready || !data.profile ? (
-          /* Profile Not Ready State */
+          /* Calibration In-Progress View */
           <div className="space-y-8 animate-fadeIn">
-            <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface-1 border border-border rounded-3xl p-8 md:p-12 shadow-md my-8">
-              <div className="w-16 h-16 rounded-2xl bg-accent-subtle border border-accent/30 text-accent flex items-center justify-center mx-auto text-2xl font-bold">
+            <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface-1 border border-border/80 rounded-3xl p-8 md:p-12 shadow-lg my-4 relative overflow-hidden">
+              <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
+
+              <div className="w-16 h-16 rounded-2xl bg-accent-subtle border border-accent/30 text-accent flex items-center justify-center mx-auto text-3xl font-bold shadow-inner">
                 🧬
               </div>
 
               <div className="space-y-2">
                 <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
-                  Film DNA&apos;nız Henüz Hazır Değil
+                  Film DNA&apos;nız Şekilleniyor
                 </h1>
-                <p className="text-text-secondary text-sm leading-relaxed font-sans">
-                  Kişisel Film DNA profilinizin oluşması için en az{" "}
+                <p className="text-text-secondary text-sm leading-relaxed font-sans max-w-md mx-auto">
+                  Kişisel Film DNA profilinizin kristalleşmesi için en az{" "}
                   <strong className="text-text-primary">{data.required} filmi</strong>{" "}
                   değerlendirmeniz gerekmektedir.
                 </p>
               </div>
 
               {/* Progress Bar */}
-              <div className="space-y-2 pt-2 font-sans">
+              <div className="space-y-2 pt-2 font-sans text-left">
                 <div className="flex justify-between text-xs text-text-muted">
-                  <span className="font-semibold">KALİBRASYON İLERLEMESİ</span>
+                  <span className="font-bold uppercase tracking-wider">KALİBRASYON İLERLEMESİ</span>
                   <span className="font-bold text-text-primary">
                     {data.current} / {data.required} Film
                   </span>
                 </div>
                 <div className="w-full h-3 rounded-full bg-surface-2 overflow-hidden border border-border">
                   <div
-                    className="h-full rounded-full bg-accent transition-all duration-500"
+                    className="h-full rounded-full bg-gradient-to-r from-accent to-accent-hover transition-all duration-700 shadow-sm"
                     style={{
                       width: `${Math.min(
                         Math.round((data.current / data.required) * 100),
@@ -76,12 +162,18 @@ export default async function ProfilePage() {
                 </div>
               </div>
 
-              <div className="pt-4">
+              <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Link
                   href="/"
-                  className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-accent text-white font-semibold text-xs hover:bg-accent-hover active:scale-95 transition-all shadow-sm min-h-[44px]"
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-accent text-white font-semibold text-xs hover:bg-accent-hover active:scale-95 transition-all shadow-md min-h-[44px] flex items-center justify-center"
                 >
                   Filmleri Değerlendirmeye Başla →
+                </Link>
+                <Link
+                  href="/library?mediaType=FILM"
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-surface-2 border border-border hover:border-accent text-text-secondary hover:text-text-primary text-xs font-semibold transition-all min-h-[44px] flex items-center justify-center"
+                >
+                  Film Kütüphanem ({watchedCount})
                 </Link>
               </div>
             </div>
@@ -89,158 +181,62 @@ export default async function ProfilePage() {
             <FilmJourney evaluatedCount={data.current} />
           </div>
         ) : (
-          /* Ready Film DNA Profile View */
+          /* Full Film DNA Profile View */
           <div className="space-y-8 animate-fadeIn">
-            {/* Profile Hero Header */}
-            <div className="p-6 md:p-10 rounded-3xl bg-surface-1 border border-border space-y-6 shadow-md relative overflow-hidden">
-              {/* User Identity Banner */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-6">
-                <div className="flex items-center gap-4">
-                  {currentUser.image ? (
-                    <img
-                      src={currentUser.image}
-                      alt={currentUser.name || "Avatar"}
-                      className="w-14 h-14 rounded-2xl object-cover border border-border shadow-sm"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-2xl bg-accent-subtle border border-accent/30 flex items-center justify-center text-accent font-bold text-xl">
-                      {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : "👤"}
-                    </div>
-                  )}
+            {/* 1. Ultra-Premium Hero Card */}
+            <ProfileHeroCard
+              mediaType="FILM"
+              userName={currentUser.name || "SineAI Kullanıcısı"}
+              userAvatar={currentUser.image || undefined}
+              userEmail={currentUser.email || undefined}
+              confidenceScore={data.profile.confidence}
+              confidenceLabel={data.profile.confidenceLabel}
+              sampleCount={data.profile.sample.ratedMovies}
+              summaryText={data.profile.summary}
+              rankLabel={progression.currentRank.label}
+              rankBadgeIcon={progression.currentRank.badgeIcon}
+              maturityLabel={`${data.current} Film Analiz Edildi`}
+              archetypes={data.profile.traits.slice(0, 3).map((t, idx) => ({
+                name: t,
+                isPrimary: idx === 0,
+                icon: idx === 0 ? "👑" : "✨",
+              }))}
+              ctaHref="/"
+              ctaLabel="Film DNA'mı Keskinleştir"
+            />
 
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-subtle border border-accent/30 text-accent text-xs font-semibold">
-                      <span>🧬 KİŞİSEL SİNEMA KİMLİĞİ</span>
-                    </div>
-                    <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary mt-1">
-                      {currentUser.name || "SineAI Kullanıcısı"}
-                    </h1>
-                    {currentUser.email && (
-                      <p className="text-xs text-text-secondary font-sans">{currentUser.email}</p>
-                    )}
-                  </div>
-                </div>
+            {/* 2. Top Analytical Stat Grid */}
+            <ProfileStatGrid items={statItems} />
 
-                {/* Confidence Badge */}
-                <div className="self-start sm:self-auto px-4 py-2.5 rounded-2xl bg-surface-2 border border-border flex items-center gap-3">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <div className="font-sans">
-                    <p className="text-[10px] uppercase font-semibold text-text-muted">PROFİL GÜVENİ</p>
-                    <p className="text-xs font-bold text-text-primary">
-                      %{Math.round(data.profile.confidence * 100)}{" "}
-                      <span className="text-[11px] text-text-muted font-normal">
-                        ({data.profile.sample.ratedMovies} Film)
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              </div>
+            {/* 3. Compound Editorial Narrative Insights */}
+            <ProfileNarrativeCard insights={compoundInsights} mediaType="FILM" />
 
-              {/* Natural Turkish Summary Paragraph */}
-              <div className="p-5 rounded-2xl bg-surface-2 border border-border/70 text-sm md:text-base text-text-primary leading-relaxed font-sans">
-                <p>{data.profile.summary.replace(/\*\*(.*?)\*\*/g, "$1")}</p>
-              </div>
+            {/* 4. Multi-Accent Genre Spectrum */}
+            <GenreSignature genres={data.profile.genres} mediaType="FILM" />
 
-              {/* Top Quick Insight Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 font-sans">
-                <div className="p-4 rounded-2xl bg-surface-2 border border-border space-y-1">
-                  <p className="text-[11px] font-semibold text-accent">🍿 BASKIN TÜR</p>
-                  <p className="text-sm font-bold text-text-primary">
-                    {data.profile.genres[0]?.name || "Sinema"}
-                  </p>
-                  <p className="text-[11px] text-text-muted">
-                    %{Math.round((data.profile.genres[0]?.score || 0) * 100)} Yoğunluk
-                  </p>
-                </div>
+            {/* 5. Era Heatmap & Timeline */}
+            <EraSignature eras={data.profile.eras} mediaType="FILM" />
 
-                <div className="p-4 rounded-2xl bg-surface-2 border border-border space-y-1">
-                  <p className="text-[11px] font-semibold text-accent">⌛ EN GÜÇLÜ DÖNEM</p>
-                  <p className="text-sm font-bold text-text-primary">
-                    {data.profile.eras[0]?.label || "Günümüz Sineması"}
-                  </p>
-                  <p className="text-[11px] text-text-muted">
-                    {data.profile.eras[0]?.key || "2010s"}
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-surface-2 border border-border space-y-1">
-                  <p className="text-[11px] font-semibold text-accent">🎭 İZLEME TARZI</p>
-                  <p className="text-sm font-bold text-text-primary line-clamp-1">
-                    {data.profile.traits[0] || "Dengeli Sinefil"}
-                  </p>
-                  <p className="text-[11px] text-text-muted">Karakter Özelliği</p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-surface-2 border border-border space-y-1">
-                  <p className="text-[11px] font-semibold text-accent">🧭 KEŞİF SEVİYESİ</p>
-                  <p className="text-sm font-bold text-text-primary line-clamp-1">
-                    {data.profile.popularity.label || "Dengeli"}
-                  </p>
-                  <p className="text-[11px] text-text-muted">Popülerlik Dengesi</p>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-2 flex flex-col sm:flex-row gap-3">
-                <Link
-                  href="/"
-                  className="px-6 py-3 rounded-xl bg-accent text-white font-semibold text-xs hover:bg-accent-hover active:scale-95 transition-all shadow-sm text-center min-h-[44px] flex items-center justify-center"
-                >
-                  Film DNA&apos;mı Keskinleştir (Değerlendirmeye Devam Et) →
-                </Link>
-              </div>
-            </div>
-
-            {/* Film Journey & Rank Progression Section */}
-            <FilmJourney evaluatedCount={data.current} />
-
-            {/* Filmlerim Summary Card (Preserving Navigation Semantics: /library?mediaType=FILM) */}
-            <div className="p-6 rounded-3xl bg-surface-1 border border-border space-y-4 shadow-md">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-subtle border border-accent/30 text-accent text-xs font-semibold mb-1">
-                    <span>🎬 KİŞİSEL KÜTÜPHANE</span>
-                  </div>
-                  <h3 className="font-display text-xl font-bold text-text-primary">
-                    Filmlerim
-                  </h3>
-                </div>
-                <Link
-                  href="/library?mediaType=FILM"
-                  className="px-4 py-2 rounded-xl bg-surface-2 border border-border hover:border-accent text-text-primary text-xs font-semibold hover:bg-surface-3 transition-all min-h-[40px] flex items-center"
-                >
-                  Tüm Filmlerim ➔
-                </Link>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1 font-sans">
-                <Link href="/library?mediaType=FILM&tab=watched" className="p-4 rounded-2xl bg-surface-2 border border-border hover:border-accent transition-all space-y-1">
-                  <p className="text-2xl font-bold text-text-primary">{watchedCount}</p>
-                  <p className="text-xs text-text-secondary">🎬 İzledim</p>
-                </Link>
-                <Link href="/library?mediaType=FILM&tab=not_watched" className="p-4 rounded-2xl bg-surface-2 border border-border hover:border-accent transition-all space-y-1">
-                  <p className="text-2xl font-bold text-text-primary">{notWatchedCount}</p>
-                  <p className="text-xs text-text-secondary">🙈 İzlemedim</p>
-                </Link>
-                <Link href="/library?mediaType=FILM&tab=unsure" className="p-4 rounded-2xl bg-surface-2 border border-border hover:border-accent transition-all space-y-1">
-                  <p className="text-2xl font-bold text-text-primary">{unsureCount}</p>
-                  <p className="text-xs text-text-secondary">🤔 Emin Değilim</p>
-                </Link>
-                <Link href="/library?mediaType=FILM&tab=watch_later" className="p-4 rounded-2xl bg-surface-2 border border-border hover:border-accent transition-all space-y-1">
-                  <p className="text-2xl font-bold text-text-primary">{watchLaterCount}</p>
-                  <p className="text-xs text-text-secondary">🔖 Daha Sonra</p>
-                </Link>
-              </div>
-            </div>
-
-            {/* Visual Signatures */}
-            <GenreSignature genres={data.profile.genres} />
-            <EraSignature eras={data.profile.eras} />
+            {/* 6. Taste Character & Aesthetic Fingerprint */}
             <TasteTraits
               traits={data.profile.traits}
               popularityLabel={data.profile.popularity.label}
               familiarityDesc={data.profile.familiarity.description}
+              mediaType="FILM"
             />
+
+            {/* 7. Personal Library Snapshot */}
+            <LibrarySnapshotCard
+              mediaType="FILM"
+              watchedCount={watchedCount}
+              notWatchedCount={notWatchedCount}
+              unsureCount={unsureCount}
+              watchLaterCount={watchLaterCount}
+              favoriteCount={favoriteCount}
+            />
+
+            {/* 8. Film Journey & Rank Roadmap */}
+            <FilmJourney evaluatedCount={data.current} />
           </div>
         )}
       </main>

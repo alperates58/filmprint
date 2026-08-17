@@ -242,7 +242,7 @@ export function MovieDetailsModal({
       {/* Mobile Bottom Sheet & Desktop Dialog Container */}
       <div
         ref={modalContainerRef}
-        className="w-full md:max-w-3xl lg:max-w-4xl bg-surface-1 border-t md:border border-border/80 rounded-t-[28px] md:rounded-3xl shadow-2xl overflow-hidden text-text-primary h-auto max-h-[94dvh] md:max-h-[min(94dvh,850px)] flex flex-col transition-transform duration-150 relative pb-[env(safe-area-inset-bottom)]"
+        className="w-full md:max-w-3xl lg:max-w-4xl bg-surface-1 border-t md:border border-border/80 rounded-t-[28px] md:rounded-3xl shadow-2xl overflow-hidden text-text-primary h-auto max-h-[92dvh] md:max-h-[min(92dvh,820px)] flex flex-col transition-transform duration-150 relative pb-[env(safe-area-inset-bottom)]"
         style={{ transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -268,10 +268,10 @@ export function MovieDetailsModal({
         {/* Scrollable Content Container (Isolated single scroll element) */}
         <div
           ref={contentScrollRef}
-          className="overflow-y-auto flex-1 overscroll-contain scrollbar-none"
+          className="overflow-y-auto flex-1 overscroll-contain touch-pan-y scrollbar-none"
         >
           {/* Backdrop Header Media */}
-          <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-surface-2 overflow-hidden flex-shrink-0">
+          <div className="relative h-44 sm:h-52 md:h-60 max-h-[260px] w-full bg-surface-2 overflow-hidden flex-shrink-0">
             {isPlayingTrailer && trailerKey ? (
               <iframe
                 src={`https://www.youtube-nocookie.com/embed/${trailerKey}?autoplay=1&rel=0`}
@@ -376,7 +376,7 @@ export function MovieDetailsModal({
                   className="min-h-[48px] px-4 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold flex items-center gap-2 hover:bg-emerald-500/20 transition-all"
                 >
                   <span>{currentRating ? RATING_LABELS[currentRating]?.emoji || "✓" : "✓"}</span>
-                  <span>{currentRating ? RATING_LABELS[currentRating]?.label || "İzledim" : "İzledim"}</span>
+                  <span>{currentRating ? RATING_LABELS[currentRating]?.label || "✓ İzledim" : "✓ İzledim"}</span>
                 </button>
               ) : (
                 <button

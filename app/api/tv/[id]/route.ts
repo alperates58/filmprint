@@ -62,7 +62,7 @@ export async function GET(
     let meta = (show.metadata as Record<string, any>) || {};
 
     // 2. Enrich missing creators, cast, or trailer via TMDB Client if needed
-    if (!meta.creators || !meta.cast || meta.trailer === undefined) {
+    if (!meta.creators || !meta.cast || meta.trailer === undefined || meta.trailer === null) {
       const tmdbDetails = await tmdbTvClient.getTvDetails(show.tmdbId);
       const localization = tmdbDetails.localization;
       const localizationSafety = localization

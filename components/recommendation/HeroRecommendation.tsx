@@ -229,7 +229,7 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
                 }`}
               >
                 <span>🔖</span>
-                <span>{feedbackAction === "WATCHLIST" ? "Listemde" : "İzleme Listeme Ekle"}</span>
+                <span>{feedbackAction === "WATCHLIST" ? "✓ İzleme Listemde" : "İzleme Listesine Ekle"}</span>
               </button>
 
               <button

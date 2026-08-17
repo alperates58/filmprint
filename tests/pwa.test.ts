@@ -34,7 +34,7 @@ export async function runPwaTests() {
   assert.strictEqual(fs.existsSync(swPath), true, "sw.js must exist in public/");
 
   const swContent = fs.readFileSync(swPath, "utf8");
-  assert.ok(swContent.includes("filmprint-static-v1"), "sw.js must use versioned static cache");
+  assert.ok(swContent.includes("filmprint-static-"), "sw.js must use versioned static cache");
   assert.ok(swContent.includes("/api/"), "sw.js must inspect /api/ requests");
   assert.ok(swContent.includes("navigate"), "sw.js must handle navigation requests");
   assert.ok(swContent.includes("/offline.html"), "sw.js must reference /offline.html fallback");

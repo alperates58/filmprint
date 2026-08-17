@@ -88,6 +88,7 @@ export function DiscoveryHome({
     setShowMilestoneNotice(false);
     try {
       localStorage.setItem("filmprint_milestone_seen_30", "true");
+      localStorage.setItem(`filmprint_milestone_FILM_${progression.currentRank.key}`, "true");
     } catch {}
   };
 
@@ -95,13 +96,13 @@ export function DiscoveryHome({
     if (shortcut.targetModuleId === "top-hero") {
       const heroEl = document.getElementById("top-hero-match");
       if (heroEl) {
-        heroEl.scrollIntoView({ behavior: "smooth" });
+        heroEl.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
     }
     const el = document.getElementById(`module-${shortcut.targetModuleId}`);
     if (el) {
-      el.scrollIntoView({ behavior: "smooth" });
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
     } else if (shortcut.fallbackHref) {
       router.push(shortcut.fallbackHref);
     }
@@ -225,7 +226,7 @@ export function DiscoveryHome({
         {/* TOP MATCH HERO CARD (IF AVAILABLE)                                        */}
         {/* ========================================================================= */}
         {topHeroMatch && topHeroMatch.movie && (
-          <section id="top-hero-match" className="space-y-4">
+          <section id="top-hero-match" className="space-y-4 scroll-mt-24 md:scroll-mt-28">
             <SectionHeader
               badge="GÜNÜN ZİRVESİ"
               badgeIcon="⭐"
@@ -326,7 +327,7 @@ export function DiscoveryHome({
             if (!module.movies || module.movies.length === 0) return null;
 
             return (
-              <section key={module.id} id={`module-${module.id}`} className="space-y-4 pt-2">
+              <section key={module.id} id={`module-${module.id}`} className="space-y-4 pt-2 scroll-mt-24 md:scroll-mt-28">
                 <SectionHeader
                   badge={module.title}
                   badgeIcon={module.icon}

@@ -89,12 +89,12 @@ export function MediaCard({
         <div className="absolute top-2.5 left-2.5 z-10 flex flex-wrap gap-1">
           {isFavorite && (
             <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 backdrop-blur-md border border-amber-500/30 text-amber-300 text-[10px] font-bold">
-              ★ Favori
+              ★ Favorilerimde
             </span>
           )}
           {isWatchlist && (
             <span className="px-2 py-0.5 rounded-lg bg-blue-500/20 backdrop-blur-md border border-blue-500/30 text-blue-300 text-[10px] font-bold">
-              🔖 Listemde
+              ✓ İzleme Listemde
             </span>
           )}
           {userStatus === "WATCHED" && (
@@ -118,8 +118,8 @@ export function MediaCard({
             <button
               onClick={(e) => handleAction(e, "WATCHLIST")}
               className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400 transition-colors text-xs"
-              title="İzleme Listeme Ekle"
-              aria-label="İzleme Listeme Ekle"
+              title="İzleme Listesine Ekle"
+              aria-label="İzleme Listesine Ekle"
             >
               🔖
             </button>

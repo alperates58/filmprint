@@ -32,8 +32,8 @@ export async function GET(
 
     let meta = (movie.metadata as Record<string, any>) || {};
 
-    // 2. If runtime, director, cast, or trailer is missing in metadata, enrich via TMDB Client
-    if (!meta.director || !meta.cast || meta.trailer === undefined) {
+    // 2. If runtime, director, cast, or trailer is missing/null in metadata, enrich via TMDB Client
+    if (!meta.director || !meta.cast || meta.trailer === undefined || meta.trailer === null) {
       const tmdbDetails = await tmdbClient.getMovieDetails(movie.tmdbId);
       const localization = tmdbDetails.localization;
       const localizationSafety = localization

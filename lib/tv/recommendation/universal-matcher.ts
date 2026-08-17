@@ -73,7 +73,14 @@ export function generateDeterministicTvReasons(
   }
 
   // Deduplicate and bound to max 4 reasons
-  const uniqueReasons = Array.from(new Set(reasons)).slice(0, 4);
+  let uniqueReasons = Array.from(new Set(reasons)).slice(0, 4);
+  if (uniqueReasons.length === 0) {
+    if (candidateGenres.length > 0) {
+      uniqueReasons = [`${candidateGenres.slice(0, 2).join(" ve ")} temaları dizi tercihlerinize hitap ediyor.`];
+    } else {
+      uniqueReasons = ["Dizi DNA profilinize ve keşif tercihlerinize uygun yapım."];
+    }
+  }
 
   return {
     headline,

@@ -56,13 +56,13 @@ export function TvDiscoveryHome({
     if (shortcut.targetModuleId === "tv-top-hero") {
       const heroEl = document.getElementById("tv-top-hero-match");
       if (heroEl) {
-        heroEl.scrollIntoView({ behavior: "smooth" });
+        heroEl.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
     }
     const el = document.getElementById(`module-${shortcut.targetModuleId}`);
     if (el) {
-      el.scrollIntoView({ behavior: "smooth" });
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
     } else if (shortcut.fallbackHref) {
       router.push(shortcut.fallbackHref);
     }
@@ -161,7 +161,7 @@ export function TvDiscoveryHome({
         {/* TOP MATCH TV HERO CARD (IF AVAILABLE)                                     */}
         {/* ========================================================================= */}
         {topHeroMatch && heroShow && (
-          <section id="tv-top-hero-match" className="space-y-4">
+          <section id="tv-top-hero-match" className="space-y-4 scroll-mt-24 md:scroll-mt-28">
             <SectionHeader
               badge="GÜNÜN ZİRVESİ"
               badgeIcon="⭐"
@@ -248,7 +248,7 @@ export function TvDiscoveryHome({
             if (!module.items || module.items.length === 0) return null;
 
             return (
-              <section key={module.id} id={`module-${module.id}`} className="space-y-4 pt-2">
+              <section key={module.id} id={`module-${module.id}`} className="space-y-4 pt-2 scroll-mt-24 md:scroll-mt-28">
                 <SectionHeader
                   badge={module.title}
                   badgeIcon="📺"

@@ -1,4 +1,4 @@
-const CACHE_NAME = "filmprint-static-v1";
+const CACHE_NAME = "filmprint-static-v2";
 const TMDB_IMAGE_CACHE = "filmprint-images-v1";
 const MAX_TMDB_IMAGES = 50;
 
@@ -36,12 +36,19 @@ self.addEventListener("activate", (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key.startsWith("filmprint-") && key !== CACHE_NAME && key !== TMDB_IMAGE_CACHE) {
+            console.log("[SW] Deleting obsolete cache:", key);
             return caches.delete(key);
           }
         })
       );
     }).then(() => self.clientsClaim())
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("fetch", (event) => {

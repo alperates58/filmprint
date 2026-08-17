@@ -199,7 +199,7 @@ export async function runLegacyArtifactRefresh() {
       const tvProfile = await getOrRecalculateTvTasteProfile(item.userId);
 
       // Force fresh generation with deepseek-v4-flash
-      const result = await getOrGenerateTvAiTasteProfile(item.userId, tvProfile, { forceRefresh: true });
+      const result = await getOrGenerateTvAiTasteProfile(item.userId, { forceRefresh: true });
       if (result.profile && !result.fromCache) {
         stats.tvRefreshed++;
         console.log(`  ✓ [TV ${i + 1}/${tvProfiles.length}] Refreshed TV taste profile for ${maskedUser} -> model: ${CANONICAL_DEEPSEEK_MODEL}`);

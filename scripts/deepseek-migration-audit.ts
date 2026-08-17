@@ -256,7 +256,7 @@ export async function runMigrationAuditAndShadowBenchmark(sampleLimit: number = 
         top10OverlapPct: 100,
         avgRankDisplacement: recs.length > 0 ? Number((rankDisplacementSum / top10.length).toFixed(2)) : 0,
         exclusionViolations: violations,
-        deterministicFallbackUsed: !filmRecResult.isAiApplied,
+        deterministicFallbackUsed: !(filmRecResult as any).isAiApplied,
       });
     } catch (e) {
       // Benchmark robustness
@@ -304,7 +304,7 @@ export async function runMigrationAuditAndShadowBenchmark(sampleLimit: number = 
         top10OverlapPct: 100,
         avgRankDisplacement: 0,
         exclusionViolations: tvViolations,
-        deterministicFallbackUsed: !tvRecResult.isAiApplied,
+        deterministicFallbackUsed: !(tvRecResult as any).isAiApplied,
       });
     } catch (e) {
       // Benchmark robustness

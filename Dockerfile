@@ -13,6 +13,8 @@ FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/filmprint?schema=public"
+ENV AUTH_SECRET="build_auth_secret_placeholder"
 
 # Generate Prisma Client in a layer that only changes with the Prisma schema.
 COPY prisma ./prisma

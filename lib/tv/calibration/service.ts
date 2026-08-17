@@ -1,6 +1,4 @@
 import { db } from "@/lib/db/client";
-import { tmdbTvClient } from "@/lib/tmdb/tv/client";
-import { filterEligibleTvShows } from "@/lib/tv/eligibility";
 import { rankCandidateTvShows } from "./selector";
 import {
   CandidateTvShow,
@@ -8,7 +6,7 @@ import {
   TvSelectorUserState,
 } from "./types";
 import { TV_CALIBRATION_TARGET } from "./constants";
-import { resolveTvCandidateSupply } from "./supply";
+import { resolveTvCandidateSupply, CalibrationSupplyStatus } from "./supply";
 
 export interface QueueTvShowResponseItem {
   id: string; // Database UUID
@@ -41,16 +39,22 @@ export interface TvCalibrationQueueResult {
     activeLearningEnabled: boolean;
     selectorVersion: number;
   };
+  supply: {
+    status: CalibrationSupplyStatus;
+    rawScanned: number;
+    pagesScanned: number;
+    eligibleCount: number;
+    exhausted: boolean;
+  };
 }
 
 /**
  * Resolves the next candidate TV show queue for a user using deterministic active learning heuristics.
- * Guarantees bounded cache-first resolution and zero re-asking of previously answered shows.
+ * Operates 100% DATABASE-FIRST with zero external TMDB network calls.
  */
 export async function getTvCalibrationQueue(
   userId: string,
-  limit: number = 5,
-  options?: { forceReplenish?: boolean }
+  limit: number = 5
 ): Promise<TvCalibrationQueueResult> {
   const targetCount = TV_CALIBRATION_TARGET;
 
@@ -132,7 +136,6 @@ export async function getTvCalibrationQueue(
         interactions: {
           none: { userId },
         },
-        id: { notIn: Array.from(answeredTvShowIds) },
         posterPath: { not: null },
       },
       orderBy: [
@@ -170,28 +173,24 @@ export async function getTvCalibrationQueue(
     });
   }
 
-  // 4. Resolve a bounded, eligibility-aware reserve. Replenishment is skipped
-  // entirely while the paged DB supply is healthy.
+  // 4. Resolve a bounded, eligibility-aware reserve strictly from Database
   const supply = await resolveTvCandidateSupply<CandidateTvShow>({
     fetchPage: fetchRawCandidatePage,
-    forceReplenish: options?.forceReplenish,
-    replenish: () => tmdbTvClient.seedAndFetchTvShows(),
   });
-  const rawCandidates = supply.rawCandidates;
   const eligibleCandidates = supply.eligibleCandidates;
 
-  if (supply.replenishTriggered) {
+  if (supply.status !== "AVAILABLE") {
     console.info("[TV Calibration Supply]", {
       userId,
       rawScanned: supply.rawScanned,
       pagesScanned: supply.pagesScanned,
       eligibleFound: eligibleCandidates.length,
-      selectedLimit: limit,
+      status: supply.status,
       exhausted: supply.exhausted,
     });
   }
 
-  // 5. Deterministic Selection with Multi-Level Relaxation Ladder
+  // 5. Deterministic Selection with Multi-Level Ranking on Eligible Pool
   let selectedShows: QueueTvShowResponseItem[] = [];
   let appliedStrategyLevel = 1;
 
@@ -236,25 +235,6 @@ export async function getTvCalibrationQueue(
     }
   }
 
-  // LEVEL 4 (Emergency Supply Fallback): If strict CALIBRATION eligibility over-constrained,
-  // evaluate against GENERAL eligibility (voteCount >= 10, overview >= 25, non-adult, valid poster)
-  if (selectedShows.length === 0 && rawCandidates.length > 0) {
-    const generalEligible = filterEligibleTvShows(rawCandidates, "RECOMMENDATION");
-    if (generalEligible.length > 0) {
-      const sortedLevel4 = [...generalEligible].sort((a, b) => {
-        if (b.voteAverage !== a.voteAverage) return b.voteAverage - a.voteAverage;
-        if (b.popularity !== a.popularity) return b.popularity - a.popularity;
-        return a.tmdbId - b.tmdbId;
-      });
-      selectedShows = sortedLevel4.slice(0, limit).map((show) => ({
-        ...show,
-        selectionScore: 0.5,
-        reasons: ["relaxation_level_4_general_eligibility_fallback"],
-      }));
-      appliedStrategyLevel = 4;
-    }
-  }
-
   return {
     tvShows: selectedShows,
     answeredCount,
@@ -264,5 +244,13 @@ export async function getTvCalibrationQueue(
       activeLearningEnabled: appliedStrategyLevel <= 2,
       selectorVersion: appliedStrategyLevel,
     },
+    supply: {
+      status: supply.status,
+      rawScanned: supply.rawScanned,
+      pagesScanned: supply.pagesScanned,
+      eligibleCount: eligibleCandidates.length,
+      exhausted: supply.exhausted,
+    },
   };
 }
+

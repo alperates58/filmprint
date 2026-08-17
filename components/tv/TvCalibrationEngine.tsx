@@ -58,42 +58,22 @@ export function TvCalibrationEngine({
     });
   }, []);
 
-  const hasAutoRecoveredRef = useRef<boolean>(false);
-
-  // Fetch candidate queue from API (with optional forced replenishment)
+  // Fetch candidate queue from API (100% DB-first)
   const fetchQueue = useCallback(
-    async (limit: number = 5, forceRefresh: boolean = false) => {
+    async (limit: number = 5) => {
       if (isFetchingRef.current) return;
       isFetchingRef.current = true;
       setIsLoading(true);
 
       try {
-        const requestQueue = async (refresh: boolean) => {
-          const url = refresh
-            ? `/api/tv/calibration?limit=${limit}&refresh=true`
-            : `/api/tv/calibration?limit=${limit}`;
-          const response = await fetch(url);
-          if (!response.ok) {
-            throw new Error("Failed to load TV calibration queue");
-          }
-          return response.json();
-        };
-
-        let data = await requestQueue(forceRefresh);
-        let newShows: TvShowItem[] = data.tvShows || [];
-
-        if (newShows.length === 0 && !forceRefresh && !hasAutoRecoveredRef.current) {
-          // Keep one loading lifecycle across normal fetch + forced recovery.
-          hasAutoRecoveredRef.current = true;
-          data = await requestQueue(true);
-          newShows = data.tvShows || [];
+        const response = await fetch(`/api/tv/calibration?limit=${limit}`);
+        if (!response.ok) {
+          throw new Error("Failed to load TV calibration queue");
         }
+        const data = await response.json();
+        const newShows: TvShowItem[] = data.tvShows || [];
 
         setAnsweredCount(data.answeredCount ?? 0);
-
-        if (newShows.length > 0) {
-          hasAutoRecoveredRef.current = false;
-        }
 
         setQueue((prev) => {
           const existingIds = new Set(prev.map((s) => s.id));
@@ -301,25 +281,37 @@ export function TvCalibrationEngine({
         ) : (
           /* Queue Empty / Retry Fallback State */
           <div className="w-full max-w-lg mx-auto text-center space-y-5 bg-surface-1 border border-border/80 rounded-3xl p-8 shadow-md">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto text-xl font-bold">
-              !
+            <div className={`w-12 h-12 rounded-2xl ${errorMessage ? "bg-rose-500/15 border border-rose-500/30 text-rose-400" : "bg-accent-subtle border border-accent/30 text-accent"} flex items-center justify-center mx-auto text-xl font-bold`}>
+              {errorMessage ? "!" : "✨"}
             </div>
 
             <div className="space-y-2">
               <h3 className="font-display text-xl font-bold text-text-primary">
-                Dizi Sırası Yenileniyor
+                {errorMessage ? "Dizi Sırası Yüklenemedi" : "Yeni Diziler Hazırlanıyor"}
               </h3>
-              <p className="text-text-secondary text-sm font-sans">
-                {errorMessage || "Yeni diziler hazırlanıyor, lütfen tekrar deneyin."}
+              <p className="text-text-secondary text-sm font-sans leading-relaxed">
+                {errorMessage
+                  ? errorMessage
+                  : "Mevcut dizi sırasındaki tüm uygun yapımları değerlendirdin. Arka plan katalog senkronizasyonu devam ediyor, birazdan tekrar deneyebilirsin."}
               </p>
             </div>
 
-            <button
-              onClick={() => fetchQueue(5, true)}
-              className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2 mx-auto"
-            >
-              <span>Dizileri Yenile</span>
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+              {answeredCount > 0 && (
+                <Link
+                  href="/tv/profile"
+                  className="px-5 py-2.5 rounded-xl bg-surface-2 border border-border text-text-primary text-xs font-semibold hover:bg-surface-3 transition-all shadow-sm text-center"
+                >
+                  Dizi DNA Profilini Gör
+                </Link>
+              )}
+              <button
+                onClick={() => fetchQueue(5)}
+                className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent-hover active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2"
+              >
+                <span>Yeniden Kontrol Et</span>
+              </button>
+            </div>
           </div>
         )}
       </main>

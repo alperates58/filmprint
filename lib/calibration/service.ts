@@ -1,10 +1,9 @@
 import { db } from "@/lib/db/client";
 import { getSystemSettings } from "@/lib/config/service";
-import { tmdbClient } from "@/lib/tmdb/client";
-import { filterEligibleMovies } from "@/lib/movies/eligibility";
 import { rankCandidateMovies } from "./selector";
 import { CandidateMovie, RecentInteractionPattern, UserTasteProfileInput } from "./types";
 import { FilmDnaResult } from "@/lib/profile/types";
+import { resolveMovieCandidateSupply, CalibrationSupplyStatus } from "./supply";
 
 export interface QueueMovieResponseItem {
   id: string;
@@ -30,20 +29,27 @@ export interface CalibrationQueueResult {
     activeLearningEnabled: boolean;
     selectorVersion: number;
   };
+  supply: {
+    status: CalibrationSupplyStatus;
+    rawScanned: number;
+    pagesScanned: number;
+    eligibleCount: number;
+    exhausted: boolean;
+  };
 }
 
 /**
  * Resolves the next candidate movie queue for a user using Active Learning / Intelligent Calibration.
+ * Operates 100% DATABASE-FIRST with bounded paged DB retrieval and zero external TMDB network calls.
  */
 export async function getIntelligentCalibrationQueue(
   userId: string,
-  limit: number = 5,
-  options?: { forceReplenish?: boolean }
+  limit: number = 5
 ): Promise<CalibrationQueueResult> {
   const settings = await getSystemSettings();
   const targetCount = settings.calibrationTarget;
 
-  // 1. Fetch answered movie IDs for current user
+  // 1. Fetch answered interactions for current user
   const answeredInteractions = await db.movieInteraction.findMany({
     where: { userId },
     orderBy: { answeredAt: "desc" },
@@ -67,11 +73,11 @@ export async function getIntelligentCalibrationQueue(
   const recentInteractions: RecentInteractionPattern[] = answeredInteractions
     .slice(0, recentWindow)
     .map((i: any) => {
-      const meta = (i.movie.metadata as Record<string, unknown>) || {};
+      const meta = (i.movie?.metadata as Record<string, unknown>) || {};
       return {
         movieId: i.movieId,
         genres: (meta.genres as string[]) || [],
-        releaseYear: i.movie.releaseYear,
+        releaseYear: i.movie?.releaseYear || null,
       };
     });
 
@@ -90,17 +96,31 @@ export async function getIntelligentCalibrationQueue(
     };
   }
 
-  // 3. Query DB candidate pool and evaluate post-eligibility replenishment
-  const fetchEligibleCandidatePool = async (): Promise<CandidateMovie[]> => {
+  // 3. Query deterministic paged un-interacted movies from Database
+  async function fetchRawCandidatePage({
+    skip,
+    take,
+  }: {
+    skip: number;
+    take: number;
+  }): Promise<CandidateMovie[]> {
     const raw = await db.movie.findMany({
       where: {
-        id: { notIn: Array.from(answeredMovieIds) },
+        interactions: {
+          none: { userId },
+        },
+        posterPath: { not: null },
       },
-      orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-      take: 250,
+      orderBy: [
+        { popularity: "desc" },
+        { voteAverage: "desc" },
+        { id: "asc" },
+      ],
+      skip,
+      take,
     });
 
-    const formatted: (CandidateMovie & { metadata?: any })[] = raw.map((m: any) => {
+    return raw.map((m: any) => {
       const meta = (m.metadata as Record<string, unknown>) || {};
       return {
         id: m.id,
@@ -119,31 +139,54 @@ export async function getIntelligentCalibrationQueue(
         metadata: meta,
       };
     });
-
-    return filterEligibleMovies(formatted, "CALIBRATION");
-  };
-
-  let candidatePool = await fetchEligibleCandidatePool();
-
-  // Replenish seeding guardrail dynamically if eligible unanswered candidate pool drops below 30 movies
-  if (candidatePool.length < 30 || options?.forceReplenish) {
-    await tmdbClient.seedAndFetchMovies();
-    candidatePool = await fetchEligibleCandidatePool();
   }
 
-  // 4. Rank candidates using Active Learning or Fallback
+  // 4. Resolve candidate supply strictly from Database pages
+  const supply = await resolveMovieCandidateSupply<CandidateMovie>({
+    fetchPage: fetchRawCandidatePage,
+  });
+  const eligibleCandidates = supply.eligibleCandidates;
+
+  if (supply.status !== "AVAILABLE") {
+    console.info("[Movie Calibration Supply]", {
+      userId,
+      rawScanned: supply.rawScanned,
+      pagesScanned: supply.pagesScanned,
+      eligibleFound: eligibleCandidates.length,
+      status: supply.status,
+      exhausted: supply.exhausted,
+    });
+  }
+
+  // 5. Rank candidates using Active Learning or Fallback
   let selectedMovies: QueueMovieResponseItem[] = [];
 
-  if (settings.aiEnabled && settings.activeLearningEnabled !== false) {
-    const rankedResults = rankCandidateMovies(candidatePool, profileInput, recentInteractions);
-    selectedMovies = rankedResults.slice(0, limit).map((r: any) => ({
-      ...r.movie,
-      selectionScore: r.score,
-      reasons: r.reasons,
-    }));
-  } else {
-    // Fallback: standard balanced selection
-    selectedMovies = candidatePool.slice(0, limit);
+  if (eligibleCandidates.length > 0) {
+    if (settings.aiEnabled && settings.activeLearningEnabled !== false) {
+      const rankedResults = rankCandidateMovies(eligibleCandidates, profileInput, recentInteractions);
+      if (rankedResults.length > 0) {
+        selectedMovies = rankedResults.slice(0, limit).map((r: any) => ({
+          ...r.movie,
+          selectionScore: r.score,
+          reasons: r.reasons,
+        }));
+      } else {
+        // Fallback: If repetition penalty was too strict, rank without recent history penalty
+        const fallbackRanked = rankCandidateMovies(eligibleCandidates, profileInput, []);
+        selectedMovies = fallbackRanked.slice(0, limit).map((r: any) => ({
+          ...r.movie,
+          selectionScore: r.score,
+          reasons: [...(r.reasons || []), "relaxed_repetition_penalty"],
+        }));
+      }
+    } else {
+      // Standard balanced selection on eligible pool
+      selectedMovies = eligibleCandidates.slice(0, limit).map((m: any) => ({
+        ...m,
+        selectionScore: 1.0,
+        reasons: ["standard_selection"],
+      }));
+    }
   }
 
   return {
@@ -155,5 +198,13 @@ export async function getIntelligentCalibrationQueue(
       activeLearningEnabled: settings.aiEnabled && settings.activeLearningEnabled !== false,
       selectorVersion: 1,
     },
+    supply: {
+      status: supply.status,
+      rawScanned: supply.rawScanned,
+      pagesScanned: supply.pagesScanned,
+      eligibleCount: eligibleCandidates.length,
+      exhausted: supply.exhausted,
+    },
   };
 }
+

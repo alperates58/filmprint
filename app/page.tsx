@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db/client";
 import { getAuthenticatedUser } from "@/lib/auth/service";
-import { tmdbClient } from "@/lib/tmdb/client";
+import { getIntelligentCalibrationQueue } from "@/lib/calibration/service";
 import { CalibrationEngine } from "@/components/movie/CalibrationEngine";
 import { DiscoveryHome } from "@/components/home/DiscoveryHome";
 import { MovieItem } from "@/components/movie/MovieCard";
@@ -19,53 +19,31 @@ export default async function Home({
   }
   const userId = user.id;
 
-  const answeredInteractions = await db.movieInteraction.findMany({
+  const answeredCount = await db.movieInteraction.count({
     where: { userId },
-    select: { movieId: true },
   });
-  const answeredCount = answeredInteractions.length;
 
   // Uncalibrated user flow (< 30 answered movies)
   if (answeredCount < TARGET_CALIBRATION_COUNT) {
-    let candidates = await db.movie.findMany({
-      where: {
-        id: { notIn: answeredInteractions.map((i: any) => i.movieId) },
-      },
-      orderBy: [{ popularity: "desc" }, { releaseYear: "desc" }],
-      take: 6,
-    });
+    const queueResult = await getIntelligentCalibrationQueue(userId, 5);
 
-    if (candidates.length < 5) {
-      await tmdbClient.seedAndFetchMovies();
-      candidates = await db.movie.findMany({
-        where: {
-          id: { notIn: answeredInteractions.map((i: any) => i.movieId) },
-        },
-        orderBy: [{ popularity: "desc" }, { releaseYear: "desc" }],
-        take: 6,
-      });
-    }
-
-    const initialMovies: MovieItem[] = candidates.map((movie: any) => {
-      const meta = (movie.metadata as Record<string, unknown>) || {};
-      return {
-        id: movie.id,
-        tmdbId: movie.tmdbId,
-        title: movie.title,
-        originalTitle: movie.originalTitle,
-        releaseYear: movie.releaseYear,
-        posterPath: movie.posterPath,
-        backdropPath: movie.backdropPath,
-        voteAverage: movie.voteAverage,
-        overview: (meta.overview as string) || "",
-        genres: (meta.genres as string[]) || [],
-      };
-    });
+    const initialMovies: MovieItem[] = queueResult.movies.map((movie) => ({
+      id: movie.id,
+      tmdbId: movie.tmdbId,
+      title: movie.title,
+      originalTitle: movie.originalTitle,
+      releaseYear: movie.releaseYear,
+      posterPath: movie.posterPath,
+      backdropPath: movie.backdropPath,
+      voteAverage: movie.voteAverage,
+      overview: movie.overview,
+      genres: movie.genres,
+    }));
 
     return (
       <CalibrationEngine
         initialMovies={initialMovies}
-        initialAnsweredCount={answeredCount}
+        initialAnsweredCount={queueResult.answeredCount}
         initialCompleted={false}
       />
     );
@@ -83,3 +61,4 @@ export default async function Home({
     />
   );
 }
+

@@ -21,6 +21,11 @@ export async function GET(request: Request) {
       targetCount: result.targetCount,
       completed: result.completed,
       strategy: result.strategy,
+      supply: result.supply,
+    }, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
     });
   } catch (error) {
     console.error("[Queue API Error]:", error);

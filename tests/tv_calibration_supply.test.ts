@@ -86,18 +86,14 @@ export async function runTvCalibrationSupplyTests(): Promise<void> {
       candidate(index, 1700 - index, index < 1500)
     );
     const unanswered = catalog.slice(347);
-    let tmdbCalls = 0;
     const supply = await resolveTvCandidateSupply({
       fetchPage: pagedFetcher(unanswered),
-      replenish: async () => {
-        tmdbCalls++;
-      },
     });
 
     assert(supply.eligibleCandidates.length >= 100, "Scenario A must find a healthy reserve");
     assert(selectedCount(supply.eligibleCandidates) === 5, "Scenario A must return 5 candidates");
-    assert(tmdbCalls === 0, "Scenario A must not call TMDB while DB supply is healthy");
-    console.log("  ✓ Scenario A: 1700/1500/347 returns 5 candidates with TMDB calls = 0");
+    assert(supply.status === "AVAILABLE", "Scenario A must have AVAILABLE supply status");
+    console.log("  ✓ Scenario A: 1700/1500/347 returns 5 candidates from database");
   }
 
   // Scenario B: top 500 interacted, lower 500 unanswered.
@@ -107,7 +103,6 @@ export async function runTvCalibrationSupplyTests(): Promise<void> {
     );
     const supply = await resolveTvCandidateSupply({
       fetchPage: pagedFetcher(catalog.slice(500)),
-      replenish: async () => undefined,
     });
 
     assert(selectedCount(supply.eligibleCandidates) === 5, "Scenario B must reach lower-ranked shows");
@@ -122,7 +117,8 @@ export async function runTvCalibrationSupplyTests(): Promise<void> {
     ];
     const supply = await resolveTvCandidateSupply({
       fetchPage: pagedFetcher(rows),
-      replenish: async () => undefined,
+      pageSize: 250,
+      maxPages: 10,
     });
 
     assert(supply.pagesScanned === 5, "Scenario C must scan through the fifth page");
@@ -130,20 +126,17 @@ export async function runTvCalibrationSupplyTests(): Promise<void> {
     console.log("  ✓ Scenario C: pagination crosses 1100 invalid rows and returns 5 candidates");
   }
 
-  // Scenario D: low reserve triggers exactly one replenish lifecycle.
+  // Scenario D: low reserve returns status LOW safely without external calls.
   {
     const rows = Array.from({ length: 10 }, (_, index) => candidate(7_000 + index, 10 - index));
-    let replenishCalls = 0;
     const supply = await resolveTvCandidateSupply({
       fetchPage: pagedFetcher(rows),
-      replenish: async () => {
-        replenishCalls++;
-      },
     });
 
-    assert(supply.replenishTriggered, "Scenario D must mark replenish as triggered");
-    assert(replenishCalls === 1, "Scenario D must call replenish exactly once");
-    console.log("  ✓ Scenario D: reserve=10 triggers one replenish");
+    assert(supply.status === "LOW", "Scenario D must mark supply status as LOW");
+    assert(supply.eligibleCandidates.length === 10, "Scenario D must return 10 eligible candidates");
+    assert(supply.exhausted === true, "Scenario D must indicate catalog exhausted");
+    console.log("  ✓ Scenario D: reserve=10 returns status LOW safely without TMDB calls");
   }
 
   // Scenario E: duplicate-only pages still consume and advance source/page cursor.

@@ -34,6 +34,7 @@ import { runTmdbTvLocalizationTests } from "./tmdb_tv_localization.test";
 import { runTmdbSharedLocalizationTests } from "./tmdb_shared_localization.test";
 import { runTvProgressionTests } from "./tv_progression.test";
 import { runCatalogIngestionTests } from "./catalog_ingestion.test";
+import { runCalibrationDatabaseFirstTests } from "./calibration_database_first.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -78,6 +79,7 @@ async function runAllUnitAndRegressionTests() {
     { name: "Hybrid AI Runtime Integration & Real Order Permutation Tests", fn: runHybridIntegrationRuntimeTests },
     { name: "TMDB Image Guard & Poster Path Validation Tests", fn: runTmdbImageGuardTests },
     { name: "TMDB Catalog Ingestion Engine Tests", fn: runCatalogIngestionTests },
+    { name: "Database-First Calibration & Supply Tests", fn: runCalibrationDatabaseFirstTests },
   ];
 
   let passedSuites = 0;

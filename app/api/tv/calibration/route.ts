@@ -11,9 +11,8 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") || "5", 10)), 15);
-    const forceReplenish = searchParams.get("refresh") === "true";
 
-    const queueResult = await getTvCalibrationQueue(user.id, limit, { forceReplenish });
+    const queueResult = await getTvCalibrationQueue(user.id, limit);
 
     return NextResponse.json(queueResult, {
       headers: {

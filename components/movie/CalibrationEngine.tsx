@@ -267,25 +267,37 @@ export function CalibrationEngine({
         ) : (
           /* Queue Empty / Retry Fallback State */
           <div className="w-full max-w-lg mx-auto text-center space-y-5 bg-surface-1 border border-border/80 rounded-3xl p-8 shadow-md">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto text-xl font-bold">
-              !
+            <div className={`w-12 h-12 rounded-2xl ${errorMessage ? "bg-rose-500/15 border border-rose-500/30 text-rose-400" : "bg-accent-subtle border border-accent/30 text-accent"} flex items-center justify-center mx-auto text-xl font-bold`}>
+              {errorMessage ? "!" : "✨"}
             </div>
 
             <div className="space-y-2">
               <h3 className="font-display text-xl font-bold text-text-primary">
-                Film Sırası Yenileniyor
+                {errorMessage ? "Film Sırası Yüklenemedi" : "Yeni Filmler Hazırlanıyor"}
               </h3>
-              <p className="text-text-secondary text-sm font-sans">
-                {errorMessage || "Yeni filmler hazırlanıyor, lütfen tekrar deneyin."}
+              <p className="text-text-secondary text-sm font-sans leading-relaxed">
+                {errorMessage
+                  ? errorMessage
+                  : "Mevcut film sırasındaki tüm uygun yapımları değerlendirdin. Arka plan katalog senkronizasyonu devam ediyor, birazdan tekrar deneyebilirsin."}
               </p>
             </div>
 
-            <button
-              onClick={() => fetchQueue(5)}
-              className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-all shadow-sm"
-            >
-              Filmleri Yenile
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+              {answeredCount > 0 && (
+                <Link
+                  href="/profile"
+                  className="px-5 py-2.5 rounded-xl bg-surface-2 border border-border text-text-primary text-xs font-semibold hover:bg-surface-3 transition-all shadow-sm text-center"
+                >
+                  Film DNA Profilini Gör
+                </Link>
+              )}
+              <button
+                onClick={() => fetchQueue(5)}
+                className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent-hover active:scale-95 transition-all shadow-sm"
+              >
+                Yeniden Kontrol Et
+              </button>
+            </div>
           </div>
         )}
       </main>

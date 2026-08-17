@@ -239,7 +239,8 @@ Kurallar:
           { role: "user", content: JSON.stringify(promptPayload) },
         ],
         temperature: 0.3,
-        max_tokens: 450,
+        response_format: { type: "json_object" },
+        max_tokens: 1000,
       }),
     });
 
@@ -263,11 +264,26 @@ Kurallar:
         }
       : undefined;
 
-    const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(rawContent.trim());
+    } catch {
+      const cleaned = rawContent.replace(/```json\s*|\s*```/gi, "").trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsed = JSON.parse(jsonMatch[0]);
+        } catch {
+          // JSON repair or malformed
+        }
+      }
+    }
+
+    if (parsed) {
       const validProfile = validateAiTasteJson(parsed);
-      return { profile: validProfile, tokenUsage: usage };
+      if (validProfile) {
+        return { profile: validProfile, tokenUsage: usage };
+      }
     }
 
     return { profile: null };
@@ -343,9 +359,14 @@ export async function getOrRefreshUserAiTasteProfile(
 
   let shouldRefresh = false;
 
+  const config = await getDeepSeekConfig();
+
   if (!existingRecord) {
     shouldRefresh = true;
   } else if (options.forceRefresh) {
+    shouldRefresh = true;
+  } else if (existingRecord.model !== config.modelId) {
+    // Model mismatch (legacy deepseek-chat -> deepseek-v4-flash) -> mark for lazy refresh
     shouldRefresh = true;
   } else if (existingRecord.inputFingerprint !== currentFingerprint) {
     // Fingerprint changed -> either interaction count grew by 25+ OR existing ratings were updated (same-row update)
@@ -375,7 +396,6 @@ export async function getOrRefreshUserAiTasteProfile(
   const { profile: generatedProfile, tokenUsage } = await generateAiTasteWithDeepSeek(promptPayload);
 
   if (generatedProfile) {
-    const config = await getDeepSeekConfig();
     const savedRecord = await db.userAiTasteProfile.upsert({
       where: {
         userId_mediaType: {

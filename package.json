@@ -33,7 +33,9 @@
     "catalog:worker": "tsx scripts/catalog-worker.ts",
     "catalog:worker:prod": "node dist/catalog-worker.js",
     "catalog:ingest": "tsx scripts/catalog-ingest.ts",
-    "catalog:status": "tsx scripts/catalog-status.ts"
+    "catalog:status": "tsx scripts/catalog-status.ts",
+    "deepseek:migration-audit": "tsx scripts/deepseek-migration-audit.ts",
+    "deepseek:refresh-legacy-artifacts": "tsx scripts/refresh-legacy-deepseek-artifacts.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.3.0",

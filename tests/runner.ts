@@ -37,6 +37,7 @@ import { runCatalogIngestionTests } from "./catalog_ingestion.test";
 import { runCalibrationDatabaseFirstTests } from "./calibration_database_first.test";
 import { runDeepSeekModelMigrationTests } from "./deepseek_model_migration.test";
 import { runTvPersonalMatcherAndShortcutsTests } from "./tv_personal_matcher_and_shortcuts.test";
+import { runDeepSeekAiTasteThinkingTests } from "./deepseek_ai_taste_thinking.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -84,6 +85,7 @@ async function runAllUnitAndRegressionTests() {
     { name: "Database-First Calibration & Supply Tests", fn: runCalibrationDatabaseFirstTests },
     { name: "DeepSeek Model Migration & Canonical Resolution Tests", fn: runDeepSeekModelMigrationTests },
     { name: "TV Personal Matcher & Shortcuts Parity Tests", fn: runTvPersonalMatcherAndShortcutsTests },
+    { name: "DeepSeek AI Taste Thinking & Structured Output Tests", fn: runDeepSeekAiTasteThinkingTests },
   ];
 
   let passedSuites = 0;

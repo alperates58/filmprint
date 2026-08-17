@@ -181,8 +181,14 @@ export async function buildAiTastePromptPayload(
   };
 }
 
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Calls DeepSeek API to generate structured semantic AI Taste Profile.
+ * Explicitly disables thinking mode for deterministic, reliable structured JSON generation.
+ * Performs at most 1 bounded retry on empty, truncated, or invalid responses.
  */
 export async function generateAiTasteWithDeepSeek(
   promptPayload: any
@@ -193,13 +199,7 @@ export async function generateAiTasteWithDeepSeek(
     return { profile: null };
   }
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), AI_TASTE_TIMEOUT_MS);
-
-    const targetUrl = `${config.baseUrl.replace(/\/$/, "")}/chat/completions`;
-
-    const systemPrompt = `Sen SineAI sinema zevk analistisin. Kullanıcının Film DNA verisini ve izleme tercihlerini analiz ederek derinlikli bir Semantik Sinema Zevk Profili (AI Taste Profile) oluştur.
+  const systemPrompt = `Sen SineAI sinema zevk analistisin. Kullanıcının Film DNA verisini ve izleme tercihlerini analiz ederek derinlikli bir Semantik Sinema Zevk Profili (AI Taste Profile) oluştur.
 
 STRICT JSON OUTPUT SCHEMA:
 {
@@ -225,72 +225,123 @@ Kurallar:
 2. Değerleri 0.0 - 1.0 aralığında kesin sayılar olarak belirle.
 3. Pazarlama dili kullanma; sinemasal derinlik ve anlatı yapısına odaklan.`;
 
-    const response = await fetch(targetUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: config.modelId,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: JSON.stringify(promptPayload) },
-        ],
-        temperature: 0.3,
-        response_format: { type: "json_object" },
-        max_tokens: 1000,
-      }),
-    });
+  const targetUrl = `${config.baseUrl.replace(/\/$/, "")}/chat/completions`;
+  const requestBody = JSON.stringify({
+    model: config.modelId,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: JSON.stringify(promptPayload) },
+    ],
+    temperature: 0.3,
+    response_format: { type: "json_object" },
+    thinking: { type: "disabled" },
+    max_tokens: 2000,
+  });
 
-    clearTimeout(timeoutId);
+  const MAX_ATTEMPTS = 2;
 
-    if (!response.ok) {
-      console.warn(`[AiTasteService] DeepSeek API returned status ${response.status}`);
-      return { profile: null };
-    }
-
-    const data = await response.json();
-    const rawContent = data.choices?.[0]?.message?.content || "";
-
-    const usage: AiTasteTokenUsage | undefined = data.usage
-      ? {
-          promptTokens: data.usage.prompt_tokens || 0,
-          completionTokens: data.usage.completion_tokens || 0,
-          totalTokens: data.usage.total_tokens || 0,
-          cacheHitTokens: data.usage.prompt_cache_hit_tokens,
-          cacheMissTokens: data.usage.prompt_cache_miss_tokens,
-        }
-      : undefined;
-
-    let parsed: any = null;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      parsed = JSON.parse(rawContent.trim());
-    } catch {
-      const cleaned = rawContent.replace(/```json\s*|\s*```/gi, "").trim();
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          parsed = JSON.parse(jsonMatch[0]);
-        } catch {
-          // JSON repair or malformed
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), AI_TASTE_TIMEOUT_MS);
+
+      const response = await fetch(targetUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.apiKey}`,
+        },
+        signal: controller.signal,
+        body: requestBody,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.warn(
+          `[AiTasteService] DeepSeek API returned status ${response.status} (attempt ${attempt}/${MAX_ATTEMPTS})`
+        );
+        if (attempt < MAX_ATTEMPTS) {
+          await delay(300);
+          continue;
+        }
+        return { profile: null };
+      }
+
+      const data = await response.json();
+      const choice = data.choices?.[0];
+      const rawContent = choice?.message?.content || "";
+      const finishReason = choice?.finish_reason ?? null;
+      const hasReasoningContent = Boolean(choice?.message?.reasoning_content);
+
+      const usage: AiTasteTokenUsage | undefined = data.usage
+        ? {
+            promptTokens: data.usage.prompt_tokens || 0,
+            completionTokens: data.usage.completion_tokens || 0,
+            totalTokens: data.usage.total_tokens || 0,
+            cacheHitTokens: data.usage.prompt_cache_hit_tokens,
+            cacheMissTokens: data.usage.prompt_cache_miss_tokens,
+          }
+        : undefined;
+
+      let parsed: any = null;
+      let parseSucceeded = false;
+      try {
+        parsed = JSON.parse(rawContent.trim());
+        parseSucceeded = true;
+      } catch {
+        const cleaned = rawContent.replace(/```json\s*|\s*```/gi, "").trim();
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            parsed = JSON.parse(jsonMatch[0]);
+            parseSucceeded = true;
+          } catch {
+            parseSucceeded = false;
+          }
         }
       }
-    }
 
-    if (parsed) {
-      const validProfile = validateAiTasteJson(parsed);
+      let validProfile: AiTasteProfile | null = null;
+      let validationSucceeded = false;
+      if (parsed) {
+        validProfile = validateAiTasteJson(parsed);
+        validationSucceeded = Boolean(validProfile);
+      }
+
       if (validProfile) {
         return { profile: validProfile, tokenUsage: usage };
       }
-    }
 
-    return { profile: null };
-  } catch (err) {
-    console.error("[AiTasteService] Error generating AI Taste Profile:", err);
-    return { profile: null };
+      // Safe diagnostic logging (no API keys, no personal user titles)
+      console.warn(
+        `[AiTasteService] DeepSeek generation failed (attempt ${attempt}/${MAX_ATTEMPTS}):`,
+        {
+          status: response.status,
+          model: config.modelId,
+          finishReason,
+          contentLength: rawContent.length,
+          hasReasoningContent,
+          parseSucceeded,
+          validationSucceeded,
+        }
+      );
+
+      if (attempt < MAX_ATTEMPTS) {
+        await delay(300);
+      }
+    } catch (err) {
+      console.warn(
+        `[AiTasteService] DeepSeek generation error (attempt ${attempt}/${MAX_ATTEMPTS}):`,
+        (err as Error).message
+      );
+      if (attempt < MAX_ATTEMPTS) {
+        await delay(300);
+      }
+    }
   }
+
+  return { profile: null };
 }
 
 /**

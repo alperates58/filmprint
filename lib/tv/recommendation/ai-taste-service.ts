@@ -297,92 +297,160 @@ Respond with STRICT JSON ONLY conforming to the exact schema:
     negativeAnchors,
   });
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), TV_AI_TASTE_TIMEOUT_MS);
+  const MAX_ATTEMPTS = 2;
 
-  try {
-    const res = await fetch(`${deepseekConfig.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${deepseekConfig.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: deepseekConfig.modelId,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-      }),
-      signal: controller.signal,
-    });
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TV_AI_TASTE_TIMEOUT_MS);
 
-    clearTimeout(timeoutId);
-    if (!res.ok) {
-      console.warn(`[TV AI Taste] DeepSeek API returned HTTP ${res.status}`);
-      return { profile: null, fromCache: false };
-    }
-
-    const data = await res.json();
-    const rawContent = data.choices?.[0]?.message?.content;
-    const parsed = rawContent ? JSON.parse(rawContent) : null;
-    const validated = validateTvAiTasteJson(parsed);
-
-    if (!validated) {
-      console.warn("[TV AI Taste] Failed to validate JSON schema from DeepSeek");
-      return { profile: null, fromCache: false };
-    }
-
-    // Embed DNA summary for drift detection
-    const persistedJson = {
-      ...validated,
-      _dnaSummary: {
-        topGenre: tvProfile.genres?.[0]?.name,
-        format: tvProfile.formatPreference?.preference,
-        archetypes: (tvProfile.archetypes || []).filter((a) => a.isPrimary).map((a) => a.id),
-      },
-    };
-
-    // Upsert into UserAiTasteProfile with mediaType = TV
-    await db.userAiTasteProfile.upsert({
-      where: {
-        userId_mediaType: {
-          userId,
-          mediaType: "TV",
+    try {
+      const res = await fetch(`${deepseekConfig.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${deepseekConfig.apiKey}`,
         },
-      },
-      update: {
-        profileVersion,
-        aiTasteVersion: TV_AI_TASTE_SCHEMA_VERSION,
-        model: currentModel,
-        tasteJson: persistedJson as any,
-        sourceEvidenceCount: currentEvidenceCount,
-        inputFingerprint: currentFingerprint,
-      },
-      create: {
-        userId,
-        mediaType: "TV",
-        profileVersion,
-        aiTasteVersion: TV_AI_TASTE_SCHEMA_VERSION,
-        model: currentModel,
-        tasteJson: persistedJson as any,
-        sourceEvidenceCount: currentEvidenceCount,
-        inputFingerprint: currentFingerprint,
-      },
-    });
+        body: JSON.stringify({
+          model: deepseekConfig.modelId,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.2,
+          response_format: { type: "json_object" },
+          thinking: { type: "disabled" },
+          max_tokens: 2000,
+        }),
+        signal: controller.signal,
+      });
 
-    const tokenUsage: TvAiTasteTokenUsage = {
-      promptTokens: data.usage?.prompt_tokens || 0,
-      completionTokens: data.usage?.completion_tokens || 0,
-      totalTokens: data.usage?.total_tokens || 0,
-    };
+      clearTimeout(timeoutId);
+      if (!res.ok) {
+        console.warn(
+          `[TvAiTasteService] DeepSeek API returned HTTP ${res.status} (attempt ${attempt}/${MAX_ATTEMPTS})`
+        );
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise((r) => setTimeout(r, 300));
+          continue;
+        }
+        break;
+      }
 
-    return { profile: validated, tokenUsage, fromCache: false };
-  } catch (err: any) {
-    clearTimeout(timeoutId);
-    console.warn("[TV AI Taste] Error querying DeepSeek for TV Taste Profile:", err.message || err);
-    return { profile: null, fromCache: false };
+      const data = await res.json();
+      const choice = data.choices?.[0];
+      const rawContent = choice?.message?.content || "";
+      const finishReason = choice?.finish_reason ?? null;
+      const hasReasoningContent = Boolean(choice?.message?.reasoning_content);
+
+      let parsed: any = null;
+      let parseSucceeded = false;
+      try {
+        parsed = JSON.parse(rawContent.trim());
+        parseSucceeded = true;
+      } catch {
+        const cleaned = rawContent.replace(/```json\s*|\s*```/gi, "").trim();
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            parsed = JSON.parse(jsonMatch[0]);
+            parseSucceeded = true;
+          } catch {
+            parseSucceeded = false;
+          }
+        }
+      }
+
+      let validated: TvAiTasteProfile | null = null;
+      let validationSucceeded = false;
+      if (parsed) {
+        validated = validateTvAiTasteJson(parsed);
+        validationSucceeded = Boolean(validated);
+      }
+
+      if (validated) {
+        // Embed DNA summary for drift detection
+        const persistedJson = {
+          ...validated,
+          _dnaSummary: {
+            topGenre: tvProfile.genres?.[0]?.name,
+            format: tvProfile.formatPreference?.preference,
+            archetypes: (tvProfile.archetypes || []).filter((a) => a.isPrimary).map((a) => a.id),
+          },
+        };
+
+        // Upsert into UserAiTasteProfile with mediaType = TV
+        await db.userAiTasteProfile.upsert({
+          where: {
+            userId_mediaType: {
+              userId,
+              mediaType: "TV",
+            },
+          },
+          update: {
+            profileVersion,
+            aiTasteVersion: TV_AI_TASTE_SCHEMA_VERSION,
+            model: currentModel,
+            tasteJson: persistedJson as any,
+            sourceEvidenceCount: currentEvidenceCount,
+            inputFingerprint: currentFingerprint,
+          },
+          create: {
+            userId,
+            mediaType: "TV",
+            profileVersion,
+            aiTasteVersion: TV_AI_TASTE_SCHEMA_VERSION,
+            model: currentModel,
+            tasteJson: persistedJson as any,
+            sourceEvidenceCount: currentEvidenceCount,
+            inputFingerprint: currentFingerprint,
+          },
+        });
+
+        const tokenUsage: TvAiTasteTokenUsage = {
+          promptTokens: data.usage?.prompt_tokens || 0,
+          completionTokens: data.usage?.completion_tokens || 0,
+          totalTokens: data.usage?.total_tokens || 0,
+        };
+
+        return { profile: validated, tokenUsage, fromCache: false };
+      }
+
+      // Safe diagnostic logging
+      console.warn(
+        `[TvAiTasteService] DeepSeek generation failed (attempt ${attempt}/${MAX_ATTEMPTS}):`,
+        {
+          status: res.status,
+          model: currentModel,
+          finishReason,
+          contentLength: rawContent.length,
+          hasReasoningContent,
+          parseSucceeded,
+          validationSucceeded,
+        }
+      );
+
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      console.warn(
+        `[TvAiTasteService] Error querying DeepSeek for TV Taste Profile (attempt ${attempt}/${MAX_ATTEMPTS}):`,
+        err.message || err
+      );
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    }
   }
+
+  // Fallback: If generation failed, return previous cached profile if valid
+  if (cached) {
+    const previousValidated = validateTvAiTasteJson(cached.tasteJson);
+    if (previousValidated) {
+      return { profile: previousValidated, fromCache: true };
+    }
+  }
+
+  return { profile: null, fromCache: false };
 }

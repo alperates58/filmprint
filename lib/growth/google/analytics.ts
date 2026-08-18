@@ -21,40 +21,91 @@ export interface GaDataStream {
   measurementId?: string;
 }
 
+export interface Ga4AccountsListResult {
+  accounts: GaAccountSummary[];
+  status: "READY" | "EMPTY" | "API_DISABLED" | "UNAUTHENTICATED" | "ERROR";
+  error?: string;
+}
+
 /**
  * Lists GA4 accounts and properties accessible to the authorized Google Growth account.
+ * Never throws on API_DISABLED or EMPTY accounts; returns structured status.
  */
-export async function listGa4AccountSummaries(): Promise<GaAccountSummary[]> {
+export async function listGa4AccountSummaries(): Promise<Ga4AccountsListResult> {
   const token = await getGoogleGrowthAccessToken();
   if (!token) {
-    throw new Error("Google yetkilendirmesi bulunamadı veya süresi doldu.");
+    return {
+      accounts: [],
+      status: "UNAUTHENTICATED",
+      error: "Google yetkilendirmesi bulunamadı veya süresi doldu.",
+    };
   }
 
-  const response = await fetch("https://analyticsadmin.googleapis.com/v1beta/accountSummaries", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
+  try {
+    const response = await fetch("https://analyticsadmin.googleapis.com/v1beta/accountSummaries", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`GA4 hesap listesi alınamadı: ${errorText}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      const isApiDisabled =
+        response.status === 403 &&
+        (errorText.includes("SERVICE_DISABLED") ||
+          errorText.includes("has not been used") ||
+          errorText.includes("Analytics Admin API has not been used"));
+
+      if (isApiDisabled) {
+        return {
+          accounts: [],
+          status: "API_DISABLED",
+          error: "Google Analytics Admin API etkinleştirilmemiş. Google Cloud Console'dan 'Google Analytics Admin API' etkinleştirilmelidir.",
+        };
+      }
+
+      if (response.status === 404 || response.status === 403) {
+        return {
+          accounts: [],
+          status: "EMPTY",
+          error: "Erişilebilir GA4 hesabı veya mülkü bulunamadı.",
+        };
+      }
+
+      return {
+        accounts: [],
+        status: "ERROR",
+        error: `Google Analytics API hatası (${response.status})`,
+      };
+    }
+
+    const data = await response.json();
+    const rawSummaries = data.accountSummaries || [];
+
+    const accounts: GaAccountSummary[] = rawSummaries.map((acc: any) => ({
+      id: acc.account,
+      name: acc.name,
+      displayName: acc.displayName || acc.account,
+      propertySummaries: (acc.propertySummaries || []).map((p: any) => ({
+        property: p.property,
+        displayName: p.displayName,
+        propertyType: p.propertyType,
+      })),
+    }));
+
+    return {
+      accounts,
+      status: accounts.length > 0 ? "READY" : "EMPTY",
+    };
+  } catch (err: any) {
+    console.error("[listGa4AccountSummaries] Fetch error:", err);
+    return {
+      accounts: [],
+      status: "ERROR",
+      error: err?.message || "GA4 hesapları sorgulanamadı.",
+    };
   }
-
-  const data = await response.json();
-  const rawSummaries = data.accountSummaries || [];
-
-  return rawSummaries.map((acc: any) => ({
-    id: acc.account,
-    name: acc.name,
-    displayName: acc.displayName || acc.account,
-    propertySummaries: (acc.propertySummaries || []).map((p: any) => ({
-      property: p.property,
-      displayName: p.displayName,
-      propertyType: p.propertyType,
-    })),
-  }));
 }
 
 /**

@@ -39,23 +39,30 @@ export default function AdminGrowthPage() {
   const [diagnosticsReport, setDiagnosticsReport] = useState<any>(null);
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
 
-  // Google State
+  // Google State & Independent Capabilities
   const [googleAccounts, setGoogleAccounts] = useState<any[]>([]);
   const [selectedGaProperty, setSelectedGaProperty] = useState("");
+  const [selectedGaPropertyName, setSelectedGaPropertyName] = useState("");
   const [gaMeasurementId, setGaMeasurementId] = useState("");
   const [gaTrackingEnabled, setGaTrackingEnabled] = useState(false);
   const [isSavingGa, setIsSavingGa] = useState(false);
+  const [gaStatus, setGaStatus] = useState<"IDLE" | "LOADING" | "READY" | "EMPTY" | "API_DISABLED" | "ERROR">("IDLE");
+  const [gaError, setGaError] = useState<string | null>(null);
 
   const [gscSites, setGscSites] = useState<any[]>([]);
   const [selectedGscSite, setSelectedGscSite] = useState("");
   const [gscAnalytics, setGscAnalytics] = useState<any>(null);
   const [isSubmittingGscSitemap, setIsSubmittingGscSitemap] = useState(false);
+  const [gscStatus, setGscStatus] = useState<"IDLE" | "LOADING" | "READY" | "EMPTY" | "API_DISABLED" | "ERROR">("IDLE");
+  const [gscError, setGscError] = useState<string | null>(null);
 
   const [inspectUrl, setInspectUrl] = useState("");
   const [inspectResult, setInspectResult] = useState<any>(null);
   const [isInspectingUrl, setIsInspectingUrl] = useState(false);
 
   const [adsenseHealth, setAdsenseHealth] = useState<any>(null);
+  const [adsenseStatus, setAdsenseStatus] = useState<"IDLE" | "LOADING" | "READY" | "EMPTY" | "ERROR">("IDLE");
+  const [adsenseError, setAdsenseError] = useState<string | null>(null);
 
   // Bing State
   const [bingData, setBingData] = useState<any>(null);
@@ -116,28 +123,78 @@ export default function AdminGrowthPage() {
   }, []);
 
   const fetchGoogleDetails = useCallback(async () => {
-    try {
-      const [gaRes, gscRes, adsenseRes] = await Promise.all([
-        fetch("/api/admin/growth/google/analytics"),
-        fetch("/api/admin/growth/google/search-console"),
-        fetch("/api/admin/growth/google/adsense"),
-      ]);
+    setGaStatus("LOADING");
+    setGscStatus("LOADING");
+    setAdsenseStatus("LOADING");
+    setGaError(null);
+    setGscError(null);
+    setAdsenseError(null);
 
-      if (gaRes.ok) {
-        const gaData = await gaRes.json();
-        setGoogleAccounts(gaData.accounts || []);
-      }
-      if (gscRes.ok) {
-        const gscData = await gscRes.json();
-        setGscSites(gscData.sites || []);
-      }
-      if (adsenseRes.ok) {
-        const adsData = await adsenseRes.json();
-        setAdsenseHealth(adsData);
-      }
-    } catch (e) {
-      console.error(e);
-    }
+    // 1. Fetch GA4 independently
+    fetch("/api/admin/growth/google/analytics")
+      .then(async (res) => {
+        const data = await res.json();
+        if (data.accounts) {
+          setGoogleAccounts(data.accounts || []);
+          setGaStatus(data.status || (data.accounts.length > 0 ? "READY" : "EMPTY"));
+          setGaError(data.error || null);
+        } else {
+          setGaStatus(data.status || "ERROR");
+          setGaError(data.error || "GA4 hesapları alınamadı");
+        }
+      })
+      .catch((err) => {
+        setGaStatus("ERROR");
+        setGaError(err?.message || "GA4 bağlantı hatası");
+      });
+
+    // 2. Fetch Search Console independently
+    fetch("/api/admin/growth/google/search-console")
+      .then(async (res) => {
+        const data = await res.json();
+        if (data.sites) {
+          setGscSites(data.sites || []);
+          setGscStatus(data.status || (data.sites.length > 0 ? "READY" : "EMPTY"));
+          setGscError(data.error || null);
+
+          if (data.selectedSite) {
+            setSelectedGscSite(data.selectedSite);
+          } else if (data.sites.length > 0) {
+            // Auto-select exact sineai domain property
+            const exactSineai = data.sites.find(
+              (s: any) => s.siteUrl === "sc-domain:sineai.com.tr" || s.siteUrl.includes("sineai.com.tr")
+            );
+            if (exactSineai) {
+              setSelectedGscSite(exactSineai.siteUrl);
+            }
+          }
+        } else {
+          setGscStatus(data.status || "ERROR");
+          setGscError(data.error || "Search Console mülkleri alınamadı");
+        }
+      })
+      .catch((err) => {
+        setGscStatus("ERROR");
+        setGscError(err?.message || "Search Console bağlantı hatası");
+      });
+
+    // 3. Fetch AdSense independently
+    fetch("/api/admin/growth/google/adsense")
+      .then(async (res) => {
+        const data = await res.json();
+        if (res.ok) {
+          setAdsenseHealth(data);
+          setAdsenseStatus(data.isAvailable ? "READY" : "EMPTY");
+          setAdsenseError(data.message || null);
+        } else {
+          setAdsenseStatus("ERROR");
+          setAdsenseError(data.error || "AdSense verileri alınamadı");
+        }
+      })
+      .catch((err) => {
+        setAdsenseStatus("ERROR");
+        setAdsenseError(err?.message || "AdSense bağlantı hatası");
+      });
   }, []);
 
   const fetchBingDetails = useCallback(async () => {
@@ -200,7 +257,7 @@ export default function AdminGrowthPage() {
     loadAllData();
   }, [loadAllData]);
 
-  // Check URL parameters for OAuth status / error
+  // Check URL parameters for OAuth status / error & auto-trigger refresh
   useEffect(() => {
     if (typeof window === "undefined") return;
     const urlParams = new URLSearchParams(window.location.search);
@@ -214,7 +271,8 @@ export default function AdminGrowthPage() {
     }
 
     if (status === "connected") {
-      setStatusMsg({ type: "success", text: "Entegrasyon bağlantısı başarıyla kuruldu." });
+      setStatusMsg({ type: "success", text: "Google entegrasyon bağlantısı başarıyla kuruldu. Servisler güncelleniyor..." });
+      loadAllData();
     }
 
     if (error || errorCode) {
@@ -227,7 +285,7 @@ export default function AdminGrowthPage() {
         text: error || "Yetkilendirme sırasında bir hata oluştu.",
       });
     }
-  }, []);
+  }, [loadAllData]);
 
   // Handle OAuth Connect
   const handleConnectGoogle = async () => {
@@ -328,9 +386,10 @@ export default function AdminGrowthPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          gaPropertyId: selectedGaProperty || undefined,
+          propertyId: selectedGaProperty || undefined,
+          propertyName: selectedGaPropertyName || selectedGaProperty || undefined,
           measurementId: gaMeasurementId.trim() || undefined,
-          enabled: gaTrackingEnabled,
+          trackingEnabled: gaTrackingEnabled,
         }),
       });
       if (res.ok) {
@@ -515,7 +574,7 @@ export default function AdminGrowthPage() {
     try {
       const merged = { ...(seoConfig || {}), ...newConfig };
       const res = await fetch("/api/admin/growth/seo", {
-        method: "POST",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ config: merged }),
       });
@@ -583,7 +642,7 @@ export default function AdminGrowthPage() {
         yandexVerificationMeta: yandexMetaTag.trim() || undefined,
       };
       const res = await fetch("/api/admin/growth/seo", {
-        method: "POST",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ config: merged }),
       });
@@ -1408,6 +1467,45 @@ export default function AdminGrowthPage() {
                         <span>Adım 3: Servis Keşfi & Mülk Yönetimi</span>
                       </div>
 
+                      {/* Google Capability Preflight / Health Status */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                        <div className="p-3 bg-black/40 border border-zinc-800/80 rounded-lg space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-zinc-300">Search Console API</span>
+                            <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${gscStatus === "READY" ? "bg-emerald-950/60 text-emerald-300 border border-emerald-500/30" : gscStatus === "API_DISABLED" ? "bg-amber-950/60 text-amber-300 border border-amber-500/30" : gscStatus === "LOADING" ? "bg-blue-950/60 text-blue-300" : "bg-zinc-800 text-zinc-400"}`}>
+                              {gscStatus === "READY" ? "HAZIR ✓" : gscStatus === "API_DISABLED" ? "API KAPALI" : gscStatus === "LOADING" ? "YÜKLENİYOR" : "BEKLEMEDE"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-zinc-500 truncate">
+                            {selectedGscSite || overview?.providers?.google?.gscProperty ? `Mülk: ${selectedGscSite || overview?.providers?.google?.gscProperty}` : "Mülk seçimi bekleniyor"}
+                          </p>
+                        </div>
+
+                        <div className="p-3 bg-black/40 border border-zinc-800/80 rounded-lg space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-zinc-300">Analytics Admin API</span>
+                            <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${gaStatus === "READY" ? "bg-emerald-950/60 text-emerald-300 border border-emerald-500/30" : gaStatus === "API_DISABLED" ? "bg-amber-950/60 text-amber-300 border border-amber-500/30" : gaStatus === "LOADING" ? "bg-blue-950/60 text-blue-300" : "bg-zinc-800 text-zinc-400"}`}>
+                              {gaStatus === "READY" ? "HAZIR ✓" : gaStatus === "API_DISABLED" ? "API KAPALI" : gaStatus === "LOADING" ? "YÜKLENİYOR" : "YAPILANDIRILMAMIŞ"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-zinc-500 truncate">
+                            {gaMeasurementId || seoConfig?.gaMeasurementId ? `ID: ${gaMeasurementId || seoConfig?.gaMeasurementId}` : "Measurement ID tanımlanmadı"}
+                          </p>
+                        </div>
+
+                        <div className="p-3 bg-black/40 border border-zinc-800/80 rounded-lg space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-zinc-300">AdSense API</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                              {adsenseHealth?.account ? "HESAP BAĞLI" : "HESAP YOK (OPSİYONEL)"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-zinc-500">
+                            Reklamlar Kilitli (Phase I-D)
+                          </p>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Search Console Card */}
                         <div className="bg-black/40 border border-zinc-800 rounded-lg p-4 space-y-4">
@@ -1419,22 +1517,51 @@ export default function AdminGrowthPage() {
                               </span>
                             ) : (
                               <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
-                                URL-Prefix Property
+                                {overview?.providers?.google?.gscProperty ? "Bağlı Mülk" : "Mülk Seçilmedi"}
                               </span>
                             )}
                           </div>
 
+                          {gscStatus === "API_DISABLED" && (
+                            <div className="p-3 rounded bg-amber-950/30 border border-amber-800/50 text-amber-300 text-xs space-y-1">
+                              <div className="font-semibold">Google Search Console API Etkinleştirilmemiş</div>
+                              <p className="text-[11px] text-amber-200/80">
+                                Google Cloud Console projenizde <b>Google Search Console API</b> servisini etkinleştirmeniz gerekmektedir.
+                              </p>
+                            </div>
+                          )}
+
+                          {gscStatus === "ERROR" && gscError && (
+                            <div className="p-3 rounded bg-rose-950/30 border border-rose-800/50 text-rose-300 text-xs">
+                              {gscError}
+                            </div>
+                          )}
+
+                          {gscStatus === "EMPTY" && (
+                            <div className="p-3 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs">
+                              Bu Google hesabında doğrulanmış bir Search Console mülkü bulunamadı.
+                            </div>
+                          )}
+
                           <div className="space-y-2">
-                            <label className="text-xs text-zinc-400">Doğrulanmış Mülk Seçin:</label>
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs text-zinc-400">Doğrulanmış Mülk:</label>
+                              <button
+                                onClick={fetchGoogleDetails}
+                                className="text-[11px] text-amber-400 hover:underline"
+                              >
+                                Yenile ↻
+                              </button>
+                            </div>
                             <select
                               value={selectedGscSite || overview?.providers?.google?.gscProperty || ""}
                               onChange={(e) => handleSelectGscSite(e.target.value)}
                               className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 font-mono focus:outline-none focus:border-amber-500"
                             >
-                              <option value="">-- Mülk Seçin --</option>
+                              <option value="">-- Search Console Mülkü Seçin --</option>
                               {gscSites.map((site, i) => (
                                 <option key={i} value={site.siteUrl}>
-                                  {site.siteUrl} ({site.permissionLevel})
+                                  {site.siteUrl} ({site.permissionLevel || "Erişim Var"})
                                 </option>
                               ))}
                             </select>
@@ -1497,19 +1624,46 @@ export default function AdminGrowthPage() {
                             )}
                           </div>
 
+                          {gaStatus === "API_DISABLED" && (
+                            <div className="p-3 rounded bg-amber-950/30 border border-amber-800/50 text-amber-300 text-xs space-y-1">
+                              <div className="font-semibold">Google Analytics Admin API Etkinleştirilmemiş</div>
+                              <p className="text-[11px] text-amber-200/80">
+                                Google Cloud Console projenizde <b>Google Analytics Admin API</b> servisini etkinleştirebilir veya Measurement ID'yi aşağıya manuel girebilirsiniz.
+                              </p>
+                            </div>
+                          )}
+
+                          {gaStatus === "ERROR" && gaError && (
+                            <div className="p-3 rounded bg-rose-950/30 border border-rose-800/50 text-rose-300 text-xs">
+                              {gaError}
+                            </div>
+                          )}
+
+                          {gaStatus === "EMPTY" && (
+                            <div className="p-3 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs">
+                              Bu hesapta GA4 mülkü bulunamadı. Measurement ID'yi doğrudan girebilirsiniz.
+                            </div>
+                          )}
+
                           <div className="space-y-2">
                             <label className="text-xs text-zinc-400">GA4 Hesabı / Mülkü:</label>
                             <select
                               value={selectedGaProperty}
-                              onChange={(e) => setSelectedGaProperty(e.target.value)}
+                              onChange={(e) => {
+                                setSelectedGaProperty(e.target.value);
+                                const selectedOpt = e.target.options[e.target.selectedIndex];
+                                if (selectedOpt) {
+                                  setSelectedGaPropertyName(selectedOpt.text);
+                                }
+                              }}
                               className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 font-mono focus:outline-none focus:border-amber-500"
                             >
-                              <option value="">-- GA4 Mülkü Seçin --</option>
+                              <option value="">-- GA4 Mülkü Seçin (Opsiyonel) --</option>
                               {googleAccounts.map((acc, i) => (
-                                <optgroup key={i} label={acc.displayName}>
-                                  {(acc.properties || []).map((prop: any, j: number) => (
-                                    <option key={j} value={prop.name}>
-                                      {prop.displayName} ({prop.propertyId})
+                                <optgroup key={i} label={acc.displayName || acc.name}>
+                                  {(acc.propertySummaries || acc.properties || []).map((prop: any, j: number) => (
+                                    <option key={j} value={prop.property || prop.name}>
+                                      {prop.displayName} ({prop.property || prop.name})
                                     </option>
                                   ))}
                                 </optgroup>

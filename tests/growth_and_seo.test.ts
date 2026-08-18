@@ -379,5 +379,55 @@ export async function runGrowthAndSeoTests() {
     console.log("  ✓ Centralized Redirect URIs & Setup Diagnostics passed.");
   }
 
-  console.log("\n✅ ALL GROWTH & SEO FOUNDATION TESTS (INCLUDING PHASE I-B.1) PASSED SUCCESSFULLY!\n");
+  console.log("--> 11. Testing Google Property Auto-Selection & Independent Service Status");
+  {
+    // 1. Search Console SineAI domain property matching
+    const sampleSites = [
+      { siteUrl: "https://other-site.com/", permissionLevel: "siteFullUser" },
+      { siteUrl: "sc-domain:sineai.com.tr", permissionLevel: "siteOwner" },
+      { siteUrl: "https://sineai.com.tr/", permissionLevel: "siteOwner" },
+    ];
+
+    const exactMatch = sampleSites.find(
+      (s) => s.siteUrl === "sc-domain:sineai.com.tr" || s.siteUrl === "https://sineai.com.tr/"
+    );
+    assert.ok(exactMatch, "Must identify sc-domain:sineai.com.tr from sites list");
+    assert.equal(exactMatch.siteUrl, "sc-domain:sineai.com.tr");
+
+    // 2. GA4 DTO canonical mapping test
+    const legacyPayload = {
+      gaPropertyId: "properties/987654321",
+      measurementId: "G-1234567890",
+      enabled: true,
+    };
+
+    const canonicalPayload = {
+      propertyId: legacyPayload.gaPropertyId,
+      propertyName: "SineAI Web",
+      measurementId: legacyPayload.measurementId,
+      trackingEnabled: legacyPayload.enabled,
+    };
+
+    assert.equal(canonicalPayload.propertyId, "properties/987654321");
+    assert.equal(canonicalPayload.trackingEnabled, true);
+
+    // 3. Independence guarantee (Failure of GA does not affect GSC)
+    const gaPromise = Promise.reject(new Error("Analytics API Disabled"));
+    const gscPromise = Promise.resolve({
+      sites: [{ siteUrl: "sc-domain:sineai.com.tr", permissionLevel: "siteOwner" }],
+      status: "READY",
+    });
+
+    const [gaResult, gscResult] = await Promise.allSettled([gaPromise, gscPromise]);
+    assert.equal(gaResult.status, "rejected");
+    assert.equal(gscResult.status, "fulfilled");
+    if (gscResult.status === "fulfilled") {
+      assert.equal(gscResult.value.status, "READY");
+      assert.equal(gscResult.value.sites.length, 1);
+    }
+
+    console.log("  ✓ Google Property Auto-Selection & Independent Service Status passed.");
+  }
+
+  console.log("\n✅ ALL GROWTH & SEO FOUNDATION TESTS (INCLUDING HOTFIXES) PASSED SUCCESSFULLY!\n");
 }

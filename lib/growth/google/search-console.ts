@@ -41,31 +41,84 @@ export interface GscAnalyticsSummary {
   topPages: { page: string; clicks: number; impressions: number; ctr: number; position: number }[];
 }
 
+export interface GscSitesListResult {
+  sites: GscSiteProperty[];
+  status: "READY" | "EMPTY" | "API_DISABLED" | "UNAUTHENTICATED" | "ERROR";
+  error?: string;
+}
+
 /**
  * Lists Search Console verified site properties.
+ * Returns structured status and never crashes on disabled API or empty property sets.
  */
-export async function listSearchConsoleSites(): Promise<GscSiteProperty[]> {
+export async function listSearchConsoleSites(): Promise<GscSitesListResult> {
   const token = await getGoogleGrowthAccessToken();
   if (!token) {
-    throw new Error("Google yetkilendirmesi bulunamadı.");
+    return {
+      sites: [],
+      status: "UNAUTHENTICATED",
+      error: "Google yetkilendirmesi bulunamadı veya süresi doldu.",
+    };
   }
 
-  const response = await fetch("https://www.googleapis.com/webmasters/v3/sites", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    const response = await fetch("https://www.googleapis.com/webmasters/v3/sites", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Search Console siteleri alınamadı: ${errorText}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      const isApiDisabled =
+        response.status === 403 &&
+        (errorText.includes("SERVICE_DISABLED") ||
+          errorText.includes("has not been used") ||
+          errorText.includes("Search Console API has not been used") ||
+          errorText.includes("Google Search Console API has not been used") ||
+          errorText.includes("accessNotConfigured"));
+
+      if (isApiDisabled) {
+        return {
+          sites: [],
+          status: "API_DISABLED",
+          error: "Google Search Console API etkinleştirilmemiş. Google Cloud Console'dan 'Google Search Console API' etkinleştirilmelidir.",
+        };
+      }
+
+      if (response.status === 403 || response.status === 404) {
+        return {
+          sites: [],
+          status: "EMPTY",
+          error: "Bu Google hesabında erişilebilir Search Console mülkü bulunamadı.",
+        };
+      }
+
+      return {
+        sites: [],
+        status: "ERROR",
+        error: `Search Console API hatası (${response.status})`,
+      };
+    }
+
+    const data = await response.json();
+    const entries = data.siteEntry || [];
+
+    const sites: GscSiteProperty[] = entries.map((e: any) => ({
+      siteUrl: e.siteUrl,
+      permissionLevel: e.permissionLevel || "siteOwner",
+    }));
+
+    return {
+      sites,
+      status: sites.length > 0 ? "READY" : "EMPTY",
+    };
+  } catch (err: any) {
+    console.error("[listSearchConsoleSites] Fetch error:", err);
+    return {
+      sites: [],
+      status: "ERROR",
+      error: err?.message || "Search Console mülkleri sorgulanamadı.",
+    };
   }
-
-  const data = await response.json();
-  const entries = data.siteEntry || [];
-
-  return entries.map((e: any) => ({
-    siteUrl: e.siteUrl,
-    permissionLevel: e.permissionLevel,
-  }));
 }
 
 /**

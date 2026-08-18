@@ -10,17 +10,24 @@ export async function GET(request: Request) {
 
     if (propertyId) {
       const streams = await listGa4DataStreams(propertyId);
-      return NextResponse.json({ streams });
+      return NextResponse.json({ streams, status: "READY" });
     }
 
-    const accounts = await listGa4AccountSummaries();
-    return NextResponse.json({ accounts });
+    const result = await listGa4AccountSummaries();
+    return NextResponse.json(result);
   } catch (error: any) {
     if (error?.message === "UNAUTHORIZED_ADMIN") {
       return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
     }
     console.error("[GET /api/admin/growth/google/analytics] Error:", error);
-    return NextResponse.json({ error: error?.message || "GA4 hesapları alınamadı" }, { status: 500 });
+    return NextResponse.json(
+      {
+        accounts: [],
+        status: "ERROR",
+        error: error?.message || "GA4 hesapları alınamadı",
+      },
+      { status: 200 }
+    );
   }
 }
 
@@ -29,29 +36,41 @@ export async function POST(request: Request) {
     const session = await requireAdminSession();
     const body = await request.json();
 
-    const { propertyId, propertyName, measurementId, trackingEnabled } = body;
-    if (!propertyId) {
-      return NextResponse.json({ error: "Mülk ID zorunludur" }, { status: 400 });
+    // Canonical DTO with legacy fallback
+    const propertyId = body.propertyId || body.gaPropertyId;
+    const propertyName = body.propertyName || body.gaPropertyName || propertyId;
+    const measurementId = body.measurementId;
+    const trackingEnabled =
+      body.trackingEnabled !== undefined
+        ? body.trackingEnabled
+        : body.enabled !== undefined
+        ? body.enabled
+        : true;
+
+    if (!propertyId && !measurementId && trackingEnabled === undefined) {
+      return NextResponse.json({ error: "En az bir ayar (mülk ID, measurement ID veya izleme durumu) belirtilmelidir" }, { status: 400 });
     }
 
-    await selectGa4Property({
-      propertyId,
-      propertyName: propertyName || propertyId,
-      measurementId,
-      trackingEnabled,
-    });
+    if (propertyId) {
+      await selectGa4Property({
+        propertyId,
+        propertyName,
+        measurementId,
+        trackingEnabled,
+      });
 
-    await logAdminAudit(
-      session.id,
-      "GROWTH_GA_PROPERTY_CHANGED",
-      "GoogleAnalytics",
-      propertyId,
-      { propertyName, measurementId, trackingEnabled }
-    );
+      await logAdminAudit(
+        session.id,
+        "GROWTH_GA_PROPERTY_CHANGED",
+        "GoogleAnalytics",
+        propertyId,
+        { propertyName, measurementId, trackingEnabled }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Google Analytics 4 mülk seçimi kaydedildi.",
+      message: "Google Analytics 4 ayarları kaydedildi.",
     });
   } catch (error: any) {
     if (error?.message === "UNAUTHORIZED_ADMIN") {

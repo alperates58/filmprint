@@ -20,19 +20,20 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: Request) {
+async function handleUpdateSeoConfig(request: Request) {
   try {
     const session = await requireAdminSession();
     const body = await request.json();
 
-    await saveSeoSystemConfig(body);
+    const updates = (body && typeof body === "object" && "config" in body && body.config) ? body.config : body;
+    await saveSeoSystemConfig(updates);
 
     await logAdminAudit(
       session.id,
       "GROWTH_SEO_SETTINGS_UPDATED",
       "SeoSystemConfig",
       "global",
-      body
+      updates
     );
 
     const updatedConfig = await getSeoSystemConfig();
@@ -47,4 +48,12 @@ export async function PUT(request: Request) {
     }
     return NextResponse.json({ error: "Güncelleme sırasında hata oluştu" }, { status: 500 });
   }
+}
+
+export async function PUT(request: Request) {
+  return handleUpdateSeoConfig(request);
+}
+
+export async function POST(request: Request) {
+  return handleUpdateSeoConfig(request);
 }

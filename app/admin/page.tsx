@@ -7,6 +7,8 @@ import { getAdminSession } from "@/lib/admin/auth";
 import { redirect } from "next/navigation";
 import { getAdminOverviewData } from "@/lib/admin/data";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminOverviewPage() {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");

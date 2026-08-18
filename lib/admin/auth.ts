@@ -115,8 +115,6 @@ export async function logoutAdmin(): Promise<void> {
  * Validates current request admin session.
  */
 export async function getAdminSession(): Promise<AdminUserSessionData | null> {
-  await bootstrapInitialAdmin();
-
   const cookieStore = await cookies();
   const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
 

@@ -6,6 +6,8 @@ import { getAdminSession } from "@/lib/admin/auth";
 import { redirect } from "next/navigation";
 import { getAdminUsersData } from "@/lib/admin/data";
 
+export const dynamic = "force-dynamic";
+
 interface AdminUsersPageProps {
   searchParams: Promise<{ q?: string; page?: string }>;
 }

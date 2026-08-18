@@ -6,6 +6,8 @@ import { getAdminSession } from "@/lib/admin/auth";
 import { redirect } from "next/navigation";
 import { getAdminUserDetailData } from "@/lib/admin/data";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminUserDetailPage({
   params,
 }: {

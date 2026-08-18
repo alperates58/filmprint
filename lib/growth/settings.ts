@@ -19,9 +19,23 @@ export const DEFAULT_SEO_CONFIG: SeoSystemConfig = {
 };
 
 /**
+ * Safe guard for Next.js build phase or isolated environment without DATABASE_URL.
+ */
+export function isBuildPhaseOrDbUnavailable(): boolean {
+  return (
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    (!process.env.DATABASE_URL?.trim() && process.env.NODE_ENV !== "test")
+  );
+}
+
+/**
  * Loads current SEO & Growth system settings from PostgreSQL.
  */
 export async function getSeoSystemConfig(): Promise<SeoSystemConfig> {
+  if (isBuildPhaseOrDbUnavailable()) {
+    return DEFAULT_SEO_CONFIG;
+  }
+
   try {
     const records = await db.systemSetting.findMany({
       where: {

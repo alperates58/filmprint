@@ -242,55 +242,86 @@ export function validateHybridWeights(matchWeight: number, aiWeight: number): { 
   return { matchWeight: clampedMatch, aiWeight: clampedAi };
 }
 
+export const DEFAULT_SYSTEM_SETTINGS = {
+  calibrationTarget: 30,
+  queuePreloadCount: 5,
+  aiEnabled: true,
+  activeLearningEnabled: true,
+  recentHistoryWindow: 10,
+  recommendationsEnabled: true,
+  aiExplanationsEnabled: true,
+  hybridRerankEnabled: false,
+  hybridMatchWeight: 55,
+  hybridAiWeight: 45,
+  aiTasteRefreshEvidenceCount: 25,
+  aiRerankShortlistSize: 50,
+  tvHybridRerankEnabled: false,
+  tvHybridMatchWeight: 60,
+  tvHybridAiWeight: 40,
+  tvAiTasteRefreshEvidenceCount: 25,
+  tvAiRerankShortlistSize: 50,
+};
+
 /**
  * System Settings Resolution (e.g. calibrationTarget, queuePreloadCount, aiEnabled, activeLearningEnabled, recommendationsEnabled, aiExplanationsEnabled, hybrid recommendation settings).
  */
 export async function getSystemSettings() {
-  const settings = await db.systemSetting.findMany();
-  const settingsMap = new Map<string, string>(settings.map((s: any) => [s.key, String(s.value)]));
+  if (
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    (!process.env.DATABASE_URL?.trim() && process.env.NODE_ENV !== "test")
+  ) {
+    return DEFAULT_SYSTEM_SETTINGS;
+  }
 
-  const rawMatchWeight = parseInt(settingsMap.get("hybrid_match_weight") || "55", 10);
-  const rawAiWeight = parseInt(settingsMap.get("hybrid_ai_weight") || "45", 10);
-  const { matchWeight, aiWeight } = validateHybridWeights(rawMatchWeight, rawAiWeight);
+  try {
+    const settings = await db.systemSetting.findMany();
+    const settingsMap = new Map<string, string>(settings.map((s: any) => [s.key, String(s.value)]));
 
-  const rawRefresh = parseInt(settingsMap.get("ai_taste_refresh_evidence_count") || "25", 10);
-  const aiTasteRefreshEvidenceCount = Math.max(10, Math.min(100, isNaN(rawRefresh) ? 25 : rawRefresh));
+    const rawMatchWeight = parseInt(settingsMap.get("hybrid_match_weight") || "55", 10);
+    const rawAiWeight = parseInt(settingsMap.get("hybrid_ai_weight") || "45", 10);
+    const { matchWeight, aiWeight } = validateHybridWeights(rawMatchWeight, rawAiWeight);
 
-  const rawShortlist = parseInt(settingsMap.get("ai_rerank_shortlist_size") || "50", 10);
-  const aiRerankShortlistSize = Math.max(40, Math.min(60, isNaN(rawShortlist) ? 50 : rawShortlist));
+    const rawRefresh = parseInt(settingsMap.get("ai_taste_refresh_evidence_count") || "25", 10);
+    const aiTasteRefreshEvidenceCount = Math.max(10, Math.min(100, isNaN(rawRefresh) ? 25 : rawRefresh));
 
-  // TV Hybrid Recommendation Settings
-  const rawTvMatch = parseInt(settingsMap.get("tv_hybrid_match_weight") || "60", 10);
-  const rawTvAi = parseInt(settingsMap.get("tv_hybrid_ai_weight") || "40", 10);
-  const { matchWeight: tvMatchWeight, aiWeight: tvAiWeight } = validateHybridWeights(rawTvMatch, rawTvAi);
+    const rawShortlist = parseInt(settingsMap.get("ai_rerank_shortlist_size") || "50", 10);
+    const aiRerankShortlistSize = Math.max(40, Math.min(60, isNaN(rawShortlist) ? 50 : rawShortlist));
 
-  const rawTvRefresh = parseInt(settingsMap.get("tv_ai_taste_refresh_evidence_count") || "25", 10);
-  const tvAiTasteRefreshEvidenceCount = Math.max(10, Math.min(100, isNaN(rawTvRefresh) ? 25 : rawTvRefresh));
+    // TV Hybrid Recommendation Settings
+    const rawTvMatch = parseInt(settingsMap.get("tv_hybrid_match_weight") || "60", 10);
+    const rawTvAi = parseInt(settingsMap.get("tv_hybrid_ai_weight") || "40", 10);
+    const { matchWeight: tvMatchWeight, aiWeight: tvAiWeight } = validateHybridWeights(rawTvMatch, rawTvAi);
 
-  const rawTvShortlist = parseInt(settingsMap.get("tv_ai_rerank_shortlist_size") || "50", 10);
-  const tvAiRerankShortlistSize = Math.max(40, Math.min(60, isNaN(rawTvShortlist) ? 50 : rawTvShortlist));
+    const rawTvRefresh = parseInt(settingsMap.get("tv_ai_taste_refresh_evidence_count") || "25", 10);
+    const tvAiTasteRefreshEvidenceCount = Math.max(10, Math.min(100, isNaN(rawTvRefresh) ? 25 : rawTvRefresh));
 
-  return {
-    calibrationTarget: parseInt(settingsMap.get("calibration_target") || "30", 10),
-    queuePreloadCount: parseInt(settingsMap.get("queue_preload_count") || "5", 10),
-    aiEnabled: settingsMap.get("ai_enabled") !== "false",
-    activeLearningEnabled: settingsMap.get("active_learning_enabled") !== "false",
-    recentHistoryWindow: parseInt(settingsMap.get("recent_history_window") || "10", 10),
-    recommendationsEnabled: settingsMap.get("recommendations_enabled") !== "false",
-    aiExplanationsEnabled: settingsMap.get("ai_explanations_enabled") !== "false",
-    // Film Hybrid Settings
-    hybridRerankEnabled: settingsMap.get("hybrid_rerank_enabled") === "true",
-    hybridMatchWeight: matchWeight,
-    hybridAiWeight: aiWeight,
-    aiTasteRefreshEvidenceCount,
-    aiRerankShortlistSize,
-    // TV Hybrid Settings
-    tvHybridRerankEnabled: settingsMap.get("tv_hybrid_rerank_enabled") === "true",
-    tvHybridMatchWeight: tvMatchWeight,
-    tvHybridAiWeight: tvAiWeight,
-    tvAiTasteRefreshEvidenceCount,
-    tvAiRerankShortlistSize,
-  };
+    const rawTvShortlist = parseInt(settingsMap.get("tv_ai_rerank_shortlist_size") || "50", 10);
+    const tvAiRerankShortlistSize = Math.max(40, Math.min(60, isNaN(rawTvShortlist) ? 50 : rawTvShortlist));
+
+    return {
+      calibrationTarget: parseInt(settingsMap.get("calibration_target") || "30", 10),
+      queuePreloadCount: parseInt(settingsMap.get("queue_preload_count") || "5", 10),
+      aiEnabled: settingsMap.get("ai_enabled") !== "false",
+      activeLearningEnabled: settingsMap.get("active_learning_enabled") !== "false",
+      recentHistoryWindow: parseInt(settingsMap.get("recent_history_window") || "10", 10),
+      recommendationsEnabled: settingsMap.get("recommendations_enabled") !== "false",
+      aiExplanationsEnabled: settingsMap.get("ai_explanations_enabled") !== "false",
+      // Film Hybrid Settings
+      hybridRerankEnabled: settingsMap.get("hybrid_rerank_enabled") === "true",
+      hybridMatchWeight: matchWeight,
+      hybridAiWeight: aiWeight,
+      aiTasteRefreshEvidenceCount,
+      aiRerankShortlistSize,
+      // TV Hybrid Settings
+      tvHybridRerankEnabled: settingsMap.get("tv_hybrid_rerank_enabled") === "true",
+      tvHybridMatchWeight: tvMatchWeight,
+      tvHybridAiWeight: tvAiWeight,
+      tvAiTasteRefreshEvidenceCount,
+      tvAiRerankShortlistSize,
+    };
+  } catch (error) {
+    return DEFAULT_SYSTEM_SETTINGS;
+  }
 }
 
 /**

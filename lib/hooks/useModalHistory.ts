@@ -15,6 +15,7 @@ interface UseModalHistoryOptions {
 export function useModalHistory({ isOpen, onClose, modalRef }: UseModalHistoryOptions) {
   const previousActiveElement = useRef<HTMLElement | null>(null);
   const isClosingViaBackRef = useRef<boolean>(false);
+  const didPushStateRef = useRef<boolean>(false);
 
   // Focus saving & restoration
   useEffect(() => {
@@ -34,11 +35,15 @@ export function useModalHistory({ isOpen, onClose, modalRef }: UseModalHistoryOp
     if (!isOpen || typeof window === "undefined") return;
 
     isClosingViaBackRef.current = false;
+    didPushStateRef.current = false;
 
-    // Push a transient state for back button interception
-    window.history.pushState({ modalOpen: true }, "");
+    // Push a transient state for back button interception if not already pushed
+    if (!window.history.state?.modalOpen) {
+      window.history.pushState({ modalOpen: true }, "");
+      didPushStateRef.current = true;
+    }
 
-    const handlePopState = (e: PopStateEvent) => {
+    const handlePopState = () => {
       isClosingViaBackRef.current = true;
       onClose();
     };
@@ -57,9 +62,9 @@ export function useModalHistory({ isOpen, onClose, modalRef }: UseModalHistoryOp
       window.removeEventListener("popstate", handlePopState);
       window.removeEventListener("keydown", handleKeyDown);
 
-      // Clean up the modal history entry if closed via UI (X button / backdrop click / ESC)
-      // and NOT via the browser back button
-      if (!isClosingViaBackRef.current && window.history.state?.modalOpen) {
+      // Clean up the modal history entry if closed via UI (X button / backdrop click / ESC / swipe)
+      // and NOT via the browser/Android back button
+      if (!isClosingViaBackRef.current && didPushStateRef.current && window.history.state?.modalOpen) {
         window.history.back();
       }
     };

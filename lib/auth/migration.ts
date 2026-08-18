@@ -140,7 +140,7 @@ export async function mergeAnonymousUserIntoAccount(
   const targetInteractionMap = new Map(targetInteractions.map((i: any) => [i.movieId, i]));
   const targetTvInteractionMap = new Map(targetTvInteractions.map((i: any) => [i.tvShowId, i]));
 
-  await db.$transaction(async (tx) => {
+  await db.$transaction(async (tx: any) => {
     // 1. Merge MovieInteractions
     for (const anonInt of anonInteractions as any[]) {
       const targetInt: any = targetInteractionMap.get(anonInt.movieId);

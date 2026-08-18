@@ -29,22 +29,30 @@ export async function runTvPersonalMatcherAndShortcutsTests() {
   };
 
   const mockTvProfile: TvDnaResult = {
-    archetype: { primary: "Mind-Bender", confidence: 0.9, secondary: "Thriller" },
+    schemaVersion: 1,
+    algorithmVersion: 1,
+    generatedAt: new Date().toISOString(),
+    evaluatedCount: 15,
+    evidenceCount: 10,
+    confidence: 0.9,
+    confidenceLabel: "Yüksek Güven",
+    maturity: "ESTABLISHED",
+    maturityLabel: "Oturmuş",
     genres: [
-      { name: "Sci-Fi & Fantasy", state: "POSITIVE", weight: 0.9 },
-      { name: "Mystery", state: "POSITIVE", weight: 0.85 },
-      { name: "Drama", state: "POSITIVE", weight: 0.8 },
+      { genreId: 10765, name: "Sci-Fi & Fantasy", state: "POSITIVE", score: 0.9, exposure: 5, ratedCount: 4, confidence: 0.9 },
+      { genreId: 9648, name: "Mystery", state: "POSITIVE", score: 0.85, exposure: 4, ratedCount: 3, confidence: 0.85 },
+      { genreId: 18, name: "Drama", state: "POSITIVE", score: 0.8, exposure: 6, ratedCount: 5, confidence: 0.8 },
     ],
-    themes: [],
-    moods: [],
     eras: [],
-    maturityLevel: "MATURE",
-    pacePreference: "MODERATE",
-    formatPreference: "BALANCED_SERIES",
-    diversityIndex: 0.8,
-    antiGenres: [],
-    directors: [],
-    actors: [],
+    popularityOrientation: { orientation: "BALANCED", score: 0.5, label: "Dengeli", description: "" },
+    formatPreference: { preference: "FLEXIBLE", miniseriesScore: 0.5, multiSeasonScore: 0.8, longRunningScore: 0.4, description: "" },
+    seriesLengthPreference: { preference: "BALANCED", avgSeasons: 3, description: "" },
+    episodeRuntimePreference: { preference: "STANDARD", avgMinutes: 50, description: "" },
+    statusPreference: { preference: "FLEXIBLE", endedScore: 0.5, returningScore: 0.5, description: "" },
+    internationalOrientation: { orientation: "GLOBAL_EXPLORER", nonEnglishRatio: 0.3, topLanguages: ["en", "de"], topCountries: ["US", "DE"], description: "" },
+    networkStyleOrientation: { hasSufficientEvidence: true, dominantStyle: "Prestige Cable", description: "" },
+    archetypes: [],
+    humanInsights: [],
   };
 
   const mockMatchResult = {

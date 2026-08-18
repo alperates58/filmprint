@@ -38,6 +38,7 @@ import { runCalibrationDatabaseFirstTests } from "./calibration_database_first.t
 import { runDeepSeekModelMigrationTests } from "./deepseek_model_migration.test";
 import { runTvPersonalMatcherAndShortcutsTests } from "./tv_personal_matcher_and_shortcuts.test";
 import { runDeepSeekAiTasteThinkingTests } from "./deepseek_ai_taste_thinking.test";
+import { runModalBottomSheetPhaseGTests } from "./modal_bottom_sheet_phase_g.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -86,6 +87,7 @@ async function runAllUnitAndRegressionTests() {
     { name: "DeepSeek Model Migration & Canonical Resolution Tests", fn: runDeepSeekModelMigrationTests },
     { name: "TV Personal Matcher & Shortcuts Parity Tests", fn: runTvPersonalMatcherAndShortcutsTests },
     { name: "DeepSeek AI Taste Thinking & Structured Output Tests", fn: runDeepSeekAiTasteThinkingTests },
+    { name: "Phase G Detail Modals & Mobile Bottom Sheets Tests", fn: runModalBottomSheetPhaseGTests },
   ];
 
   let passedSuites = 0;

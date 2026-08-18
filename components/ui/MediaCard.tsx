@@ -88,12 +88,12 @@ export function MediaCard({
         {/* Top-Left: Media Type / Status Pill */}
         <div className="absolute top-2.5 left-2.5 z-10 flex flex-wrap gap-1">
           {isFavorite && (
-            <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 backdrop-blur-md border border-amber-500/30 text-amber-300 text-[10px] font-bold">
+            <span className="px-2 py-0.5 rounded-lg bg-rose-500/20 backdrop-blur-md border border-rose-500/30 text-rose-300 text-[10px] font-bold">
               ★ Favorilerimde
             </span>
           )}
           {isWatchlist && (
-            <span className="px-2 py-0.5 rounded-lg bg-blue-500/20 backdrop-blur-md border border-blue-500/30 text-blue-300 text-[10px] font-bold">
+            <span className="px-2 py-0.5 rounded-lg bg-accent-subtle/80 backdrop-blur-md border border-accent/30 text-accent text-[10px] font-bold">
               ✓ İzleme Listemde
             </span>
           )}

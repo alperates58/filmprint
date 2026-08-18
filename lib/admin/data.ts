@@ -68,7 +68,7 @@ export async function getAdminOverviewData() {
   ]);
 
   // Movie feedback breakdown
-  const movieFeedbackMap = new Map(movieFeedbackGroups.map((g: any) => [g.action, g._count.action]));
+  const movieFeedbackMap = new Map<string, number>(movieFeedbackGroups.map((g: any) => [g.action, Number(g._count.action) || 0]));
   const likeCount = movieFeedbackMap.get("LIKE") || 0;
   const dislikeCount = (movieFeedbackMap.get("DISLIKE") || 0) + (movieFeedbackMap.get("NOT_INTERESTED") || 0);
   const hideCount = movieFeedbackMap.get("HIDE") || 0;
@@ -84,7 +84,7 @@ export async function getAdminOverviewData() {
     : 0;
 
   // TV feedback breakdown
-  const tvFeedbackMap = new Map(tvFeedbackGroups.map((g: any) => [g.action, g._count.action]));
+  const tvFeedbackMap = new Map<string, number>(tvFeedbackGroups.map((g: any) => [g.action, Number(g._count.action) || 0]));
   const tvLikeCount = tvFeedbackMap.get("LIKE") || 0;
   const tvDislikeCount = (tvFeedbackMap.get("DISLIKE") || 0) + (tvFeedbackMap.get("NOT_INTERESTED") || 0);
   const tvHideCount = tvFeedbackMap.get("HIDE") || 0;
@@ -493,7 +493,7 @@ export async function getAdminUserDetailData(id: string) {
   ]);
 
   // Movie interaction breakdown from DB
-  const movieStatusMap = new Map(movieCountsByStatus.map((g) => [g.status, g._count.status]));
+  const movieStatusMap = new Map<string, number>(movieCountsByStatus.map((g: any) => [g.status, Number(g._count.status) || 0]));
   const watched = movieStatusMap.get("WATCHED") || 0;
   const notWatched = movieStatusMap.get("NOT_WATCHED") || 0;
   const unsure = movieStatusMap.get("UNSURE") || 0;
@@ -502,7 +502,7 @@ export async function getAdminUserDetailData(id: string) {
   const progression = getProgressionForCount(totalMovieInteractionCount);
 
   // TV interaction breakdown from DB
-  const tvStatusMap = new Map(tvCountsByStatus.map((g) => [g.status, g._count.status]));
+  const tvStatusMap = new Map<string, number>(tvCountsByStatus.map((g: any) => [g.status, Number(g._count.status) || 0]));
   const tvWatched = tvStatusMap.get("WATCHED") || 0;
   const tvPartiallyWatched = tvStatusMap.get("PARTIALLY_WATCHED") || 0;
   const tvNotWatched = tvStatusMap.get("NOT_WATCHED") || 0;
@@ -511,7 +511,7 @@ export async function getAdminUserDetailData(id: string) {
   const tvProgression = getTvProgressionForCount(totalTvInteractionCount);
 
   // Movie feedback breakdown from DB
-  const movieFeedbackMap = new Map(movieFeedbackCounts.map((g) => [g.action, g._count.action]));
+  const movieFeedbackMap = new Map<string, number>(movieFeedbackCounts.map((g: any) => [g.action, Number(g._count.action) || 0]));
   const watchLaterCount = movieFeedbackMap.get("WATCH_LATER") || 0;
   const notInterestedCount = movieFeedbackMap.get("NOT_INTERESTED") || 0;
   const alreadyWatchedCount = movieFeedbackMap.get("ALREADY_WATCHED") || 0;
@@ -522,7 +522,7 @@ export async function getAdminUserDetailData(id: string) {
     watchLaterCount + notInterestedCount + alreadyWatchedCount + watchedFromRecCount;
 
   // TV feedback breakdown from DB
-  const tvFeedbackMap = new Map(tvFeedbackCounts.map((g) => [g.action, g._count.action]));
+  const tvFeedbackMap = new Map<string, number>(tvFeedbackCounts.map((g: any) => [g.action, Number(g._count.action) || 0]));
   const tvWatchLaterCount = tvFeedbackMap.get("WATCH_LATER") || 0;
   const tvNotInterestedCount = tvFeedbackMap.get("NOT_INTERESTED") || 0;
   const tvAlreadyWatchedCount = tvFeedbackMap.get("ALREADY_WATCHED") || 0;

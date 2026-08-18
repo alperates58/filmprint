@@ -44,10 +44,23 @@ export interface FullTvDetails {
   } | null;
 }
 
-interface TvDetailsModalProps {
+export interface TvDetailsModalProps {
   tvShowId: string | null;
   onClose: () => void;
-  initialData?: any;
+  initialData?: {
+    title?: string;
+    posterPath?: string | null;
+    backdropPath?: string | null;
+    firstAirDate?: string | null;
+    genres?: string[];
+    matchScore?: number;
+    headline?: string;
+    reasons?: string[];
+    userStatus?: string | null;
+    userRating?: RatingStatus | null;
+    state?: string | null;
+    isFavorite?: boolean;
+  };
   onInteractionUpdate?: (
     tvShowId: string,
     status: string,
@@ -62,6 +75,23 @@ const RATING_LABELS: Record<string, { label: string; emoji: string }> = {
   DISLIKE: { label: "Sevmedim", emoji: "👎" },
 };
 
+function formatTvStatus(status: string | null | undefined): string | null {
+  if (!status) return null;
+  const s = status.toLowerCase();
+  if (s.includes("returning") || s.includes("ongoing") || s.includes("devam")) return "Devam Ediyor";
+  if (s.includes("ended") || s.includes("completed") || s.includes("bitti")) return "Tamamlandı";
+  if (s.includes("canceled") || s.includes("cancelled")) return "İptal Edildi";
+  if (s.includes("in production")) return "Yapım Aşamasında";
+  return status;
+}
+
+function formatTvSeasons(seasons: number | null | undefined, episodes: number | null | undefined): string | null {
+  if (!seasons || seasons <= 0) return null;
+  const seasonText = `${seasons} Sezon`;
+  const episodeText = episodes && episodes > 0 ? ` (${episodes} Bölüm)` : "";
+  return `${seasonText}${episodeText}`;
+}
+
 export function TvDetailsModal({
   tvShowId,
   onClose,
@@ -73,11 +103,14 @@ export function TvDetailsModal({
   const [error, setError] = useState<string | null>(null);
   const [isPlayingTrailer, setIsPlayingTrailer] = useState<boolean>(false);
   const [activeRatingMode, setActiveRatingMode] = useState<boolean>(false);
+  const [isOverviewExpanded, setIsOverviewExpanded] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
   const [currentStatus, setCurrentStatus] = useState<string | null>(
     initialData?.userStatus || initialData?.state || null
   );
-  const [currentRating, setCurrentRating] = useState<string | null>(
-    initialData?.userRating || null
+  const [currentRating, setCurrentRating] = useState<RatingStatus | null>(
+    (initialData?.userRating as RatingStatus) || null
   );
   const [isFavorite, setIsFavorite] = useState<boolean>(
     Boolean(initialData?.isFavorite)
@@ -93,9 +126,11 @@ export function TvDetailsModal({
   // Touch swipe-to-dismiss (isolated strictly to drag handle)
   const touchStartY = useRef<number>(0);
   const [dragOffset, setDragOffset] = useState<number>(0);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
 
   const handleDragTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
+    setIsDragging(true);
   };
 
   const handleDragTouchMove = (e: React.TouchEvent) => {
@@ -103,10 +138,13 @@ export function TvDetailsModal({
     const deltaY = currentY - touchStartY.current;
     if (deltaY > 0) {
       setDragOffset(deltaY);
+    } else {
+      setDragOffset(0);
     }
   };
 
   const handleDragTouchEnd = () => {
+    setIsDragging(false);
     if (dragOffset > 80) {
       onClose();
     } else {
@@ -121,6 +159,7 @@ export function TvDetailsModal({
     setError(null);
     setIsPlayingTrailer(false);
     setActiveRatingMode(false);
+    setIsOverviewExpanded(false);
 
     try {
       const res = await fetch(`/api/tv/${tvShowId}`);
@@ -142,8 +181,9 @@ export function TvDetailsModal({
   }, [fetchDetails]);
 
   // Canonical Library Interactions
-  const handleSetWatched = async (rating: string | null = null) => {
-    if (!tvShowId) return;
+  const handleSetWatched = async (rating: RatingStatus | null = null) => {
+    if (!tvShowId || isSubmitting) return;
+    setIsSubmitting(true);
     setCurrentStatus("WATCHED");
     setCurrentRating(rating);
     setActiveRatingMode(false);
@@ -160,15 +200,18 @@ export function TvDetailsModal({
         }),
       });
       if (onInteractionUpdate) {
-        onInteractionUpdate(tvShowId, "WATCHED", rating as any);
+        onInteractionUpdate(tvShowId, "WATCHED", rating);
       }
     } catch (e) {
       console.error("Set watched error:", e);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleToggleWatchlist = async () => {
-    if (!tvShowId) return;
+    if (!tvShowId || isSubmitting) return;
+    setIsSubmitting(true);
     const isCurrentlyInWatchlist = currentStatus === "WATCHLIST" || currentStatus === "WATCH_LATER";
     const nextStatus = isCurrentlyInWatchlist ? null : "WATCHLIST";
     setCurrentStatus(nextStatus);
@@ -188,11 +231,14 @@ export function TvDetailsModal({
       }
     } catch (e) {
       console.error("Watchlist toggle error:", e);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleToggleFavorite = async () => {
-    if (!tvShowId) return;
+    if (!tvShowId || isSubmitting) return;
+    setIsSubmitting(true);
     const nextFav = !isFavorite;
     setIsFavorite(nextFav);
 
@@ -207,17 +253,18 @@ export function TvDetailsModal({
         }),
       });
       if (onInteractionUpdate) {
-        onInteractionUpdate(tvShowId, currentStatus || "UNTOUCHED", currentRating as any);
+        onInteractionUpdate(tvShowId, currentStatus || "UNTOUCHED", currentRating);
       }
     } catch (e) {
       console.error("Favorite toggle error:", e);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   if (!tvShowId) return null;
 
   const displayTitle = details?.name || initialData?.title || "Dizi Detayı";
-  const displayPoster = details?.posterUrl || (initialData?.posterPath ? getTmdbImageUrl(initialData.posterPath, "w500") : null);
   const displayBackdrop = details?.backdropUrl || (initialData?.backdropPath ? getTmdbImageUrl(initialData.backdropPath, "w1280") : null);
   const displayYear = details?.firstAirDate ? details.firstAirDate.slice(0, 4) : initialData?.firstAirDate?.slice(0, 4);
   const displayGenres = details?.genres || initialData?.genres || [];
@@ -225,8 +272,12 @@ export function TvDetailsModal({
   const displayHeadline = details?.personalMatch?.headline || initialData?.headline;
   const displayReasons = details?.personalMatch?.reasons || initialData?.reasons || [];
   const trailerKey = details?.trailer?.key || details?.trailer?.youtubeKey || null;
+  const formattedSeasons = formatTvSeasons(details?.numberOfSeasons, details?.numberOfEpisodes);
+  const formattedStatus = formatTvStatus(details?.status);
 
   const isWatchlistActive = currentStatus === "WATCHLIST" || currentStatus === "WATCH_LATER";
+  const overviewText = details?.overview || "";
+  const isLongOverview = overviewText.length > 220;
 
   return (
     <div
@@ -239,25 +290,29 @@ export function TvDetailsModal({
       {/* Mobile Bottom Sheet & Desktop Dialog Container */}
       <div
         ref={modalContainerRef}
-        className="w-full md:max-w-3xl lg:max-w-4xl bg-surface-1 border-t md:border border-border/80 rounded-t-[28px] md:rounded-3xl shadow-2xl overflow-hidden text-text-primary h-auto max-h-[92dvh] md:max-h-[min(92dvh,820px)] flex flex-col transition-transform duration-150 relative pb-[env(safe-area-inset-bottom)]"
-        style={{ transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined }}
+        className="w-full md:max-w-3xl lg:max-w-4xl bg-surface-1 border-t md:border border-border/80 rounded-t-[28px] md:rounded-3xl shadow-2xl overflow-hidden text-text-primary h-auto max-h-[94dvh] md:max-h-[min(90dvh,820px)] flex flex-col relative pb-[env(safe-area-inset-bottom)]"
+        style={{
+          transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined,
+          transition: isDragging ? "none" : "transform 200ms cubic-bezier(0.16, 1, 0.3, 1)",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Mobile Drag Indicator Bar */}
+        {/* Mobile Drag Indicator Bar (Min 48px touch target area) */}
         <div
-          className="w-full pt-3 pb-2 md:hidden flex justify-center cursor-grab active:cursor-grabbing touch-none select-none"
+          className="w-full h-12 pt-3 pb-2 md:hidden flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none flex-shrink-0"
           onTouchStart={handleDragTouchStart}
           onTouchMove={handleDragTouchMove}
           onTouchEnd={handleDragTouchEnd}
+          aria-hidden="true"
         >
-          <div className="w-12 h-1.5 rounded-full bg-border-strong" />
+          <div className="w-12 h-1.5 rounded-full bg-white/25 hover:bg-white/40 transition-colors" />
         </div>
 
-        {/* Close Button Desktop */}
+        {/* Close Button Desktop & Mobile */}
         <button
           onClick={onClose}
           aria-label="Kapat"
-          className="absolute top-4 right-4 z-30 w-9 h-9 rounded-full bg-surface-1/90 hover:bg-surface-2 border border-border flex items-center justify-center text-text-muted hover:text-text-primary text-xs transition-colors shadow-sm"
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 w-10 h-10 rounded-full bg-surface-1/90 hover:bg-surface-2 border border-border/80 flex items-center justify-center text-text-muted hover:text-text-primary text-sm transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-accent"
         >
           ✕
         </button>
@@ -268,15 +323,23 @@ export function TvDetailsModal({
           className="overflow-y-auto flex-1 overscroll-contain touch-pan-y scrollbar-none"
         >
           {/* Backdrop Header Media */}
-          <div className="relative h-44 sm:h-52 md:h-60 max-h-[260px] w-full bg-surface-2 overflow-hidden flex-shrink-0">
+          <div className="relative h-48 sm:h-56 md:h-64 max-h-[260px] w-full bg-surface-2 overflow-hidden flex-shrink-0">
             {isPlayingTrailer && trailerKey ? (
-              <iframe
-                src={`https://www.youtube-nocookie.com/embed/${trailerKey}?autoplay=1&rel=0`}
-                title={displayTitle}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="w-full h-full border-0"
-              />
+              <div className="relative w-full h-full bg-black">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${trailerKey}?autoplay=1&rel=0`}
+                  title={displayTitle}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full border-0"
+                />
+                <button
+                  onClick={() => setIsPlayingTrailer(false)}
+                  className="absolute top-3 left-3 z-20 px-3 py-1.5 rounded-xl bg-black/70 hover:bg-black/90 border border-white/20 text-xs font-medium text-white backdrop-blur-md transition-colors"
+                >
+                  ✕ Fragmanı Kapat
+                </button>
+              </div>
             ) : (
               <>
                 {displayBackdrop ? (
@@ -285,23 +348,28 @@ export function TvDetailsModal({
                     alt={displayTitle}
                     fill
                     className="object-cover object-center filter brightness-90"
+                    priority
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-4xl">📺</div>
+                  <div className="w-full h-full flex flex-col items-center justify-center text-text-muted bg-surface-2">
+                    <span className="text-4xl mb-1">📺</span>
+                    <span className="text-xs font-sans">Görsel bulunamadı</span>
+                  </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-surface-1 via-surface-1/40 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-surface-1 via-surface-1/40 to-transparent pointer-events-none" />
 
                 {trailerKey ? (
                   <button
                     onClick={() => setIsPlayingTrailer(true)}
                     aria-label="Fragmanı Oynat"
-                    className="absolute inset-0 m-auto w-14 h-14 rounded-full bg-accent/90 hover:bg-accent text-white flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 z-10"
+                    className="absolute inset-0 m-auto w-14 h-14 rounded-full bg-accent/90 hover:bg-accent text-white flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-all z-10"
                   >
                     <span className="text-xl ml-0.5">▶</span>
                   </button>
                 ) : (
-                  <div className="absolute bottom-3 right-3 z-10 px-2.5 py-1 rounded-lg bg-surface-1/80 backdrop-blur-md border border-border/60 text-[11px] text-text-muted">
-                    Fragman bulunamadı
+                  <div className="absolute bottom-3 right-3 z-10 px-2.5 py-1 rounded-lg bg-surface-1/80 backdrop-blur-md border border-border/60 text-[11px] text-text-muted flex items-center gap-1.5 shadow-sm">
+                    <span>📺</span>
+                    <span>Fragman bulunamadı</span>
                   </div>
                 )}
               </>
@@ -312,28 +380,34 @@ export function TvDetailsModal({
           <div className="p-5 sm:p-6 md:p-8 space-y-6">
             {/* Title & Metadata Strip */}
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-              <div className="space-y-1.5">
+              <div className="space-y-2 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-xs font-sans">
                   {displayYear && (
                     <span className="px-2.5 py-0.5 rounded-lg bg-surface-2 border border-border font-semibold text-text-secondary">
                       {displayYear}
                     </span>
                   )}
-                  {details?.numberOfSeasons && (
-                    <span className="text-text-muted">
-                      {details.numberOfSeasons} Sezon {details.numberOfEpisodes ? `(${details.numberOfEpisodes} Bölüm)` : ""}
+                  {formattedSeasons && (
+                    <span className="text-text-muted font-medium">
+                      {formattedSeasons}
+                    </span>
+                  )}
+                  {formattedStatus && (
+                    <span className="px-2 py-0.5 rounded-lg bg-surface-2/70 border border-border/60 text-text-muted text-xs">
+                      {formattedStatus}
                     </span>
                   )}
                   {details?.voteAverage ? (
-                    <span className="text-amber-400 font-bold flex items-center gap-1">
-                      ★ {details.voteAverage.toFixed(1)}
+                    <span className="px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-400 font-bold flex items-center gap-1 text-xs">
+                      <span>★</span>
+                      <span>{details.voteAverage.toFixed(1)}</span>
                     </span>
                   ) : null}
                 </div>
 
                 <h2
                   id="tv-details-title"
-                  className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-text-primary"
+                  className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-text-primary break-words"
                 >
                   {displayTitle}
                 </h2>
@@ -347,7 +421,7 @@ export function TvDetailsModal({
                     {displayGenres.map((g: string) => (
                       <span
                         key={g}
-                        className="px-2.5 py-0.5 rounded-lg bg-surface-2/70 border border-border/60 text-text-muted text-xs font-sans"
+                        className="px-2.5 py-0.5 rounded-lg bg-surface-2/80 border border-border/60 text-text-secondary text-xs font-sans"
                       >
                         {g}
                       </span>
@@ -357,20 +431,43 @@ export function TvDetailsModal({
               </div>
 
               {/* Match Score Badge */}
-              {displayScore !== undefined && (
+              {displayScore !== undefined && displayScore > 0 && (
                 <div className="self-start sm:self-auto flex-shrink-0">
-                  <ScoreBadge score={displayScore} />
+                  <ScoreBadge score={displayScore} size="lg" showLabel />
                 </div>
               )}
             </div>
 
-            {/* Quick Action Buttons (User Intent Semantics) */}
+            {/* Personal Match / "Neden Sana Uygun?" Section */}
+            {(displayHeadline || (displayReasons && displayReasons.length > 0)) && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-400 text-base">✨</span>
+                  <h4 className="font-sans font-bold text-xs sm:text-sm text-emerald-400">
+                    {displayHeadline || "Neden Sana Uygun?"}
+                  </h4>
+                </div>
+                {displayReasons.length > 0 && (
+                  <ul className="space-y-1.5 text-xs text-text-secondary font-sans leading-relaxed">
+                    {displayReasons.map((r: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-emerald-400 mt-0.5 font-bold">•</span>
+                        <span>{r}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {/* Quick Primary Action Buttons (48dp Touch Target) */}
             <div className="flex flex-wrap items-center gap-2.5 pt-1 font-sans text-xs">
               {/* Watched / Rating Button */}
               {currentStatus === "WATCHED" ? (
                 <button
                   onClick={() => setActiveRatingMode((prev) => !prev)}
-                  className="min-h-[48px] px-4 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold flex items-center gap-2 hover:bg-emerald-500/20 transition-all"
+                  disabled={isSubmitting}
+                  className="min-h-[48px] px-4 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold flex items-center gap-2 hover:bg-emerald-500/20 active:scale-95 transition-all"
                 >
                   <span>{currentRating ? RATING_LABELS[currentRating]?.emoji || "✓" : "✓"}</span>
                   <span>{currentRating ? RATING_LABELS[currentRating]?.label || "İzledim" : "İzledim"}</span>
@@ -378,7 +475,8 @@ export function TvDetailsModal({
               ) : (
                 <button
                   onClick={() => setActiveRatingMode(true)}
-                  className="min-h-[48px] px-4 py-2.5 rounded-xl bg-surface-2 border border-border hover:border-emerald-500/40 text-text-primary font-semibold flex items-center gap-2 hover:bg-surface-3 transition-all"
+                  disabled={isSubmitting}
+                  className="min-h-[48px] px-4 py-2.5 rounded-xl bg-surface-2 border border-border hover:border-emerald-500/40 text-text-primary font-semibold flex items-center gap-2 hover:bg-surface-3 active:scale-95 transition-all"
                 >
                   <span>👁️</span>
                   <span>Artık İzledim</span>
@@ -388,42 +486,53 @@ export function TvDetailsModal({
               {/* Watchlist Button */}
               <button
                 onClick={handleToggleWatchlist}
-                className={`min-h-[48px] px-4 py-2.5 rounded-xl border font-semibold flex items-center gap-2 transition-all ${
+                disabled={isSubmitting}
+                className={`min-h-[48px] px-4 py-2.5 rounded-xl border font-semibold flex items-center gap-2 active:scale-95 transition-all ${
                   isWatchlistActive
                     ? "bg-accent-subtle border-accent/40 text-accent"
-                    : "bg-surface-2 border-border text-text-secondary hover:text-text-primary"
+                    : "bg-surface-2 border-border text-text-secondary hover:text-text-primary hover:border-border-strong"
                 }`}
               >
                 <span>🔖</span>
                 <span>{isWatchlistActive ? "✓ İzleme Listemde" : "İzleme Listesine Ekle"}</span>
               </button>
 
-              {/* Favorite Star */}
+              {/* Favorite Button */}
               <button
                 onClick={handleToggleFavorite}
-                className={`min-h-[48px] px-4 py-2.5 rounded-xl border font-semibold flex items-center gap-2 transition-all ${
+                disabled={isSubmitting}
+                className={`min-h-[48px] px-4 py-2.5 rounded-xl border font-semibold flex items-center gap-2 active:scale-95 transition-all ${
                   isFavorite
-                    ? "bg-amber-500/15 border-amber-500/30 text-amber-400"
-                    : "bg-surface-2 border-border text-text-muted hover:text-amber-400"
+                    ? "bg-rose-500/15 border-rose-500/30 text-rose-400"
+                    : "bg-surface-2 border-border text-text-muted hover:text-rose-400 hover:border-rose-500/30"
                 }`}
               >
-                <span>⭐</span>
+                <span>{isFavorite ? "★" : "⭐"}</span>
                 <span>{isFavorite ? "★ Favorilerimde" : "Favorilere Ekle"}</span>
               </button>
             </div>
 
-            {/* Rating Selector Drawer */}
+            {/* Rating Flow Drawer */}
             {activeRatingMode && (
               <div className="p-4 rounded-2xl bg-surface-2 border border-border space-y-2.5 animate-fadeIn">
-                <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                  DİZİ DEĞERLENDİRMENİZ
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    DİZİ DEĞERLENDİRMENİZ
+                  </p>
+                  <button
+                    onClick={() => setActiveRatingMode(false)}
+                    className="text-xs text-text-muted hover:text-text-primary"
+                  >
+                    Kapat ✕
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {Object.entries(RATING_LABELS).map(([ratingKey, ratingVal]) => (
                     <button
                       key={ratingKey}
-                      onClick={() => handleSetWatched(ratingKey)}
-                      className={`min-h-[44px] p-2 rounded-xl border font-semibold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      onClick={() => handleSetWatched(ratingKey as RatingStatus)}
+                      disabled={isSubmitting}
+                      className={`min-h-[48px] p-2.5 rounded-xl border font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all ${
                         currentRating === ratingKey
                           ? "bg-accent text-white border-accent shadow-sm"
                           : "bg-surface-1 border-border text-text-primary hover:border-border-strong"
@@ -437,57 +546,54 @@ export function TvDetailsModal({
               </div>
             )}
 
-            {/* AI / Deterministic Recommendation Insights Box (Parity with Movie) */}
-            {(displayHeadline || (displayReasons && displayReasons.length > 0)) && (
-              <div className="p-4 sm:p-5 rounded-2xl bg-accent-subtle/50 border border-accent/25 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-accent text-base">✨</span>
-                  <h4 className="font-sans font-bold text-xs sm:text-sm text-accent">
-                    {displayHeadline || "Dizi DNA Uyumu"}
-                  </h4>
-                </div>
-                {displayReasons.length > 0 && (
-                  <ul className="space-y-1 text-xs text-text-secondary font-sans leading-relaxed">
-                    {displayReasons.map((r: string, idx: number) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-accent mt-0.5">•</span>
-                        <span>{r}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-
-            {/* Overview / Synopsis */}
-            {details?.overview && (
+            {/* Overview / Synopsis with Expandable Text */}
+            {overviewText && (
               <div className="space-y-1.5 font-sans">
                 <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider">
                   ÖZET
                 </h4>
                 <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
-                  {details.overview}
+                  {isLongOverview && !isOverviewExpanded
+                    ? `${overviewText.slice(0, 200)}...`
+                    : overviewText}
                 </p>
+                {isLongOverview && (
+                  <button
+                    onClick={() => setIsOverviewExpanded((prev) => !prev)}
+                    className="text-xs font-semibold text-accent hover:underline pt-0.5"
+                  >
+                    {isOverviewExpanded ? "Daha az göster" : "Devamını göster →"}
+                  </button>
+                )}
               </div>
             )}
 
-            {/* Creators & Cast Strip */}
+            {/* Extra Information Grid */}
             {details && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/60 font-sans text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-border/60 font-sans text-xs">
                 {details.creators && details.creators.length > 0 && (
-                  <div>
-                    <span className="text-text-muted block text-[11px]">YARATICI / YAPIMCI</span>
+                  <div className="p-3 rounded-xl bg-surface-2/50 border border-border/40 space-y-0.5">
+                    <span className="text-text-muted block text-[11px] font-medium">YARATICI / YAPIMCI</span>
                     <span className="font-semibold text-text-primary">{details.creators.join(", ")}</span>
                   </div>
                 )}
                 {details.cast && details.cast.length > 0 && (
-                  <div>
-                    <span className="text-text-muted block text-[11px]">BAŞROL OYUNCULARI</span>
+                  <div className="p-3 rounded-xl bg-surface-2/50 border border-border/40 space-y-0.5">
+                    <span className="text-text-muted block text-[11px] font-medium">BAŞROL OYUNCULARI</span>
                     <span className="font-semibold text-text-primary">
-                      {details.cast.slice(0, 3).map((c) => c.name).join(", ")}
+                      {details.cast.slice(0, 4).map((c) => c.name).join(", ")}
                     </span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Loading Shimmer Placeholder */}
+            {isLoading && !details && (
+              <div className="space-y-3 animate-pulse pt-2">
+                <div className="h-4 bg-surface-2 rounded-lg w-3/4" />
+                <div className="h-3 bg-surface-2 rounded-lg w-full" />
+                <div className="h-3 bg-surface-2 rounded-lg w-5/6" />
               </div>
             )}
           </div>

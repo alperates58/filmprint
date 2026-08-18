@@ -210,11 +210,11 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
               )}
             </div>
 
-            {/* Action Buttons */}
+            {/* Action Buttons (48dp Touch Target) */}
             <div className="flex flex-wrap items-center gap-2.5 pt-1">
               <button
                 onClick={handleOpenDetails}
-                className="px-5 py-2.5 rounded-xl bg-accent text-white font-sans font-semibold text-xs hover:bg-accent-hover active:scale-95 transition-all shadow-sm flex items-center gap-2 min-h-[44px]"
+                className="px-5 py-3 rounded-xl bg-accent text-white font-sans font-semibold text-xs hover:bg-accent-hover active:scale-95 transition-all shadow-sm flex items-center gap-2 min-h-[48px]"
               >
                 <span>🎬</span>
                 <span>Detayları ve Fragmanı Gör</span>
@@ -222,9 +222,9 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
 
               <button
                 onClick={() => handleFeedback("WATCHLIST")}
-                className={`px-4 py-2.5 rounded-xl border font-sans font-medium text-xs transition-all flex items-center gap-1.5 min-h-[44px] ${
+                className={`px-4 py-3 rounded-xl border font-sans font-medium text-xs transition-all flex items-center gap-1.5 min-h-[48px] ${
                   feedbackAction === "WATCHLIST"
-                    ? "bg-blue-500/15 border-blue-500/40 text-blue-400 font-semibold"
+                    ? "bg-accent-subtle border-accent/40 text-accent font-semibold"
                     : "bg-surface-2 border-border text-text-secondary hover:text-text-primary hover:border-border-strong"
                 }`}
               >
@@ -234,7 +234,7 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
 
               <button
                 onClick={() => handleFeedback("LIKE")}
-                className={`p-2.5 rounded-xl border transition-all text-sm min-h-[44px] min-w-[44px] flex items-center justify-center ${
+                className={`p-3 rounded-xl border transition-all text-sm min-h-[48px] min-w-[48px] flex items-center justify-center ${
                   feedbackAction === "LIKE"
                     ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
                     : "bg-surface-2 border-border text-text-secondary hover:text-text-primary hover:border-border-strong"
@@ -247,7 +247,7 @@ export function HeroRecommendation({ item, onFeedbackAction, onOpenDetails }: He
 
               <button
                 onClick={() => handleFeedback("HIDE")}
-                className="p-2.5 rounded-xl bg-surface-2 border border-border text-text-muted hover:text-destructive hover:border-destructive/30 transition-all text-sm min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="p-3 rounded-xl bg-surface-2 border border-border text-text-muted hover:text-destructive hover:border-destructive/30 transition-all text-sm min-h-[48px] min-w-[48px] flex items-center justify-center"
                 title="Görmek İstemiyorum"
                 aria-label="Görmek İstemiyorum"
               >

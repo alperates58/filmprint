@@ -19,17 +19,22 @@ export function useScrollLock(isLocked: boolean = true) {
     const originalBodyPosition = document.body.style.position;
     const originalBodyTop = document.body.style.top;
     const originalBodyWidth = document.body.style.width;
+    const originalBodyPaddingRight = document.body.style.paddingRight;
     const originalHtmlOverflow = document.documentElement.style.overflow;
     const originalHtmlOverscroll = document.documentElement.style.overscrollBehavior;
 
-    // Apply strict non-scrolling constraints
+    // Compensate scrollbar width to prevent layout shift on desktop
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
     document.documentElement.style.overflow = "hidden";
     document.documentElement.style.overscrollBehavior = "contain";
     document.body.style.overflow = "hidden";
     document.body.style.position = "fixed";
     document.body.style.top = `-${scrollYRef.current}px`;
     document.body.style.width = "100%";
-    document.body.style.touchAction = "none";
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
 
     return () => {
       document.documentElement.style.overflow = originalHtmlOverflow;
@@ -38,7 +43,7 @@ export function useScrollLock(isLocked: boolean = true) {
       document.body.style.position = originalBodyPosition;
       document.body.style.top = originalBodyTop;
       document.body.style.width = originalBodyWidth;
-      document.body.style.touchAction = "";
+      document.body.style.paddingRight = originalBodyPaddingRight;
 
       window.scrollTo({
         top: scrollYRef.current,

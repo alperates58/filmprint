@@ -85,12 +85,13 @@ export function runMatchEngineV2Tests() {
 
   // 2. Single Not Interested Damping Test
   const singleNotInterestedProfile: FeedbackProfile = {
+    ...EMPTY_FEEDBACK_PROFILE,
     userId: "test-user-v2",
     genreSignals: { Korku: -1.5 }, // Single NOT_INTERESTED with 0.5 shrinkage damping (-1.5)
     eraSignals: {},
     positiveCount: 0,
     negativeCount: 1,
-    watchLaterCount: 0,
+    watchlistCount: 0,
     totalFeedbacks: 1,
   };
   const singleNiMatch = calculateMovieMatch(horrorMovie, neutralDnaProfile, singleNotInterestedProfile);
@@ -101,12 +102,13 @@ export function runMatchEngineV2Tests() {
 
   // 3. Repeated Not Interested Penalty Test
   const repeatedNotInterestedProfile: FeedbackProfile = {
+    ...EMPTY_FEEDBACK_PROFILE,
     userId: "test-user-v2",
     genreSignals: { Korku: -9.0 }, // 3x NOT_INTERESTED
     eraSignals: {},
     positiveCount: 0,
     negativeCount: 3,
-    watchLaterCount: 0,
+    watchlistCount: 0,
     totalFeedbacks: 3,
   };
   const repeatedNiMatch = calculateMovieMatch(horrorMovie, neutralDnaProfile, repeatedNotInterestedProfile);
@@ -117,12 +119,13 @@ export function runMatchEngineV2Tests() {
 
   // 4. Positive Watched Feedback Test
   const positiveFeedbackProfile: FeedbackProfile = {
+    ...EMPTY_FEEDBACK_PROFILE,
     userId: "test-user-v2",
     genreSignals: { "Bilim Kurgu": 6.5 }, // 2x LOVE on Sci-Fi
     eraSignals: {},
     positiveCount: 2,
     negativeCount: 0,
-    watchLaterCount: 0,
+    watchlistCount: 0,
     totalFeedbacks: 2,
   };
   const positiveMatch = calculateMovieMatch(sciFiMovie, neutralDnaProfile, positiveFeedbackProfile);
@@ -141,12 +144,13 @@ export function runMatchEngineV2Tests() {
 
   // 6. Watch Later Intent Test
   const watchLaterProfile: FeedbackProfile = {
+    ...EMPTY_FEEDBACK_PROFILE,
     userId: "test-user-v2",
     genreSignals: { "Bilim Kurgu": 1.5 }, // WATCH_LATER on Sci-Fi
     eraSignals: {},
     positiveCount: 1,
     negativeCount: 0,
-    watchLaterCount: 1,
+    watchlistCount: 1,
     totalFeedbacks: 1,
   };
   const watchLaterMatch = calculateMovieMatch(sciFiMovie, neutralDnaProfile, watchLaterProfile);
@@ -157,12 +161,13 @@ export function runMatchEngineV2Tests() {
 
   // 7. Bounded Adjustment Test (-15 to +10)
   const extremePositiveProfile: FeedbackProfile = {
+    ...EMPTY_FEEDBACK_PROFILE,
     userId: "test-user-v2",
     genreSignals: { "Bilim Kurgu": 35.0 }, // Extreme positive signals
     eraSignals: { "2020s": 20.0 },
     positiveCount: 10,
     negativeCount: 0,
-    watchLaterCount: 0,
+    watchlistCount: 0,
     totalFeedbacks: 10,
   };
   const extremeMatch = calculateMovieMatch(sciFiMovie, neutralDnaProfile, extremePositiveProfile);

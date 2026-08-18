@@ -203,11 +203,21 @@ export async function runRecommendationFeedbackTests(): Promise<void> {
   // 6. Hybrid AI Rerank Prompt Payload with Feedback Signals
   {
     const mockAiProfile: AiTasteProfile = {
+      schemaVersion: 1,
       corePreferences: ["atmospheric sci-fi", "psychological thrillers"],
       strongDislikes: ["shallow comedy", "torture porn"],
-      storyPreferences: ["complex non-linear plots"],
+      storyPreferences: {
+        slowBurn: 0.8,
+        complexNarrative: 0.9,
+        characterDriven: 0.7,
+        spectacle: 0.4,
+        moralAmbiguity: 0.8,
+        nonlinearNarrative: 0.9,
+      },
+      discoveryTolerance: 0.7,
       preferredCharacteristics: ["rich worldbuilding"],
       avoidCharacteristics: ["cliche tropes"],
+      confidence: 0.85,
     };
 
     const mockCandidates: ScoredCandidate[] = [
@@ -224,14 +234,15 @@ export async function runRecommendationFeedbackTests(): Promise<void> {
           backdropPath: null,
           genres: ["Sci-Fi", "Drama"],
           overview: "Linguist communicates with aliens.",
-          candidateSource: "FRESH_DISCOVERY",
         },
+        candidateSource: "FRESH_DISCOVERY",
         rawMatchScore: 88,
         displayMatchScore: 88,
         qualityScore: 0.85,
         matchLabel: "Kuvvetli Uyum",
         feedbackAdjustment: 4,
         dislikePenalty: 0,
+        evidence: { positiveReferences: [], profileSignals: [], hasStrongReference: false },
         components: {
           genre: 0.9,
           era: 0.8,

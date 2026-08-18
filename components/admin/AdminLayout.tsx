@@ -23,6 +23,12 @@ export function AdminLayout({ children, adminEmail }: AdminLayoutProps) {
       ],
     },
     {
+      category: "BÜYÜME & SEO",
+      items: [
+        { label: "Growth & SEO", href: "/admin/growth", icon: "🚀" },
+      ],
+    },
+    {
       category: "VERİ & MOTOR",
       items: [
         { label: "Katalog Motoru", href: "/admin/catalog-ingestion", icon: "📦" },
@@ -51,6 +57,7 @@ export function AdminLayout({ children, adminEmail }: AdminLayoutProps) {
   const getPageTitle = () => {
     if (pathname === "/admin") return "Genel Bakış";
     if (pathname.startsWith("/admin/users")) return "Kullanıcı Yönetimi";
+    if (pathname.startsWith("/admin/growth")) return "Growth & SEO Yönetim Merkezi";
     if (pathname.startsWith("/admin/catalog-ingestion")) return "Katalog İçe Aktarma Motoru";
     if (pathname.startsWith("/admin/integrations")) return "API & Servis Entegrasyonları";
     if (pathname.startsWith("/admin/settings")) return "Sistem & Öneri Ayarları";

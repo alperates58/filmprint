@@ -75,12 +75,21 @@ const EXPLICIT_ADULT_UNICODE_REGEXES: RegExp[] = [
 export const GENERIC_OVERVIEW_PATTERNS: string[] = [
   "film hakkında özet bilgi bulunmuyor",
   "film hakkında özet bilgisi bulunmuyor",
+  "film hakkında özet bulunmamaktadır",
   "dizi hakkında özet bilgi bulunmuyor",
   "dizi hakkında özet bilgisi bulunmuyor",
+  "dizi hakkında özet bulunmamaktadır",
   "özet bilgisi bulunmuyor",
   "özet bilgi bulunmuyor",
+  "özet bulunmamaktadır",
   "özet bulunmuyor",
   "henüz bir özet eklenmedi",
+  "henüz bir özet eklenmemiştir",
+  "özet eklenmemiştir",
+  "bu film için özet bulunmamaktadır",
+  "bu film için özet bulunmuyor",
+  "bu dizi için özet bulunmamaktadır",
+  "bu dizi için özet bulunmuyor",
   "no overview found",
   "no overview available",
   "no overview",
@@ -117,7 +126,11 @@ export function isGenericOverview(overview: string): boolean {
 
   for (const pattern of GENERIC_OVERVIEW_PATTERNS) {
     const cleanPattern = pattern.replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "").trim();
-    if (normalized === cleanPattern || normalized.startsWith(cleanPattern)) {
+    if (
+      normalized === cleanPattern ||
+      normalized.startsWith(cleanPattern) ||
+      normalized.includes(cleanPattern)
+    ) {
       return true;
     }
   }

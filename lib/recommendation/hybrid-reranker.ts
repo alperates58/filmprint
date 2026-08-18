@@ -350,9 +350,25 @@ export async function rerankCandidatesWithAi(
   const candidateFingerprint = generateCandidateFingerprint(
     candidateIds,
     dnaProfile.version || 1,
-    aiTasteProfile.schemaVersion || 1,
+    aiTasteProfile?.schemaVersion || 1,
     config.modelId
   );
+
+  const { effectiveMatchWeight, effectiveAiWeight } = calculateEffectiveAiWeight(
+    aiWeight,
+    dnaProfile.confidence || 0.5
+  );
+
+  if (!aiTasteProfile && (!options.frozenRankingMap || options.frozenRankingMap.size === 0)) {
+    return {
+      rankedCandidates: candidates,
+      isAiApplied: false,
+      hybridPending: true,
+      candidateFingerprint,
+      source: "deterministic_fallback",
+      effectiveWeights: { matchWeight: effectiveMatchWeight, aiWeight: effectiveAiWeight },
+    };
+  }
 
   const lockKey = `${userId}:${candidateFingerprint}`;
 
@@ -391,11 +407,6 @@ export async function rerankCandidatesWithAi(
       }
     }
   }
-
-  const { effectiveMatchWeight, effectiveAiWeight } = calculateEffectiveAiWeight(
-    aiWeight,
-    dnaProfile.confidence || 0.5
-  );
 
   // 3. Cache Miss: Execute Batch DeepSeek Reranker only if forceGenerate is requested
   if (rankingMap.size === 0) {

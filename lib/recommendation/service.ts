@@ -234,11 +234,11 @@ export async function getPersonalizedRecommendations(
       voteAverage: m.voteAverage,
       posterPath: m.posterPath,
       backdropPath: m.backdropPath,
-      genres: (meta.genres as string[]) || [],
-      overview: (meta.overview as string) || "",
+      genres: (Array.isArray(m.genres) && m.genres.length > 0) ? m.genres : ((meta.genres as string[]) || []),
+      overview: m.overview || (meta.overview as string) || "",
       candidateSource: source,
-      adult: (meta.adult as boolean) || false,
-      voteCount: (meta.voteCount as number) || undefined,
+      adult: m.adult === true || (meta.adult as boolean) || false,
+      voteCount: m.voteCount || (meta.voteCount as number) || undefined,
       metadata: meta,
     };
   };

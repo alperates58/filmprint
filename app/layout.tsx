@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
 import { BottomNav } from "@/components/ui/BottomNav";
+import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
+import { getSeoSystemConfig } from "@/lib/growth/settings";
 
 export const viewport: Viewport = {
   themeColor: "#0b0d14",
@@ -13,7 +15,11 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "SineAI — Zevkini Öğrenen Yapay Zekâ Destekli Film ve Dizi Rehberi",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://sineai.com.tr"),
+  title: {
+    default: "SineAI — Zevkini Öğrenen Yapay Zekâ Destekli Film ve Dizi Rehberi",
+    template: "%s | SINEAI",
+  },
   description:
     "Zevkini öğrenen yapay zekâ destekli film ve dizi rehberi. Şeffaf algoritma, Film DNA ve kişiselleştirilmiş öneriler.",
   applicationName: "SineAI",
@@ -34,11 +40,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let seoConfig = null;
+  try {
+    seoConfig = await getSeoSystemConfig();
+  } catch {
+    // Graceful fallback for build-time static generation
+  }
+
+  const googleVerification = seoConfig?.googleVerificationMeta?.replace(/^google-site-verification=/, "").trim();
+  const bingVerification = seoConfig?.bingVerificationMeta?.replace(/^msvalidate\.01=/, "").trim();
+  const yandexVerification = seoConfig?.yandexVerificationMeta?.replace(/^yandex-verification=/, "").trim();
+
   return (
     <html lang="tr" className="dark">
       <head>
@@ -48,8 +65,21 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
+        {googleVerification && (
+          <meta name="google-site-verification" content={googleVerification} />
+        )}
+        {bingVerification && (
+          <meta name="msvalidate.01" content={bingVerification} />
+        )}
+        {yandexVerification && (
+          <meta name="yandex-verification" content={yandexVerification} />
+        )}
       </head>
       <body className="antialiased bg-bg-base text-text-primary selection:bg-accent selection:text-white pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+        <GoogleAnalytics
+          measurementId={seoConfig?.gaMeasurementId}
+          enabled={seoConfig?.gaTrackingEnabled}
+        />
         <PwaRegister />
         <div className="min-h-screen flex flex-col pb-20 md:pb-0">
           {children}

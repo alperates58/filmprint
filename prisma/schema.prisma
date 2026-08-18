@@ -529,3 +529,26 @@ model UserContentLibrary {
   @@index([userId, isFavorite])
 }
 
+enum IndexNowStatus {
+  PENDING
+  PROCESSING
+  SUBMITTED
+  FAILED
+}
+
+model IndexNowSubmission {
+  id            String          @id @default(cuid())
+  url           String
+  urlHash       String          @unique
+  status        IndexNowStatus  @default(PENDING)
+  retryCount    Int             @default(0)
+  lastError     String?         @db.Text
+  nextAttemptAt DateTime?       @default(now())
+  submittedAt   DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([createdAt])
+}
+

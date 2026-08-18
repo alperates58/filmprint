@@ -28,16 +28,19 @@ export default function CopyrightPage() {
           {/* Metadata Attribution Card */}
           <div className="p-6 rounded-2xl bg-background border border-accent/30 space-y-3">
             <div className="flex items-center gap-3">
-              <div className="px-3 py-1 rounded-lg bg-accent/20 text-accent font-bold font-mono text-xs">
-                Veri Sağlayıcı Lisansı
+              <div className="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold font-mono text-xs">
+                TMDB Veri Sağlayıcı Lisansı
               </div>
               <h2 className="font-display text-base font-bold text-text-primary">
-                Film ve Dizi Kataloğu Lisans Bildirimi
+                Film ve Dizi Kataloğu & Attribution Bildirimi
               </h2>
             </div>
             <p className="text-text-muted leading-relaxed">
-              SineAI platformundaki film ve dizi afişleri, fragman bağlantıları, oyuncu/yönetmen kadroları ve genel sinematik metadatalar lisanslı küresel katalog veri sağlayıcıları aracılığıyla temin edilmektedir.
+              SineAI platformundaki film ve dizi afişleri, fragman bağlantıları, oyuncu/yönetmen kadroları ve genel sinematik metadatalar The Movie Database (TMDB) API aracılığıyla temin edilmektedir.
             </p>
+            <div className="p-3 rounded-xl bg-surface-2 border border-border text-xs font-mono text-text-secondary">
+              "This product uses the TMDB API but is not endorsed or certified by TMDB."
+            </div>
           </div>
 
           <section className="space-y-2">

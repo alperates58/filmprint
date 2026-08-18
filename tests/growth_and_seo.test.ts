@@ -331,5 +331,53 @@ export async function runGrowthAndSeoTests() {
     console.log("  ✓ IndexNow Deterministic URL Hashing passed.");
   }
 
-  console.log("\n✅ ALL GROWTH & SEO FOUNDATION TESTS (INCLUDING CRITICAL ADDENDUM) PASSED SUCCESSFULLY!\n");
+  console.log("--> 10. Testing Centralized Redirect URIs & Setup Diagnostics");
+  {
+    const {
+      getAppBaseUrl,
+      getGoogleGrowthRedirectUri,
+      getBingGrowthRedirectUri,
+      getYandexGrowthRedirectUri,
+      getGrowthUrlsDiagnostics,
+    } = require("@/lib/growth/urls");
+
+    const defaultBase = getAppBaseUrl();
+    assert.ok(defaultBase.startsWith("http"), "App base URL must be valid HTTP/HTTPS string");
+    assert.equal(defaultBase.endsWith("/"), false, "App base URL must not have trailing slash");
+
+    const googleUri = getGoogleGrowthRedirectUri();
+    assert.equal(googleUri.endsWith("/api/admin/growth/google/callback"), true, "Google redirect URI must have exact callback path");
+    assert.equal(googleUri.endsWith("/"), false, "Google redirect URI must not have trailing slash");
+
+    const bingUri = getBingGrowthRedirectUri();
+    assert.equal(bingUri.endsWith("/api/admin/growth/bing/callback"), true, "Bing redirect URI must have exact callback path");
+
+    const yandexUri = getYandexGrowthRedirectUri();
+    assert.equal(yandexUri.endsWith("/api/admin/growth/yandex/callback"), true, "Yandex redirect URI must have exact callback path");
+
+    // Diagnostics never expose secrets
+    const diag = getGrowthUrlsDiagnostics();
+    assert.equal(typeof diag.google.redirectUri, "string");
+    assert.equal(typeof diag.bing.redirectUri, "string");
+    assert.equal(typeof diag.yandex.redirectUri, "string");
+    assert.equal((diag as any).clientSecret, undefined, "Diagnostics must never expose client secrets");
+    assert.equal((diag as any).apiKey, undefined, "Diagnostics must never expose API keys");
+
+    // Verify GOOGLE_GROWTH_REDIRECT_URI environment override
+    const originalEnv = process.env.GOOGLE_GROWTH_REDIRECT_URI;
+    try {
+      process.env.GOOGLE_GROWTH_REDIRECT_URI = "https://custom.sineai.com.tr/api/admin/growth/google/callback";
+      assert.equal(getGoogleGrowthRedirectUri(), "https://custom.sineai.com.tr/api/admin/growth/google/callback");
+    } finally {
+      if (originalEnv !== undefined) {
+        process.env.GOOGLE_GROWTH_REDIRECT_URI = originalEnv;
+      } else {
+        delete process.env.GOOGLE_GROWTH_REDIRECT_URI;
+      }
+    }
+
+    console.log("  ✓ Centralized Redirect URIs & Setup Diagnostics passed.");
+  }
+
+  console.log("\n✅ ALL GROWTH & SEO FOUNDATION TESTS (INCLUDING PHASE I-B.1) PASSED SUCCESSFULLY!\n");
 }

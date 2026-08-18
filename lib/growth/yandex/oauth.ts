@@ -2,12 +2,12 @@ import crypto from "crypto";
 import { db } from "@/lib/db/client";
 import { encryptSecret, decryptSecret } from "@/lib/security/crypto";
 import { YandexIntegrationMetadata } from "../types";
+import { getYandexGrowthRedirectUri } from "../urls";
 
 export function getYandexGrowthConfig() {
-  const clientId = process.env.YANDEX_WEBMASTER_CLIENT_ID || "";
-  const clientSecret = process.env.YANDEX_WEBMASTER_CLIENT_SECRET || "";
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://sineai.com.tr").replace(/\/+$/, "");
-  const redirectUri = `${appUrl}/api/admin/growth/yandex/callback`;
+  const clientId = (process.env.YANDEX_WEBMASTER_CLIENT_ID || "").trim();
+  const clientSecret = (process.env.YANDEX_WEBMASTER_CLIENT_SECRET || "").trim();
+  const redirectUri = getYandexGrowthRedirectUri();
 
   return {
     clientId,

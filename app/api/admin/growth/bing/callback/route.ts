@@ -1,26 +1,29 @@
 import { NextResponse } from "next/server";
 import { getAdminSession, logAdminAudit } from "@/lib/admin/auth";
 import { verifyBingGrowthState, exchangeBingGrowthCode, saveBingGrowthTokens } from "@/lib/growth/bing/oauth";
+import { getAppBaseUrl } from "@/lib/growth/urls";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const errorParam = url.searchParams.get("error");
+  const errorDescription = url.searchParams.get("error_description");
 
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://sineai.com.tr").replace(/\/+$/, "");
+  const baseUrl = getAppBaseUrl();
 
   if (errorParam) {
-    return NextResponse.redirect(`${baseUrl}/admin/growth?tab=bing&error=${encodeURIComponent(errorParam)}`);
+    const combinedError = errorDescription ? `${errorParam}: ${errorDescription}` : errorParam;
+    return NextResponse.redirect(`${baseUrl}/admin/growth?tab=bing&error_code=${encodeURIComponent(errorParam)}&error=${encodeURIComponent(combinedError)}`);
   }
 
   if (!code || !state) {
-    return NextResponse.redirect(`${baseUrl}/admin/growth?tab=bing&error=${encodeURIComponent("Eksik Bing yetkilendirme parametreleri")}`);
+    return NextResponse.redirect(`${baseUrl}/admin/growth?tab=bing&error_code=missing_params&error=${encodeURIComponent("Eksik Bing yetkilendirme parametreleri")}`);
   }
 
   const isValidState = verifyBingGrowthState(state);
   if (!isValidState) {
-    return NextResponse.redirect(`${baseUrl}/admin/growth?tab=bing&error=${encodeURIComponent("Geçersiz veya süresi dolmuş OAuth state")}`);
+    return NextResponse.redirect(`${baseUrl}/admin/growth?tab=bing&error_code=invalid_state&error=${encodeURIComponent("Geçersiz veya süresi dolmuş OAuth state")}`);
   }
 
   const adminSession = await getAdminSession();
@@ -45,6 +48,6 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${baseUrl}/admin/growth?tab=bing&status=connected`);
   } catch (err: any) {
     console.error("[BingGrowth Callback Error]:", err);
-    return NextResponse.redirect(`${baseUrl}/admin/growth?tab=bing&error=${encodeURIComponent(err?.message || "Bing bağlantısı başarısız oldu")}`);
+    return NextResponse.redirect(`${baseUrl}/admin/growth?tab=bing&error_code=token_exchange_failed&error=${encodeURIComponent(err?.message || "Bing bağlantısı başarısız oldu")}`);
   }
 }

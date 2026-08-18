@@ -5,6 +5,10 @@ import { getSeoCatalogMetrics } from "@/lib/growth/seo/staged-rollout";
 import { getIndexNowConfig } from "@/lib/growth/indexnow/service";
 import { getSeoSystemConfig } from "@/lib/growth/settings";
 import { GoogleIntegrationMetadata, BingIntegrationMetadata, YandexIntegrationMetadata } from "@/lib/growth/types";
+import { getGrowthUrlsDiagnostics } from "@/lib/growth/urls";
+import { getGoogleGrowthConfig } from "@/lib/growth/google/oauth";
+import { getBingGrowthConfig } from "@/lib/growth/bing/oauth";
+import { getYandexGrowthConfig } from "@/lib/growth/yandex/oauth";
 
 export async function GET() {
   try {
@@ -19,14 +23,34 @@ export async function GET() {
       db.integrationSecret.findUnique({ where: { provider: "yandex_webmaster" } }),
     ]);
 
+    const googleConfig = getGoogleGrowthConfig();
+    const bingConfig = getBingGrowthConfig();
+    const yandexConfig = getYandexGrowthConfig();
+    const urlDiagnostics = getGrowthUrlsDiagnostics();
+
     const googleMeta = ((googleSecret?.metadata as Record<string, any>) || {}) as GoogleIntegrationMetadata;
     const isGoogleConnected = Boolean(googleSecret && googleSecret.encryptedValue);
+    const googleStatus: "CONNECTED" | "READY" | "SETUP_REQUIRED" = isGoogleConnected
+      ? "CONNECTED"
+      : googleConfig.isConfigured
+      ? "READY"
+      : "SETUP_REQUIRED";
 
     const bingMeta = ((bingSecret?.metadata as Record<string, any>) || {}) as BingIntegrationMetadata;
     const isBingConnected = Boolean(bingSecret && bingSecret.encryptedValue);
+    const bingStatus: "CONNECTED" | "READY" | "SETUP_REQUIRED" = isBingConnected
+      ? "CONNECTED"
+      : bingConfig.isConfigured
+      ? "READY"
+      : "SETUP_REQUIRED";
 
     const yandexMeta = ((yandexSecret?.metadata as Record<string, any>) || {}) as YandexIntegrationMetadata;
     const isYandexConnected = Boolean(yandexSecret && yandexSecret.encryptedValue);
+    const yandexStatus: "CONNECTED" | "READY" | "SETUP_REQUIRED" = isYandexConnected
+      ? "CONNECTED"
+      : yandexConfig.isConfigured
+      ? "READY"
+      : "SETUP_REQUIRED";
 
     const monetizationReadiness = {
       adsenseConnected: isGoogleConnected && Boolean(googleMeta.adsenseConnected),
@@ -45,6 +69,7 @@ export async function GET() {
       monetizationReadiness,
       providers: {
         google: {
+          status: googleStatus,
           connected: isGoogleConnected,
           email: googleMeta.connectedEmail || null,
           gaProperty: googleMeta.gaProperty?.displayName || null,
@@ -53,11 +78,13 @@ export async function GET() {
           lastSyncAt: googleMeta.lastSyncAt || null,
         },
         bing: {
+          status: bingStatus,
           connected: isBingConnected,
           siteUrl: bingMeta.siteUrl || null,
           lastSyncAt: bingMeta.lastSyncAt || null,
         },
         yandex: {
+          status: yandexStatus,
           connected: isYandexConnected,
           login: yandexMeta.connectedLogin || null,
           hostUrl: yandexMeta.hostUrl || null,
@@ -68,6 +95,28 @@ export async function GET() {
           totalSubmissions: indexNowConfig.totalSubmissions,
           lastStatus: indexNowConfig.lastStatus,
           lastSubmittedAt: indexNowConfig.lastSubmittedAt,
+        },
+      },
+      diagnostics: {
+        urls: urlDiagnostics,
+        encryptionKeyConfigured: Boolean(process.env.MASTER_ENCRYPTION_KEY?.trim()),
+        google: {
+          status: googleStatus,
+          clientIdConfigured: Boolean(googleConfig.clientId),
+          clientSecretConfigured: Boolean(googleConfig.clientSecret),
+          redirectUri: googleConfig.redirectUri,
+        },
+        bing: {
+          status: bingStatus,
+          clientIdConfigured: Boolean(bingConfig.clientId),
+          clientSecretConfigured: Boolean(bingConfig.clientSecret),
+          redirectUri: bingConfig.redirectUri,
+        },
+        yandex: {
+          status: yandexStatus,
+          clientIdConfigured: Boolean(yandexConfig.clientId),
+          clientSecretConfigured: Boolean(yandexConfig.clientSecret),
+          redirectUri: yandexConfig.redirectUri,
         },
       },
     });

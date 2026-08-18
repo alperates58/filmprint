@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { db } from "@/lib/db/client";
 import { encryptSecret, decryptSecret } from "@/lib/security/crypto";
 import { GoogleIntegrationMetadata } from "../types";
+import { getGoogleGrowthRedirectUri } from "../urls";
 
 export const GOOGLE_GROWTH_SCOPES = [
   "openid",
@@ -14,10 +15,9 @@ export const GOOGLE_GROWTH_SCOPES = [
 ].join(" ");
 
 export function getGoogleGrowthConfig() {
-  const clientId = process.env.GOOGLE_GROWTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || "";
-  const clientSecret = process.env.GOOGLE_GROWTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || "";
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://sineai.com.tr").replace(/\/+$/, "");
-  const redirectUri = `${appUrl}/api/admin/growth/google/callback`;
+  const clientId = (process.env.GOOGLE_GROWTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || "").trim();
+  const clientSecret = (process.env.GOOGLE_GROWTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || "").trim();
+  const redirectUri = getGoogleGrowthRedirectUri();
 
   return {
     clientId,

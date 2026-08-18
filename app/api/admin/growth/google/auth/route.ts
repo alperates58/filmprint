@@ -9,13 +9,23 @@ export async function GET() {
 
     if (!config.isConfigured) {
       return NextResponse.json(
-        { error: "Google OAuth yapılandırılmamış. (GOOGLE_GROWTH_CLIENT_ID / GOOGLE_CLIENT_ID eksik)" },
+        {
+          status: "SETUP_REQUIRED",
+          error: "Google Growth OAuth yapılandırılmamış. (GOOGLE_GROWTH_CLIENT_ID / GOOGLE_GROWTH_CLIENT_SECRET eksik)",
+          redirectUri: config.redirectUri,
+          clientIdConfigured: Boolean(config.clientId),
+          clientSecretConfigured: Boolean(config.clientSecret),
+        },
         { status: 400 }
       );
     }
 
     const authUrl = buildGoogleGrowthAuthUrl(session.id);
-    return NextResponse.json({ authUrl });
+    return NextResponse.json({
+      status: "READY",
+      authUrl,
+      redirectUri: config.redirectUri,
+    });
   } catch (error: any) {
     if (error?.message === "UNAUTHORIZED_ADMIN") {
       return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });

@@ -4,12 +4,22 @@ import React, { useState, useEffect, useCallback } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 
-type GrowthTab = "overview" | "seo" | "google" | "bing" | "yandex" | "indexnow" | "verification";
+type GrowthTab =
+  | "overview"
+  | "seo"
+  | "google"
+  | "bing"
+  | "yandex"
+  | "indexnow"
+  | "adsense"
+  | "verification";
 
 export default function AdminGrowthPage() {
   const [activeTab, setActiveTab] = useState<GrowthTab>("overview");
   const [isLoading, setIsLoading] = useState(true);
-  const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [oauthError, setOauthError] = useState<{ code?: string; message?: string } | null>(null);
 
   // Overview Data & Monetization Readiness
   const [overview, setOverview] = useState<any>(null);
@@ -64,6 +74,14 @@ export default function AdminGrowthPage() {
   const [bingMetaTag, setBingMetaTag] = useState("");
   const [yandexMetaTag, setYandexMetaTag] = useState("");
   const [isSavingMetaTags, setIsSavingMetaTags] = useState(false);
+
+  // Helper: Copy to Clipboard
+  const handleCopy = (text: string, key: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2500);
+  };
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -182,6 +200,35 @@ export default function AdminGrowthPage() {
     loadAllData();
   }, [loadAllData]);
 
+  // Check URL parameters for OAuth status / error
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const tab = urlParams.get("tab") as GrowthTab | null;
+    const status = urlParams.get("status");
+    const error = urlParams.get("error");
+    const errorCode = urlParams.get("error_code");
+
+    if (tab && ["overview", "seo", "google", "bing", "yandex", "indexnow", "adsense", "verification"].includes(tab)) {
+      setActiveTab(tab);
+    }
+
+    if (status === "connected") {
+      setStatusMsg({ type: "success", text: "Entegrasyon bağlantısı başarıyla kuruldu." });
+    }
+
+    if (error || errorCode) {
+      setOauthError({
+        code: errorCode || undefined,
+        message: error || undefined,
+      });
+      setStatusMsg({
+        type: "error",
+        text: error || "Yetkilendirme sırasında bir hata oluştu.",
+      });
+    }
+  }, []);
+
   // Handle OAuth Connect
   const handleConnectGoogle = async () => {
     try {
@@ -190,10 +237,13 @@ export default function AdminGrowthPage() {
       if (data.authUrl) {
         window.location.href = data.authUrl;
       } else {
-        setStatusMsg({ type: "error", text: data.error || "Yetkilendirme URL'si alınamadı" });
+        setStatusMsg({
+          type: "error",
+          text: data.error || "Google OAuth yapılandırılmamış. Lütfen ortam değişkenlerini (Client ID / Secret) kontrol edin.",
+        });
       }
     } catch {
-      setStatusMsg({ type: "error", text: "Google bağlantısı başlatılamadı." });
+      setStatusMsg({ type: "error", text: "Google yetkilendirme akışı başlatılamadı." });
     }
   };
 
@@ -202,7 +252,7 @@ export default function AdminGrowthPage() {
     try {
       const res = await fetch("/api/admin/growth/google/disconnect", { method: "POST" });
       if (res.ok) {
-        setStatusMsg({ type: "success", text: "Google bağlantısı kesildi." });
+        setStatusMsg({ type: "success", text: "Google bağlantısı başarıyla kesildi." });
         loadAllData();
       }
     } catch {
@@ -217,7 +267,10 @@ export default function AdminGrowthPage() {
       if (data.authUrl) {
         window.location.href = data.authUrl;
       } else {
-        setStatusMsg({ type: "error", text: data.error || "Bing yetkilendirme başlatılamadı." });
+        setStatusMsg({
+          type: "error",
+          text: data.error || "Bing OAuth yapılandırılmamış (Client ID / Secret eksik).",
+        });
       }
     } catch {
       setStatusMsg({ type: "error", text: "Bing bağlantısı başlatılamadı." });
@@ -244,7 +297,10 @@ export default function AdminGrowthPage() {
       if (data.authUrl) {
         window.location.href = data.authUrl;
       } else {
-        setStatusMsg({ type: "error", text: data.error || "Yandex yetkilendirme başlatılamadı." });
+        setStatusMsg({
+          type: "error",
+          text: data.error || "Yandex OAuth yapılandırılmamış (Client ID / Secret eksik).",
+        });
       }
     } catch {
       setStatusMsg({ type: "error", text: "Yandex bağlantısı başlatılamadı." });
@@ -264,1437 +320,1781 @@ export default function AdminGrowthPage() {
     }
   };
 
-  // Save SEO Settings
-  const handleSaveSeoConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSavingSeo(true);
-    setStatusMsg(null);
-
-    try {
-      const res = await fetch("/api/admin/growth/seo", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          seoMasterEnabled: seoConfig.seoMasterEnabled,
-          movieIndexingEnabled: seoConfig.movieIndexingEnabled,
-          tvIndexingEnabled: seoConfig.tvIndexingEnabled,
-          movieMaxIndexed: parseInt(seoConfig.movieMaxIndexed, 10),
-          tvMaxIndexed: parseInt(seoConfig.tvMaxIndexed, 10),
-          tmdbCommercialLicenseVerified: seoConfig.tmdbCommercialLicenseVerified,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setStatusMsg({ type: "success", text: data.message || "SEO ayarları kaydedildi." });
-        setSeoConfig(data.config);
-        fetchOverview();
-      } else {
-        setStatusMsg({ type: "error", text: data.error || "Kayıt başarısız" });
-      }
-    } catch {
-      setStatusMsg({ type: "error", text: "Bağlantı hatası oluştu" });
-    } finally {
-      setIsSavingSeo(false);
-    }
-  };
-
-  // Search / Inspect Content
-  const handleSearchSeo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-    setIsSearching(true);
-    setStatusMsg(null);
-
-    try {
-      const res = await fetch("/api/admin/growth/seo/inspect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchQuery }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSearchResults(data.results || []);
-      } else {
-        setStatusMsg({ type: "error", text: data.error || "Arama başarısız" });
-      }
-    } catch {
-      setStatusMsg({ type: "error", text: "Arama sırasında bağlantı hatası" });
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  // Set Manual Override
-  const handleSetOverride = async (mediaType: "FILM" | "TV", tmdbId: number, override: string) => {
-    try {
-      const res = await fetch("/api/admin/growth/seo/inspect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "SET_OVERRIDE", mediaType, tmdbId, override }),
-      });
-      if (res.ok) {
-        setStatusMsg({ type: "success", text: `SEO Durumu (${override}) olarak güncellendi.` });
-        handleSearchSeo({ preventDefault: () => {} } as any);
-        fetchOverview();
-      }
-    } catch {
-      setStatusMsg({ type: "error", text: "Override kaydedilemedi." });
-    }
-  };
-
-  // Run SEO Diagnostics
-  const handleRunDiagnostics = async () => {
-    setIsRunningDiagnostics(true);
-    setStatusMsg(null);
-
-    try {
-      const res = await fetch("/api/admin/growth/seo/diagnostics", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        setDiagnosticsReport(data);
-        setStatusMsg({ type: "success", text: "SEO Teşhisi tamamlandı." });
-      } else {
-        setStatusMsg({ type: "error", text: data.error || "Teşhis çalıştırılamadı." });
-      }
-    } catch {
-      setStatusMsg({ type: "error", text: "Teşhis sırasında hata oluştu." });
-    } finally {
-      setIsRunningDiagnostics(false);
-    }
-  };
-
-  // Save GA4 Selection
-  const handleSaveGaSelection = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Google Analytics Actions
+  const handleSaveGa = async () => {
     setIsSavingGa(true);
-    setStatusMsg(null);
-
     try {
       const res = await fetch("/api/admin/growth/google/analytics", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          propertyId: selectedGaProperty,
-          measurementId: gaMeasurementId,
-          trackingEnabled: gaTrackingEnabled,
+          gaPropertyId: selectedGaProperty || undefined,
+          measurementId: gaMeasurementId.trim() || undefined,
+          enabled: gaTrackingEnabled,
         }),
       });
-      const data = await res.json();
       if (res.ok) {
-        setStatusMsg({ type: "success", text: data.message || "GA4 ayarları kaydedildi." });
-        loadAllData();
+        setStatusMsg({ type: "success", text: "Google Analytics 4 ayarları kaydedildi." });
+        fetchSeoSettings();
+        fetchOverview();
       } else {
-        setStatusMsg({ type: "error", text: data.error || "Kayıt başarısız" });
+        const d = await res.json();
+        setStatusMsg({ type: "error", text: d.error || "Analytics kaydedilemedi." });
       }
     } catch {
-      setStatusMsg({ type: "error", text: "Bağlantı hatası oluştu." });
+      setStatusMsg({ type: "error", text: "İşlem sırasında hata oluştu." });
     } finally {
       setIsSavingGa(false);
     }
   };
 
-  // Select Search Console Site & Load Sitemaps/Analytics
+  // Search Console Actions
   const handleSelectGscSite = async (siteUrl: string) => {
     setSelectedGscSite(siteUrl);
-    try {
-      const res = await fetch(`/api/admin/growth/google/search-console?siteUrl=${encodeURIComponent(siteUrl)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setGscAnalytics(data.analytics || null);
-      }
-
-      await fetch("/api/admin/growth/google/search-console", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "SELECT_PROPERTY", siteUrl }),
-      });
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  // Submit GSC Sitemap
-  const handleSubmitGscSitemap = async () => {
-    if (!selectedGscSite) {
-      setStatusMsg({ type: "error", text: "Lütfen önce Search Console sitesi seçin." });
-      return;
-    }
-    setIsSubmittingGscSitemap(true);
-    setStatusMsg(null);
-
     try {
       const res = await fetch("/api/admin/growth/google/search-console", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "SUBMIT_SITEMAP", siteUrl: selectedGscSite }),
+        body: JSON.stringify({ action: "SELECT_PROPERTY", siteUrl }),
       });
-      const data = await res.json();
       if (res.ok) {
-        setStatusMsg({ type: "success", text: data.message || "Sitemap gönderildi." });
-        handleSelectGscSite(selectedGscSite);
-      } else {
-        setStatusMsg({ type: "error", text: data.error || "Sitemap gönderilemedi." });
+        setStatusMsg({ type: "success", text: `Search Console mülkü seçildi: ${siteUrl}` });
+        const detailsRes = await fetch(`/api/admin/growth/google/search-console?siteUrl=${encodeURIComponent(siteUrl)}`);
+        if (detailsRes.ok) {
+          const d = await detailsRes.json();
+          setGscAnalytics(d.analytics);
+        }
+        fetchOverview();
       }
     } catch {
-      setStatusMsg({ type: "error", text: "Bağlantı hatası." });
+      setStatusMsg({ type: "error", text: "Search Console mülkü kaydedilemedi." });
+    }
+  };
+
+  const handleSubmitGscSitemap = async () => {
+    if (!selectedGscSite && !overview?.providers?.google?.gscProperty) {
+      setStatusMsg({ type: "error", text: "Lütfen önce bir Search Console mülkü seçin." });
+      return;
+    }
+    const siteUrl = selectedGscSite || overview?.providers?.google?.gscProperty;
+    setIsSubmittingGscSitemap(true);
+    try {
+      const res = await fetch("/api/admin/growth/google/search-console", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "SUBMIT_SITEMAP",
+          siteUrl,
+          sitemapUrl: "https://sineai.com.tr/sitemap.xml",
+        }),
+      });
+      if (res.ok) {
+        setStatusMsg({ type: "success", text: "sitemap.xml başarıyla Google Search Console'a iletildi." });
+      } else {
+        const d = await res.json();
+        setStatusMsg({ type: "error", text: d.error || "Sitemap iletilemedi." });
+      }
+    } catch {
+      setStatusMsg({ type: "error", text: "Sitemap gönderimi başarısız." });
     } finally {
       setIsSubmittingGscSitemap(false);
     }
   };
 
-  // Inspect URL in Search Console
-  const handleInspectUrl = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedGscSite || !inspectUrl.trim()) {
-      setStatusMsg({ type: "error", text: "Lütfen Search Console mülkü ve denetlenecek URL girin." });
-      return;
-    }
+  const handleInspectUrl = async () => {
+    if (!inspectUrl.trim()) return;
     setIsInspectingUrl(true);
-    setStatusMsg(null);
     setInspectResult(null);
-
     try {
       const res = await fetch("/api/admin/growth/google/search-console/inspect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ siteUrl: selectedGscSite, inspectionUrl: inspectUrl }),
+        body: JSON.stringify({ url: inspectUrl.trim() }),
       });
       const data = await res.json();
       if (res.ok) {
-        setInspectResult(data);
+        setInspectResult(data.result);
       } else {
-        setStatusMsg({ type: "error", text: data.error || "URL denetimi başarısız" });
+        setStatusMsg({ type: "error", text: data.error || "URL denetimi başarısız oldu." });
       }
     } catch {
-      setStatusMsg({ type: "error", text: "Denetim sırasında hata oluştu." });
+      setStatusMsg({ type: "error", text: "URL denetim isteği gönderilemedi." });
     } finally {
       setIsInspectingUrl(false);
     }
   };
 
-  // Rotate IndexNow Key
-  const handleRotateIndexNowKey = async () => {
-    if (!confirm("IndexNow anahtarını yenilemek istediğinize emin misiniz?")) return;
-    setIsRotatingKey(true);
-    setStatusMsg(null);
+  // Bing Sitemap Action
+  const handleSubmitBingSitemap = async () => {
+    setIsSubmittingBingSitemap(true);
+    try {
+      const res = await fetch("/api/admin/growth/bing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "SUBMIT_SITEMAP", sitemapUrl: "https://sineai.com.tr/sitemap.xml" }),
+      });
+      if (res.ok) {
+        setStatusMsg({ type: "success", text: "sitemap.xml Bing Webmaster Tools'a iletildi." });
+        fetchBingDetails();
+      } else {
+        const d = await res.json();
+        setStatusMsg({ type: "error", text: d.error || "Bing sitemap gönderilemedi." });
+      }
+    } catch {
+      setStatusMsg({ type: "error", text: "Bing sitemap gönderimi başarısız." });
+    } finally {
+      setIsSubmittingBingSitemap(false);
+    }
+  };
 
+  // IndexNow Actions
+  const handleToggleIndexNow = async () => {
+    if (!indexNowConfig) return;
+    try {
+      const res = await fetch("/api/admin/growth/indexnow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "TOGGLE_ENABLED", enabled: !indexNowConfig.enabled }),
+      });
+      if (res.ok) {
+        setStatusMsg({ type: "success", text: `IndexNow ${!indexNowConfig.enabled ? "etkinleştirildi" : "devre dışı bırakıldı"}.` });
+        fetchIndexNowDetails();
+        fetchOverview();
+      }
+    } catch {
+      setStatusMsg({ type: "error", text: "IndexNow durumu güncellenemedi." });
+    }
+  };
+
+  const handleRotateIndexNowKey = async () => {
+    if (!confirm("IndexNow API anahtarını yenilemek istediğinize emin misiniz?")) return;
+    setIsRotatingKey(true);
     try {
       const res = await fetch("/api/admin/growth/indexnow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "ROTATE_KEY" }),
       });
-      const data = await res.json();
       if (res.ok) {
-        setStatusMsg({ type: "success", text: data.message || "Anahtar yenilendi." });
-        setIndexNowConfig(data.config);
-      } else {
-        setStatusMsg({ type: "error", text: data.error || "Anahtar yenilenemedi." });
+        const d = await res.json();
+        setStatusMsg({ type: "success", text: `Yeni IndexNow anahtarı oluşturuldu: ${d.key}` });
+        fetchIndexNowDetails();
       }
     } catch {
-      setStatusMsg({ type: "error", text: "Bağlantı hatası." });
+      setStatusMsg({ type: "error", text: "Anahtar yenilenemedi." });
     } finally {
       setIsRotatingKey(false);
     }
   };
 
-  // Test IndexNow Ping
   const handleTestIndexNowPing = async () => {
     setIsTestingPing(true);
-    setStatusMsg(null);
-
     try {
       const res = await fetch("/api/admin/growth/indexnow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "TEST_PING" }),
+        body: JSON.stringify({ action: "TEST_PING", testUrl: "https://sineai.com.tr/" }),
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setStatusMsg({ type: "success", text: `IndexNow test ping başarılı (${data.count} URL).` });
+      const d = await res.json();
+      if (res.ok && d.success) {
+        setStatusMsg({ type: "success", text: "IndexNow test bildirimi başarıyla Bing / Yandex uç noktalarına iletildi." });
         fetchIndexNowDetails();
       } else {
-        setStatusMsg({ type: "error", text: data.error || "Test ping başarısız." });
+        setStatusMsg({ type: "error", text: d.error || "Test ping başarısız oldu." });
       }
     } catch {
-      setStatusMsg({ type: "error", text: "Bağlantı hatası." });
+      setStatusMsg({ type: "error", text: "Test ping isteği gönderilemedi." });
     } finally {
       setIsTestingPing(false);
     }
   };
 
-  // Save Verification Meta Tags
+  // SEO Settings Save
+  const handleSaveSeoConfig = async (newConfig: Partial<any>) => {
+    setIsSavingSeo(true);
+    try {
+      const merged = { ...(seoConfig || {}), ...newConfig };
+      const res = await fetch("/api/admin/growth/seo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config: merged }),
+      });
+      if (res.ok) {
+        setStatusMsg({ type: "success", text: "SEO yapılandırması başarıyla kaydedildi." });
+        fetchSeoSettings();
+        fetchOverview();
+      } else {
+        const d = await res.json();
+        setStatusMsg({ type: "error", text: d.error || "SEO ayarları kaydedilemedi." });
+      }
+    } catch {
+      setStatusMsg({ type: "error", text: "SEO ayarları kaydedilirken hata oluştu." });
+    } finally {
+      setIsSavingSeo(false);
+    }
+  };
+
+  // SEO Diagnostics
+  const handleRunDiagnostics = async () => {
+    setIsRunningDiagnostics(true);
+    setDiagnosticsReport(null);
+    try {
+      const res = await fetch("/api/admin/growth/seo/diagnostics");
+      const d = await res.json();
+      if (res.ok) {
+        setDiagnosticsReport(d);
+      } else {
+        setStatusMsg({ type: "error", text: d.error || "Teşhis raporu alınamadı." });
+      }
+    } catch {
+      setStatusMsg({ type: "error", text: "Teşhis çalıştırılamadı." });
+    } finally {
+      setIsRunningDiagnostics(false);
+    }
+  };
+
+  // SEO Search
+  const handleSearchSeo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    setIsSearching(true);
+    try {
+      const res = await fetch(`/api/admin/growth/seo/inspect?q=${encodeURIComponent(searchQuery.trim())}`);
+      const d = await res.json();
+      if (res.ok) {
+        setSearchResults(d.results || []);
+      }
+    } catch {
+      setStatusMsg({ type: "error", text: "Arama başarısız oldu." });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Save Meta Verification Tags
   const handleSaveMetaTags = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingMetaTags(true);
-    setStatusMsg(null);
-
     try {
+      const merged = {
+        ...(seoConfig || {}),
+        googleVerificationMeta: googleMetaTag.trim() || undefined,
+        bingVerificationMeta: bingMetaTag.trim() || undefined,
+        yandexVerificationMeta: yandexMetaTag.trim() || undefined,
+      };
       const res = await fetch("/api/admin/growth/seo", {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          googleVerificationMeta: googleMetaTag,
-          bingVerificationMeta: bingMetaTag,
-          yandexVerificationMeta: yandexMetaTag,
-        }),
+        body: JSON.stringify({ config: merged }),
       });
-      const data = await res.json();
       if (res.ok) {
-        setStatusMsg({ type: "success", text: "Doğrulama etiketleri kaydedildi." });
+        setStatusMsg({ type: "success", text: "Site doğrulama meta etiketleri kaydedildi." });
         fetchSeoSettings();
-      } else {
-        setStatusMsg({ type: "error", text: data.error || "Kayıt başarısız" });
       }
     } catch {
-      setStatusMsg({ type: "error", text: "Bağlantı hatası." });
+      setStatusMsg({ type: "error", text: "Doğrulama etiketleri kaydedilemedi." });
     } finally {
       setIsSavingMetaTags(false);
     }
   };
 
+  // Helper status badge mapper
+  const renderProviderStatus = (status: "CONNECTED" | "READY" | "SETUP_REQUIRED" | "ERROR", isConnected: boolean) => {
+    if (isConnected || status === "CONNECTED") {
+      return <AdminStatusBadge status="ACTIVE" label="Bağlandı" />;
+    }
+    if (status === "READY") {
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-950/60 text-emerald-300 border border-emerald-500/30">Kuruluma Hazır</span>;
+    }
+    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-950/60 text-amber-300 border border-amber-500/30">Kurulum Gerekli</span>;
+  };
+
+  // Navigation Items
+  const navItems: { id: GrowthTab; label: string; group?: string; badge?: string }[] = [
+    { id: "overview", label: "Genel Bakış", group: "GENEL" },
+    { id: "seo", label: "SEO & İndeksleme", group: "DISCOVERY" },
+    { id: "google", label: "Google Entegrasyonu", group: "ENTEGRASYONLAR", badge: overview?.providers?.google?.connected ? "Aktif" : undefined },
+    { id: "bing", label: "Bing Webmaster", group: "ENTEGRASYONLAR", badge: overview?.providers?.bing?.connected ? "Aktif" : undefined },
+    { id: "yandex", label: "Yandex Webmaster", group: "ENTEGRASYONLAR", badge: overview?.providers?.yandex?.connected ? "Aktif" : undefined },
+    { id: "indexnow", label: "IndexNow Kuyruk", group: "ENTEGRASYONLAR", badge: overview?.providers?.indexnow?.enabled ? "Aktif" : undefined },
+    { id: "adsense", label: "Monetization & AdSense", group: "GELİR MODELİ" },
+    { id: "verification", label: "Site Doğrulama", group: "DOĞRULAMA" },
+  ];
+
+  const googleRedirectUri = overview?.diagnostics?.google?.redirectUri || "https://sineai.com.tr/api/admin/growth/google/callback";
+  const bingRedirectUri = overview?.diagnostics?.bing?.redirectUri || "https://sineai.com.tr/api/admin/growth/bing/callback";
+  const yandexRedirectUri = overview?.diagnostics?.yandex?.redirectUri || "https://sineai.com.tr/api/admin/growth/yandex/callback";
+
+  // Check if GSC has a domain property or is connected
+  const hasDomainGscProperty =
+    selectedGscSite?.startsWith("sc-domain:") ||
+    overview?.providers?.google?.gscProperty?.startsWith("sc-domain:");
+
   return (
     <AdminLayout>
-      <div className="space-y-6 max-w-6xl font-sans pb-16">
-        {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
+      <div className="space-y-6 max-w-7xl mx-auto pb-16">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold text-text-primary tracking-tight">
-              Growth & SEO Yönetim Merkezi
-            </h1>
-            <p className="text-xs sm:text-sm text-text-secondary mt-1">
-              Organik arama görünürlüğü, dizin yönetimi ve büyüme entegrasyonları platformu.
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight text-zinc-100">Growth & SEO Platform Hub</h1>
+              <span className="px-2 py-0.5 text-xs font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded">
+                Phase I-B.1
+              </span>
+            </div>
+            <p className="text-sm text-zinc-400 mt-1">
+              Organik arama motoru optimizasyonu, sitemap indeksleme, arama motoru webmaster entegrasyonları ve monetization readiness yönetimi.
             </p>
           </div>
-
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={loadAllData}
-              className="px-4 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border text-xs font-mono text-text-secondary hover:text-text-primary transition-colors"
+              disabled={isLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md transition-colors disabled:opacity-50"
             >
-              ↻ Yenile
+              <svg className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Yenile
             </button>
           </div>
         </div>
 
-        {/* Global Feedback Banner */}
+        {/* Global Toast / Alert Notifications */}
         {statusMsg && (
           <div
-            className={`p-4 rounded-2xl border text-xs font-medium flex items-center justify-between animate-fadeIn ${
+            className={`p-4 rounded-lg text-sm flex items-start justify-between gap-3 border transition-all ${
               statusMsg.type === "success"
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                : "bg-red-500/10 border-red-500/30 text-red-400"
+                ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-200"
+                : statusMsg.type === "info"
+                ? "bg-blue-950/40 border-blue-800/60 text-blue-200"
+                : "bg-rose-950/40 border-rose-800/60 text-rose-200"
             }`}
           >
-            <span>{statusMsg.text}</span>
-            <button onClick={() => setStatusMsg(null)} className="text-xs font-mono opacity-80 hover:opacity-100">
+            <div className="flex items-center gap-2.5">
+              {statusMsg.type === "success" ? (
+                <svg className="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : statusMsg.type === "info" ? (
+                <svg className="w-5 h-5 text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-rose-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              <span>{statusMsg.text}</span>
+            </div>
+            <button onClick={() => setStatusMsg(null)} className="text-zinc-400 hover:text-zinc-200 text-xs font-mono">
               ✕
             </button>
           </div>
         )}
 
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-border/80 pb-2 overflow-x-auto">
-          {[
-            { id: "overview", label: "📊 Genel Bakış & Monetization" },
-            { id: "seo", label: "🎯 SEO & İndeksleme" },
-            { id: "google", label: "🌐 Google (GA4, GSC, AdSense)" },
-            { id: "bing", label: "🔷 Bing Webmaster" },
-            { id: "yandex", label: "🔴 Yandex Webmaster" },
-            { id: "indexnow", label: "⚡ IndexNow" },
-            { id: "verification", label: "🏷️ Doğrulama Kodları" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id as GrowthTab);
-                setStatusMsg(null);
-              }}
-              className={`px-4 py-2 rounded-xl text-xs font-medium transition-all whitespace-nowrap ${
-                activeTab === tab.id
-                  ? "bg-accent text-white font-semibold shadow-sm"
-                  : "bg-surface-2 text-text-secondary hover:text-text-primary border border-border/60"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Actionable OAuth Error Card for redirect_uri_mismatch or other error codes */}
+        {oauthError && (
+          <div className="p-5 rounded-lg bg-rose-950/30 border border-rose-800/60 text-rose-100 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-rose-300 font-semibold">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>
+                  {oauthError.code === "redirect_uri_mismatch"
+                    ? "Google Yetkilendirme Hatası: Redirect URI Eşleşmiyor (redirect_uri_mismatch)"
+                    : "Yetkilendirme Başarısız Oldu"}
+                </span>
+              </div>
+              <button onClick={() => setOauthError(null)} className="text-rose-400 hover:text-rose-200 text-xs">
+                Kapat
+              </button>
+            </div>
+
+            <p className="text-xs text-rose-200/90 leading-relaxed">
+              {oauthError.code === "redirect_uri_mismatch"
+                ? "Google Cloud Console'da tanımlı OAuth Client içindeki 'Authorized redirect URIs' listesi ile uygulamanın gönderdiği geri dönüş adresi uyuşmuyor. Aşağıdaki adresi Google Cloud Console'a birebir ekleyin:"
+                : oauthError.message || "Google OAuth geri dönüş isteği doğrulanırken bir sorun oluştu."}
+            </p>
+
+            <div className="p-3 bg-black/50 rounded border border-rose-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono text-xs text-zinc-200">
+              <span className="break-all">{googleRedirectUri}</span>
+              <button
+                onClick={() => handleCopy(googleRedirectUri, "oauth_err_uri")}
+                className="px-2.5 py-1 bg-rose-900/60 hover:bg-rose-800 text-rose-200 rounded border border-rose-700/50 text-xs flex items-center justify-center gap-1.5 transition-colors self-start sm:self-auto"
+              >
+                {copiedKey === "oauth_err_uri" ? "✓ Kopyalandı" : "Kopyala"}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                onClick={handleConnectGoogle}
+                className="px-3 py-1.5 bg-rose-700 hover:bg-rose-600 text-white rounded text-xs font-medium transition-colors"
+              >
+                Bağlantıyı Tekrar Dene
+              </button>
+              <a
+                href="https://console.cloud.google.com/apis/credentials"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-rose-300 hover:underline flex items-center gap-1"
+              >
+                Google Cloud Console Credentials ↗
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Navigation Dropdown (< 1024px) */}
+        <div className="block lg:hidden">
+          <label htmlFor="mobile-tab-select" className="text-xs font-medium text-zinc-400 mb-1.5 block">
+            Görüntülenecek Modülü Seçin:
+          </label>
+          <select
+            id="mobile-tab-select"
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value as GrowthTab)}
+            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 font-medium focus:outline-none focus:border-amber-500"
+          >
+            {navItems.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label} {item.badge ? `(${item.badge})` : ""}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* TAB 1: OVERVIEW & MONETIZATION READINESS */}
-        {activeTab === "overview" && (
-          <div className="space-y-6">
-            {/* Monetization Readiness Master Card */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-surface-1 border border-accent/30 space-y-5 shadow-cinematic">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
-                <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/15 border border-accent/30 text-xs font-mono font-bold text-accent mb-1">
-                    💰 MONETIZATION READINESS CHECKLIST
-                  </div>
-                  <h2 className="text-lg font-display font-bold text-text-primary">
-                    Gelir Modeli & Reklam Hazırlık Durumu
-                  </h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  <AdminStatusBadge status="WARNING" label="REKLAMLAR KAPALI (PHASE I-A/I-B)" />
-                </div>
+        {/* Main Grid Layout: Sidebar Navigation + Content Area */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Desktop Left Navigation (lg:col-span-3) */}
+          <div className="hidden lg:block lg:col-span-3 space-y-6 sticky top-6">
+            <nav className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-2.5 space-y-1">
+              {navItems.map((item, idx) => {
+                const isActive = activeTab === item.id;
+                const showGroupHeader = idx === 0 || navItems[idx - 1].group !== item.group;
+
+                return (
+                  <React.Fragment key={item.id}>
+                    {showGroupHeader && item.group && (
+                      <div className="px-3 pt-3 pb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+                        {item.group}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setActiveTab(item.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                        isActive
+                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/30 shadow-sm"
+                          : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-transparent"
+                      }`}
+                    >
+                      <span className="truncate">{item.label}</span>
+                      {item.badge && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 font-mono">
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+            </nav>
+
+            {/* Quick Environment Diagnostics Widget */}
+            <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between text-xs font-medium text-zinc-300">
+                <span>Ortam Durumu</span>
+                <span className={`w-2 h-2 rounded-full ${overview?.diagnostics?.encryptionKeyConfigured ? "bg-emerald-500" : "bg-rose-500"}`} />
               </div>
-
-              <p className="text-xs text-text-secondary leading-relaxed">
-                AdSense entegrasyonu bu fazda salt-okunur (read-only) bağlanır. Reklam yerleşimleri açılmadan önce aşağıdaki tüm maddelerin onaylanması zorunludur.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="p-3.5 rounded-2xl bg-surface-2 border border-border space-y-1">
-                  <p className="text-[11px] font-mono text-text-muted">AdSense Hesabı</p>
-                  <p className={`text-xs font-bold font-mono ${monetization?.adsenseConnected ? "text-emerald-400" : "text-amber-400"}`}>
-                    {monetization?.adsenseConnected ? "✓ Bağlandı" : "Beklemede"}
-                  </p>
+              <div className="space-y-1.5 text-[11px] text-zinc-400">
+                <div className="flex justify-between">
+                  <span>Origin:</span>
+                  <span className="font-mono text-zinc-300 truncate max-w-[140px]">{overview?.diagnostics?.urls?.appBaseUrl || "https://sineai.com.tr"}</span>
                 </div>
-
-                <div className="p-3.5 rounded-2xl bg-surface-2 border border-border space-y-1">
-                  <p className="text-[11px] font-mono text-text-muted">Site Durumu</p>
-                  <p className="text-xs font-bold font-mono text-text-primary">
-                    {monetization?.adsenseSiteStatus || "NOT_DETECTED"}
-                  </p>
+                <div className="flex justify-between">
+                  <span>HTTPS:</span>
+                  <span className="text-zinc-300">{overview?.diagnostics?.urls?.isHttps ? "Aktif ✓" : "HTTP (Geliştirme)"}</span>
                 </div>
-
-                <div className="p-3.5 rounded-2xl bg-surface-2 border border-border space-y-1">
-                  <p className="text-[11px] font-mono text-text-muted">TMDB Ticari Lisans</p>
-                  <p className={`text-xs font-bold font-mono ${seoConfig?.tmdbCommercialLicenseVerified ? "text-emerald-400" : "text-red-400"}`}>
-                    {seoConfig?.tmdbCommercialLicenseVerified ? "✓ ONAYLANDI" : "MANUAL CHECK REQUIRED"}
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-surface-2 border border-border space-y-1">
-                  <p className="text-[11px] font-mono text-text-muted">Gizlilik Politikası</p>
-                  <p className="text-xs font-bold font-mono text-emerald-400">✓ /legal/privacy</p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-surface-2 border border-border space-y-1">
-                  <p className="text-[11px] font-mono text-text-muted">ads.txt Durumu</p>
-                  <p className="text-xs font-bold font-mono text-text-muted">Phase I-D (Beklemede)</p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-surface-2 border border-border space-y-1">
-                  <p className="text-[11px] font-mono text-text-muted">CMP (Consent Manager)</p>
-                  <p className="text-xs font-bold font-mono text-text-muted">Phase I-D (Beklemede)</p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-surface-2 border border-border space-y-1">
-                  <p className="text-[11px] font-mono text-text-muted">Consent Mode</p>
-                  <p className="text-xs font-bold font-mono text-emerald-400">✓ Safe Default (Active)</p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-surface-2 border border-border space-y-1">
-                  <p className="text-[11px] font-mono text-text-muted">Ads Master Switch</p>
-                  <p className="text-xs font-bold font-mono text-red-400">FALSE (Devre Dışı)</p>
+                <div className="flex justify-between">
+                  <span>Master Key:</span>
+                  <span className="text-zinc-300">{overview?.diagnostics?.encryptionKeyConfigured ? "AES-256 ✓" : "Eksik ✗"}</span>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* KPI Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-5 rounded-2xl bg-surface-1 border border-border/80 space-y-2">
-                <div className="flex items-center justify-between text-xs font-mono text-text-muted">
-                  <span>SEO UYGUN FİLMLER</span>
-                  <span>🎬</span>
-                </div>
-                <div className="text-2xl font-bold font-mono text-text-primary">
-                  {seoMetrics?.eligibleMovies?.toLocaleString("tr-TR") || 0}
-                  <span className="text-xs text-text-muted font-sans ml-1.5">
-                    / {seoMetrics?.totalMovies?.toLocaleString("tr-TR") || 0}
-                  </span>
-                </div>
-                <p className="text-[11px] text-text-secondary">
-                  Dizin Limiti: {seoMetrics?.indexedMoviesCount?.toLocaleString("tr-TR") || 0} (Maks: {seoMetrics?.movieRolloutLimit || 0})
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-surface-1 border border-border/80 space-y-2">
-                <div className="flex items-center justify-between text-xs font-mono text-text-muted">
-                  <span>SEO UYGUN DİZİLER</span>
-                  <span>📺</span>
-                </div>
-                <div className="text-2xl font-bold font-mono text-text-primary">
-                  {seoMetrics?.eligibleTvShows?.toLocaleString("tr-TR") || 0}
-                  <span className="text-xs text-text-muted font-sans ml-1.5">
-                    / {seoMetrics?.totalTvShows?.toLocaleString("tr-TR") || 0}
-                  </span>
-                </div>
-                <p className="text-[11px] text-text-secondary">
-                  Dizin Limiti: {seoMetrics?.indexedTvShowsCount?.toLocaleString("tr-TR") || 0} (Maks: {seoMetrics?.tvRolloutLimit || 0})
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-surface-1 border border-border/80 space-y-2">
-                <div className="flex items-center justify-between text-xs font-mono text-text-muted">
-                  <span>SITEMAP TOPLAM URL</span>
-                  <span>🗺️</span>
-                </div>
-                <div className="text-2xl font-bold font-mono text-emerald-400">
-                  {seoMetrics?.totalSitemapUrls?.toLocaleString("tr-TR") || 0}
-                </div>
-                <p className="text-[11px] text-text-secondary">
-                  Durum: {seoConfig?.seoMasterEnabled ? "İndeksleme Aktif" : "İndeksleme Kapalı (Güvenli)"}
-                </p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-surface-1 border border-border/80 space-y-2">
-                <div className="flex items-center justify-between text-xs font-mono text-text-muted">
-                  <span>INDEXNOW GÖNDERİM</span>
-                  <span>⚡</span>
-                </div>
-                <div className="text-2xl font-bold font-mono text-accent">
-                  {overview?.providers?.indexnow?.totalSubmissions || 0}
-                </div>
-                <p className="text-[11px] text-text-secondary">
-                  Durum: {overview?.providers?.indexnow?.enabled ? "Etkin" : "Devre Dışı"}
-                </p>
-              </div>
-            </div>
-
-            {/* Provider Connection Status Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Google Hub Card */}
-              <div className="p-6 rounded-3xl bg-surface-1 border border-border/80 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-lg">
-                      🌐
+          {/* Right Content Area (lg:col-span-9) */}
+          <div className="lg:col-span-9 space-y-6">
+            {/* ========================================================================= */}
+            {/* TAB 1: OVERVIEW */}
+            {/* ========================================================================= */}
+            {activeTab === "overview" && (
+              <div className="space-y-6">
+                {/* Top Metrics Row */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+                    <span className="text-xs text-zinc-400 font-medium">Toplam Film (SEO Uygun)</span>
+                    <div className="text-2xl font-bold text-zinc-100 mt-1">
+                      {seoMetrics?.eligibleMovies ?? 0}
+                      <span className="text-xs text-zinc-500 font-normal ml-1">/ {seoMetrics?.totalMovies ?? 0}</span>
                     </div>
-                    <div>
-                      <h2 className="font-display font-bold text-sm text-text-primary">Google Entegrasyonu</h2>
-                      <p className="text-xs text-text-muted">GA4, Search Console, AdSense (Salt Okunur)</p>
-                    </div>
+                    <div className="text-[11px] text-zinc-500 mt-1">Sitemap Limiti: {seoConfig?.movieRolloutLimit ?? 500}</div>
                   </div>
-                  <AdminStatusBadge
-                    status={overview?.providers?.google?.connected ? "OK" : "WARNING"}
-                    label={overview?.providers?.google?.connected ? "BAĞLI" : "BAĞLANTI YOK"}
-                  />
+
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+                    <span className="text-xs text-zinc-400 font-medium">Toplam Dizi (SEO Uygun)</span>
+                    <div className="text-2xl font-bold text-zinc-100 mt-1">
+                      {seoMetrics?.eligibleTvShows ?? 0}
+                      <span className="text-xs text-zinc-500 font-normal ml-1">/ {seoMetrics?.totalTvShows ?? 0}</span>
+                    </div>
+                    <div className="text-[11px] text-zinc-500 mt-1">Sitemap Limiti: {seoConfig?.tvRolloutLimit ?? 500}</div>
+                  </div>
+
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+                    <span className="text-xs text-zinc-400 font-medium">Arama Entegrasyonları</span>
+                    <div className="text-2xl font-bold text-zinc-100 mt-1">
+                      {[overview?.providers?.google?.connected, overview?.providers?.bing?.connected, overview?.providers?.yandex?.connected].filter(Boolean).length}
+                      <span className="text-xs text-zinc-500 font-normal ml-1">/ 3</span>
+                    </div>
+                    <div className="text-[11px] text-emerald-400 mt-1">Google, Bing, Yandex</div>
+                  </div>
+
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+                    <span className="text-xs text-zinc-400 font-medium">IndexNow Kalıcı Kuyruk</span>
+                    <div className="text-2xl font-bold text-zinc-100 mt-1">
+                      {indexNowConfig?.queueStats?.pending ?? 0}
+                      <span className="text-xs text-zinc-500 font-normal ml-1">bekleyen</span>
+                    </div>
+                    <div className="text-[11px] text-zinc-400 mt-1">Toplam İletilen: {indexNowConfig?.queueStats?.submitted ?? 0}</div>
+                  </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-surface-2/80 space-y-2 text-xs font-mono">
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Bağlı Hesap:</span>
-                    <span className="text-text-primary">{overview?.providers?.google?.email || "—"}</span>
+                {/* Service Status Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Google Card */}
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-bold text-xs">
+                          G
+                        </span>
+                        <div>
+                          <h3 className="text-sm font-semibold text-zinc-100">Google Hizmetleri</h3>
+                          <p className="text-[11px] text-zinc-400">Search Console, GA4 & AdSense</p>
+                        </div>
+                      </div>
+                      {renderProviderStatus(overview?.providers?.google?.status, overview?.providers?.google?.connected)}
+                    </div>
+
+                    <div className="space-y-2 text-xs border-t border-zinc-800/80 pt-3">
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Bağlı Hesap:</span>
+                        <span className="font-mono text-zinc-200">{overview?.providers?.google?.email || "—"}</span>
+                      </div>
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Search Console Mülkü:</span>
+                        <span className="text-zinc-200">{overview?.providers?.google?.gscProperty || "Bağlı Değil"}</span>
+                      </div>
+                      <div className="flex justify-between text-zinc-400">
+                        <span>GA4 Mülkü / İzleme:</span>
+                        <span className="text-zinc-200">{seoConfig?.gaTrackingEnabled ? "Aktif ✓" : "Kapalı"}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setActiveTab("google")}
+                      className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium rounded-lg border border-zinc-700 transition-colors"
+                    >
+                      {overview?.providers?.google?.connected ? "Google Ayarlarını Yönet" : "Google Kurulum Sihirbazını Aç"}
+                    </button>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">GA4 Mülkü:</span>
-                    <span className="text-text-primary">{overview?.providers?.google?.gaProperty || "Seçilmedi"}</span>
+
+                  {/* Bing Card */}
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-bold text-xs">
+                          B
+                        </span>
+                        <div>
+                          <h3 className="text-sm font-semibold text-zinc-100">Bing Webmaster Tools</h3>
+                          <p className="text-[11px] text-zinc-400">Microsoft Bing Arama & İndeksleme</p>
+                        </div>
+                      </div>
+                      {renderProviderStatus(overview?.providers?.bing?.status, overview?.providers?.bing?.connected)}
+                    </div>
+
+                    <div className="space-y-2 text-xs border-t border-zinc-800/80 pt-3">
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Bağlı Site:</span>
+                        <span className="text-zinc-200">{overview?.providers?.bing?.siteUrl || "—"}</span>
+                      </div>
+                      <div className="flex justify-between text-zinc-400">
+                        <span>OAuth Uç Noktaları:</span>
+                        <span className="text-zinc-300 font-mono text-[11px]">bing.com/webmasters ✓</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setActiveTab("bing")}
+                      className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium rounded-lg border border-zinc-700 transition-colors"
+                    >
+                      {overview?.providers?.bing?.connected ? "Bing Ayarlarını Yönet" : "Bing Kurulum Sihirbazını Aç"}
+                    </button>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Search Console:</span>
-                    <span className="text-text-primary">{overview?.providers?.google?.gscProperty || "Seçilmedi"}</span>
+
+                  {/* Yandex Card */}
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 font-bold text-xs">
+                          Y
+                        </span>
+                        <div>
+                          <h3 className="text-sm font-semibold text-zinc-100">Yandex Webmaster</h3>
+                          <p className="text-[11px] text-zinc-400">Yandex Arama & Host Yönetimi</p>
+                        </div>
+                      </div>
+                      {renderProviderStatus(overview?.providers?.yandex?.status, overview?.providers?.yandex?.connected)}
+                    </div>
+
+                    <div className="space-y-2 text-xs border-t border-zinc-800/80 pt-3">
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Kullanıcı:</span>
+                        <span className="text-zinc-200">{overview?.providers?.yandex?.login || "—"}</span>
+                      </div>
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Host URL:</span>
+                        <span className="text-zinc-200">{overview?.providers?.yandex?.hostUrl || "—"}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setActiveTab("yandex")}
+                      className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium rounded-lg border border-zinc-700 transition-colors"
+                    >
+                      {overview?.providers?.yandex?.connected ? "Yandex Ayarlarını Yönet" : "Yandex Kurulum Sihirbazını Aç"}
+                    </button>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">AdSense Durumu:</span>
-                    <span className="text-text-primary">
-                      {overview?.providers?.google?.adsenseConnected ? "Algılandı (Read-Only)" : "Yok / Beklemede"}
+
+                  {/* IndexNow Card */}
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-xs">
+                          ⚡
+                        </span>
+                        <div>
+                          <h3 className="text-sm font-semibold text-zinc-100">IndexNow Protokolü</h3>
+                          <p className="text-[11px] text-zinc-400">Anlık URL İndeks Bildirimi</p>
+                        </div>
+                      </div>
+                      {indexNowConfig?.enabled ? (
+                        <AdminStatusBadge status="ACTIVE" label="Aktif" />
+                      ) : (
+                        <AdminStatusBadge status="INACTIVE" label="Kapalı" />
+                      )}
+                    </div>
+
+                    <div className="space-y-2 text-xs border-t border-zinc-800/80 pt-3">
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Durable DB Modeli:</span>
+                        <span className="text-emerald-400 font-mono text-[11px]">IndexNowSubmission ✓</span>
+                      </div>
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Son Bildirim:</span>
+                        <span className="text-zinc-300">
+                          {indexNowConfig?.lastSubmittedAt
+                            ? new Date(indexNowConfig.lastSubmittedAt).toLocaleString("tr-TR")
+                            : "Henüz yapılmadı"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setActiveTab("indexnow")}
+                      className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium rounded-lg border border-zinc-700 transition-colors"
+                    >
+                      IndexNow Kuyruğunu Yönet
+                    </button>
+                  </div>
+                </div>
+
+                {/* Monetization Readiness Strip */}
+                <div className="bg-gradient-to-r from-zinc-900 to-zinc-950 border border-zinc-800 rounded-xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+                      <span>Monetization Readiness (AdSense & TMDB Lisans Kontrolü)</span>
+                    </h3>
+                    <span className="text-[11px] px-2 py-0.5 rounded font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">
+                      Reklamlar: KAPALI (Phase I-D)
                     </span>
                   </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setActiveTab("google")}
-                    className="flex-1 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent/90 transition-colors"
-                  >
-                    Google Yönetimi →
-                  </button>
-                </div>
-              </div>
-
-              {/* Bing Hub Card */}
-              <div className="p-6 rounded-3xl bg-surface-1 border border-border/80 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-lg">
-                      🔷
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                    <div className="p-3 bg-black/40 rounded-lg border border-zinc-800/60">
+                      <span className="text-zinc-400 block text-[11px]">TMDB Commercial Status</span>
+                      <span className="text-amber-300 font-medium mt-1 block">
+                        {monetization?.tmdbCommercialLicenseVerified ? "DOĞRULANDI ✓" : "MANUAL CHECK REQUIRED"}
+                      </span>
                     </div>
-                    <div>
-                      <h2 className="font-display font-bold text-sm text-text-primary">Bing Webmaster</h2>
-                      <p className="text-xs text-text-muted">Microsoft OAuth 2.0 & Sitemap Entegrasyonu</p>
+                    <div className="p-3 bg-black/40 rounded-lg border border-zinc-800/60">
+                      <span className="text-zinc-400 block text-[11px]">AdSense Bağlantısı</span>
+                      <span className="text-zinc-300 font-medium mt-1 block">
+                        {monetization?.adsenseConnected ? "Bağlandı ✓" : "Hesap Yok / Beklemede"}
+                      </span>
+                    </div>
+                    <div className="p-3 bg-black/40 rounded-lg border border-zinc-800/60">
+                      <span className="text-zinc-400 block text-[11px]">Ads Master Lock</span>
+                      <span className="text-zinc-300 font-medium mt-1 block">KİLİTLİ (0 Reklam Yüklenir)</span>
                     </div>
                   </div>
-                  <AdminStatusBadge
-                    status={overview?.providers?.bing?.connected ? "OK" : "WARNING"}
-                    label={overview?.providers?.bing?.connected ? "BAĞLI" : "BAĞLANTI YOK"}
-                  />
-                </div>
-
-                <div className="p-4 rounded-2xl bg-surface-2/80 space-y-2 text-xs font-mono">
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Site URL:</span>
-                    <span className="text-text-primary">{overview?.providers?.bing?.siteUrl || "—"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Son Eşitleme:</span>
-                    <span className="text-text-primary">{overview?.providers?.bing?.lastSyncAt ? new Date(overview.providers.bing.lastSyncAt).toLocaleString("tr-TR") : "—"}</span>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setActiveTab("bing")}
-                    className="flex-1 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border text-xs font-semibold text-text-primary transition-colors"
-                  >
-                    Bing Yönetimi →
-                  </button>
                 </div>
               </div>
+            )}
 
-              {/* Yandex Hub Card */}
-              <div className="p-6 rounded-3xl bg-surface-1 border border-border/80 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-lg">
-                      🔴
-                    </div>
-                    <div>
-                      <h2 className="font-display font-bold text-sm text-text-primary">Yandex Webmaster</h2>
-                      <p className="text-xs text-text-muted">Yandex API v4 & Dizin Takibi</p>
-                    </div>
-                  </div>
-                  <AdminStatusBadge
-                    status={overview?.providers?.yandex?.connected ? "OK" : "WARNING"}
-                    label={overview?.providers?.yandex?.connected ? "BAĞLI" : "BAĞLANTI YOK"}
-                  />
-                </div>
-
-                <div className="p-4 rounded-2xl bg-surface-2/80 space-y-2 text-xs font-mono">
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Kullanıcı:</span>
-                    <span className="text-text-primary">{overview?.providers?.yandex?.login || "—"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Seçili Host:</span>
-                    <span className="text-text-primary">{overview?.providers?.yandex?.hostUrl || "—"}</span>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setActiveTab("yandex")}
-                    className="flex-1 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border text-xs font-semibold text-text-primary transition-colors"
-                  >
-                    Yandex Yönetimi →
-                  </button>
-                </div>
-              </div>
-
-              {/* IndexNow Hub Card */}
-              <div className="p-6 rounded-3xl bg-surface-1 border border-border/80 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-lg">
-                      ⚡
-                    </div>
-                    <div>
-                      <h2 className="font-display font-bold text-sm text-text-primary">IndexNow Protokolü</h2>
-                      <p className="text-xs text-text-muted">Anlık Canonical URL Bildirim Motoru</p>
-                    </div>
-                  </div>
-                  <AdminStatusBadge
-                    status={indexNowConfig?.enabled ? "OK" : "WARNING"}
-                    label={indexNowConfig?.enabled ? "AKTİF" : "KAPALI"}
-                  />
-                </div>
-
-                <div className="p-4 rounded-2xl bg-surface-2/80 space-y-2 text-xs font-mono">
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Toplam Gönderim:</span>
-                    <span className="text-text-primary">{indexNowConfig?.totalSubmissions || 0} URL</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Key Endpoint:</span>
-                    <span className="text-accent truncate max-w-xs">{indexNowConfig?.keyLocation || "—"}</span>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setActiveTab("indexnow")}
-                    className="flex-1 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border text-xs font-semibold text-text-primary transition-colors"
-                  >
-                    IndexNow Yönetimi →
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: SEO & INDEXING */}
-        {activeTab === "seo" && (
-          <div className="space-y-8">
-            {/* Pre-Enable Indexing Health Checklist Banner */}
-            <div className="p-6 rounded-3xl bg-surface-1 border border-border/80 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-display font-bold text-sm text-text-primary">
-                    İndeksleme Öncesi Sağlık Kontrol Listesi (Pre-Enable Checklist)
-                  </h3>
-                  <p className="text-xs text-text-muted mt-0.5">
-                    İndeksleme açılmadan önce sistemin arama motorlarına hazır olduğundan emin olun.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleRunDiagnostics}
-                  disabled={isRunningDiagnostics}
-                  className="px-4 py-2 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border text-xs font-mono text-text-primary transition-colors disabled:opacity-50"
-                >
-                  {isRunningDiagnostics ? "Taranıyor..." : "🔍 Teşhis Çalıştır"}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs font-mono">
-                <div className="p-3 rounded-xl bg-surface-2 border border-border">
-                  <span className="text-emerald-400 font-bold">✓</span> Kanonik Rotalar
-                </div>
-                <div className="p-3 rounded-xl bg-surface-2 border border-border">
-                  <span className="text-emerald-400 font-bold">✓</span> Robots.txt
-                </div>
-                <div className="p-3 rounded-xl bg-surface-2 border border-border">
-                  <span className="text-emerald-400 font-bold">✓</span> Sitemap Sharding
-                </div>
-                <div className="p-3 rounded-xl bg-surface-2 border border-border">
-                  <span className="text-emerald-400 font-bold">✓</span> JSON-LD XSS Koruması
-                </div>
-                <div className="p-3 rounded-xl bg-surface-2 border border-border">
-                  <span className={diagnosticsReport?.summary?.criticalCount > 0 ? "text-red-400 font-bold" : "text-emerald-400 font-bold"}>
-                    {diagnosticsReport?.summary?.criticalCount > 0 ? "✕ Kritik Hata Var" : "✓ Kritik Hata Yok"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Staged Rollout Form */}
-            <form onSubmit={handleSaveSeoConfig} className="p-6 sm:p-8 rounded-3xl bg-surface-1 border border-border/80 space-y-6">
-              <div>
-                <h2 className="text-lg font-display font-bold text-text-primary">Kademeli Yayın & İndeksleme Ayarları</h2>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Arama motorlarına sunulacak canonical URL sınırlarını ve indeksleme anahtarlarını kontrol edin.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <label className="p-4 rounded-2xl bg-surface-2 border border-border flex items-center justify-between cursor-pointer">
+            {/* ========================================================================= */}
+            {/* TAB 2: SEO & INDEXING */}
+            {/* ========================================================================= */}
+            {activeTab === "seo" && (
+              <div className="space-y-6">
+                {/* Master Switch & Rollout Card */}
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-5">
                   <div>
-                    <p className="text-xs font-semibold text-text-primary">SEO Master Aktif</p>
-                    <p className="text-[11px] text-text-muted">Tüm arama motoru dizinleme</p>
+                    <h3 className="text-base font-semibold text-zinc-100">İndeksleme & Staged Rollout Yönetimi</h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Sitemap generation, robots.txt izinleri ve kademeli indeksleme limitlerini yönetin.
+                    </p>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={seoConfig?.seoMasterEnabled || false}
-                    onChange={(e) => setSeoConfig({ ...seoConfig, seoMasterEnabled: e.target.checked })}
-                    className="w-4 h-4 rounded text-accent focus:ring-0"
-                  />
-                </label>
 
-                <label className="p-4 rounded-2xl bg-surface-2 border border-border flex items-center justify-between cursor-pointer">
-                  <div>
-                    <p className="text-xs font-semibold text-text-primary">Film İndeksleme</p>
-                    <p className="text-[11px] text-text-muted">/film/[slug] sayfaları</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={seoConfig?.movieIndexingEnabled || false}
-                    onChange={(e) => setSeoConfig({ ...seoConfig, movieIndexingEnabled: e.target.checked })}
-                    className="w-4 h-4 rounded text-accent focus:ring-0"
-                  />
-                </label>
-
-                <label className="p-4 rounded-2xl bg-surface-2 border border-border flex items-center justify-between cursor-pointer">
-                  <div>
-                    <p className="text-xs font-semibold text-text-primary">Dizi İndeksleme</p>
-                    <p className="text-[11px] text-text-muted">/dizi/[slug] sayfaları</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={seoConfig?.tvIndexingEnabled || false}
-                    onChange={(e) => setSeoConfig({ ...seoConfig, tvIndexingEnabled: e.target.checked })}
-                    className="w-4 h-4 rounded text-accent focus:ring-0"
-                  />
-                </label>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-mono text-text-muted">Film Maksimum İndekslenecek Sayfa Sayısı</label>
-                  <input
-                    type="number"
-                    value={seoConfig?.movieMaxIndexed || 5000}
-                    onChange={(e) => setSeoConfig({ ...seoConfig, movieMaxIndexed: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-surface-2 border border-border text-xs font-mono text-text-primary"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-mono text-text-muted">Dizi Maksimum İndekslenecek Sayfa Sayısı</label>
-                  <input
-                    type="number"
-                    value={seoConfig?.tvMaxIndexed || 2000}
-                    onChange={(e) => setSeoConfig({ ...seoConfig, tvMaxIndexed: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-surface-2 border border-border text-xs font-mono text-text-primary"
-                  />
-                </div>
-              </div>
-
-              {/* TMDB Commercial License Verification Field */}
-              <div className="p-4 rounded-2xl bg-surface-2 border border-border flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-text-primary">TMDB Ticari Kullanım Lisansı Doğrulaması</p>
-                  <p className="text-[11px] text-text-muted">
-                    İleride AdSense reklam aktivasyonundan önce TMDB lisansının ticari kullanıma uygun olduğu manuel olarak doğrulanmalıdır.
-                  </p>
-                </div>
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-mono">
-                  <input
-                    type="checkbox"
-                    checked={seoConfig?.tmdbCommercialLicenseVerified || false}
-                    onChange={(e) => setSeoConfig({ ...seoConfig, tmdbCommercialLicenseVerified: e.target.checked })}
-                    className="w-4 h-4 rounded text-accent focus:ring-0"
-                  />
-                  <span className={seoConfig?.tmdbCommercialLicenseVerified ? "text-emerald-400 font-bold" : "text-amber-400"}>
-                    {seoConfig?.tmdbCommercialLicenseVerified ? "DOĞRULANDI" : "DOĞRULANMADI"}
-                  </span>
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2 border-t border-border/60">
-                <button
-                  type="submit"
-                  disabled={isSavingSeo}
-                  className="px-6 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent/90 transition-colors disabled:opacity-50"
-                >
-                  {isSavingSeo ? "Kaydediliyor..." : "Ayarları Kaydet"}
-                </button>
-              </div>
-            </form>
-
-            {/* Content SEO Search & Inspect Tool */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-surface-1 border border-border/80 space-y-6">
-              <div>
-                <h2 className="text-lg font-display font-bold text-text-primary">İçerik SEO Uygunluk ve Canonical Denetleyici</h2>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Herhangi bir film veya dizinin TMDB ID veya başlığı ile SEO durumunu ve canonical bağlantısını inceleyin.
-                </p>
-              </div>
-
-              <form onSubmit={handleSearchSeo} className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="TMDB ID veya Başlık ara (örn: 157336 veya Interstellar)..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono"
-                />
-                <button
-                  type="submit"
-                  disabled={isSearching}
-                  className="px-6 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent/90 transition-colors disabled:opacity-50"
-                >
-                  {isSearching ? "Aranıyor..." : "Denetle"}
-                </button>
-              </form>
-
-              {searchResults.length > 0 && (
-                <div className="space-y-4">
-                  {searchResults.map((item) => (
-                    <div key={item.id} className="p-5 rounded-2xl bg-surface-2 border border-border space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono px-2 py-0.5 rounded bg-surface-3 border border-border text-accent">
-                              {item.mediaType} • TMDB {item.tmdbId}
-                            </span>
-                            <h3 className="text-sm font-bold text-text-primary">{item.title}</h3>
-                          </div>
-                          <p className="text-xs font-mono text-text-muted mt-1 truncate max-w-xl">
-                            Canonical: <a href={item.canonicalPath} target="_blank" className="text-accent hover:underline">{item.canonicalUrl}</a>
-                          </p>
-                        </div>
-
-                        <AdminStatusBadge
-                          status={item.eligibility.isEligible ? "OK" : "WARNING"}
-                          label={item.eligibility.status}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                    <div className="p-4 rounded-lg bg-zinc-900 border border-zinc-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-zinc-300">Genel İndeksleme (Master)</span>
+                        <input
+                          type="checkbox"
+                          checked={seoConfig?.indexingMasterEnabled === true}
+                          onChange={(e) => handleSaveSeoConfig({ indexingMasterEnabled: e.target.checked })}
+                          disabled={isSavingSeo}
+                          className="rounded bg-zinc-800 border-zinc-700 text-amber-500 focus:ring-amber-500 h-4 w-4"
                         />
                       </div>
+                      <p className="text-[11px] text-zinc-500">Kapalıyken tüm public discovery sayfalarına noindex basılır.</p>
+                    </div>
 
-                      {item.eligibility.reasons?.length > 0 && (
-                        <div className="p-3 rounded-xl bg-surface-3/80 text-[11px] font-mono text-text-secondary space-y-1">
-                          <p className="text-text-muted font-bold">Kalite Geçidi Değerlendirmesi:</p>
-                          <ul className="list-disc pl-4 space-y-0.5">
-                            {item.eligibility.reasons.map((r: string) => (
-                              <li key={r} className="text-amber-400">{r}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                    <div className="p-4 rounded-lg bg-zinc-900 border border-zinc-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-zinc-300">Film İndeksleme</span>
+                        <input
+                          type="checkbox"
+                          checked={seoConfig?.movieIndexingEnabled === true}
+                          onChange={(e) => handleSaveSeoConfig({ movieIndexingEnabled: e.target.checked })}
+                          disabled={isSavingSeo}
+                          className="rounded bg-zinc-800 border-zinc-700 text-amber-500 focus:ring-amber-500 h-4 w-4"
+                        />
+                      </div>
+                      <p className="text-[11px] text-zinc-500">/film/[slug] sayfalarının sitemap ve meta indeksini açar.</p>
+                    </div>
 
-                      <div className="flex items-center justify-between pt-2 border-t border-border/60 text-xs">
-                        <span className="font-mono text-text-muted">Manuel Override:</span>
-                        <div className="flex gap-2">
-                          {["AUTO", "FORCE_INDEX", "FORCE_NOINDEX"].map((ov) => (
-                            <button
-                              key={ov}
-                              onClick={() => handleSetOverride(item.mediaType, item.tmdbId, ov)}
-                              className={`px-3 py-1 rounded-lg text-xs font-mono transition-colors ${
-                                item.manualOverride === ov
-                                  ? "bg-accent text-white font-bold"
-                                  : "bg-surface-3 text-text-secondary hover:text-text-primary border border-border"
-                              }`}
-                            >
-                              {ov}
-                            </button>
-                          ))}
-                        </div>
+                    <div className="p-4 rounded-lg bg-zinc-900 border border-zinc-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-zinc-300">Dizi İndeksleme</span>
+                        <input
+                          type="checkbox"
+                          checked={seoConfig?.tvIndexingEnabled === true}
+                          onChange={(e) => handleSaveSeoConfig({ tvIndexingEnabled: e.target.checked })}
+                          disabled={isSavingSeo}
+                          className="rounded bg-zinc-800 border-zinc-700 text-amber-500 focus:ring-amber-500 h-4 w-4"
+                        />
+                      </div>
+                      <p className="text-[11px] text-zinc-500">/dizi/[slug] sayfalarının sitemap ve meta indeksini açar.</p>
+                    </div>
+                  </div>
+
+                  {/* Rollout Limits */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-zinc-300">Film Rollout Limiti (Sitemap)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={10000}
+                        value={seoConfig?.movieRolloutLimit ?? 500}
+                        onChange={(e) => setSeoConfig({ ...seoConfig, movieRolloutLimit: parseInt(e.target.value, 10) || 0 })}
+                        onBlur={() => handleSaveSeoConfig({ movieRolloutLimit: seoConfig.movieRolloutLimit })}
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 font-mono"
+                      />
+                      <span className="text-[11px] text-zinc-500">SEO Quality Gate'i geçen en popüler filmlerden seçilir.</span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-zinc-300">Dizi Rollout Limiti (Sitemap)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={10000}
+                        value={seoConfig?.tvRolloutLimit ?? 500}
+                        onChange={(e) => setSeoConfig({ ...seoConfig, tvRolloutLimit: parseInt(e.target.value, 10) || 0 })}
+                        onBlur={() => handleSaveSeoConfig({ tvRolloutLimit: seoConfig.tvRolloutLimit })}
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 font-mono"
+                      />
+                      <span className="text-[11px] text-zinc-500">SEO Quality Gate'i geçen en popüler dizilerden seçilir.</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* URL Search & Inspection */}
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-4">
+                  <div>
+                    <h3 className="text-base font-semibold text-zinc-100">Katalog SEO Arama & Slug Denetimi</h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Veritabanındaki filmlerin SEO slug, canonical path ve indekslenebilirlik durumunu sorgulayın.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleSearchSeo} className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Film veya dizi adı girin (Örn: Inception, Fight Club)..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-amber-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSearching}
+                      className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                    >
+                      {isSearching ? "Aranıyor..." : "Sorgula"}
+                    </button>
+                  </form>
+
+                  {searchResults.length > 0 && (
+                    <div className="space-y-2 pt-2">
+                      <div className="text-xs font-medium text-zinc-400">{searchResults.length} sonuç bulundu:</div>
+                      <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                        {searchResults.map((item, i) => (
+                          <div key={i} className="p-3 bg-black/40 border border-zinc-800 rounded-lg text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                              <div className="font-semibold text-zinc-200">
+                                {item.title} <span className="text-zinc-500 font-mono text-[11px]">({item.releaseYear || "—"})</span>
+                              </div>
+                              <div className="text-zinc-400 font-mono text-[11px] mt-0.5">{item.canonicalUrl}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {item.isIndexable ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-950/60 text-emerald-300 border border-emerald-500/30">
+                                  Indexable ✓
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-rose-950/60 text-rose-300 border border-rose-500/30">
+                                  {item.rejectionReason || "Noindex"}
+                                </span>
+                              )}
+                              <a
+                                href={item.canonicalUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[11px] transition-colors"
+                              >
+                                Görüntüle ↗
+                              </a>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: GOOGLE UNIFIED */}
-        {activeTab === "google" && (
-          <div className="space-y-8">
-            {/* Google Connection Wizard Card */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-surface-1 border border-border/80 space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
-                <div>
-                  <h2 className="text-lg font-display font-bold text-text-primary">Google Hizmetleri Entegrasyonu</h2>
-                  <p className="text-xs text-text-secondary mt-0.5">
-                    Google Analytics 4, Search Console ve AdSense (Salt Okunur) yetkilendirmesi.
-                  </p>
+                  )}
                 </div>
 
-                <div>
-                  {overview?.providers?.google?.connected ? (
+                {/* SEO Diagnostics Action */}
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-zinc-100">Kapsamlı SEO Teşhis & Sağlık Raporu</h3>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        Robots.txt, sitemap index, canonical yönlendirmeler ve JSON-LD şemalarını otomatik analiz edin.
+                      </p>
+                    </div>
                     <button
-                      onClick={handleDisconnectGoogle}
-                      className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/20 transition-colors"
+                      onClick={handleRunDiagnostics}
+                      disabled={isRunningDiagnostics}
+                      className="px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium rounded-lg border border-zinc-700 transition-colors disabled:opacity-50 flex items-center gap-1.5"
                     >
-                      Google Bağlantısını Kes
+                      {isRunningDiagnostics ? "Analiz Ediliyor..." : "Teşhisi Çalıştır"}
                     </button>
-                  ) : (
-                    <button
-                      onClick={handleConnectGoogle}
-                      className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-2"
-                    >
-                      <span>🌐</span>
-                      <span>Google ile Bağlan</span>
-                    </button>
+                  </div>
+
+                  {diagnosticsReport && (
+                    <div className="p-4 bg-black/50 border border-zinc-800 rounded-lg space-y-3 font-mono text-xs">
+                      <div className="flex justify-between border-b border-zinc-800 pb-2">
+                        <span className="text-zinc-400">Genel Sağlık:</span>
+                        <span className={diagnosticsReport.healthy ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
+                          {diagnosticsReport.healthy ? "SAĞLIKLI (0 Kritik Sorun) ✓" : "SORUN TESPİT EDİLDİ ✗"}
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-zinc-300 text-[11px]">
+                        <div>Sitemap Toplam URL: {diagnosticsReport.totalSitemapUrls ?? "—"}</div>
+                        <div>Robots.txt Durumu: {diagnosticsReport.robotsTxtStatus ?? "OK"}</div>
+                        <div>Canonical Uyuşmazlığı: {diagnosticsReport.canonicalIssuesCount ?? 0}</div>
+                        <div>JSON-LD Şema Hataları: {diagnosticsReport.schemaErrorsCount ?? 0}</div>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
+            )}
 
-              {overview?.providers?.google?.connected && (
-                <div className="space-y-6">
-                  {/* GA4 Setup */}
-                  <form onSubmit={handleSaveGaSelection} className="p-5 rounded-2xl bg-surface-2 border border-border space-y-4">
-                    <h3 className="text-sm font-bold font-display text-text-primary">1. Google Analytics 4 Mülk & Veri Akışı</h3>
+            {/* ========================================================================= */}
+            {/* TAB 3: GOOGLE INTEGRATION WIZARD */}
+            {/* ========================================================================= */}
+            {activeTab === "google" && (
+              <div className="space-y-6">
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-6">
+                  {/* Wizard Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-4">
+                    <div>
+                      <h3 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
+                        <span>Google Hizmetleri Entegrasyon Sihirbazı</span>
+                      </h3>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        Google Search Console, Google Analytics 4 ve Google AdSense hesaplarınızı tek OAuth akışıyla yönetin.
+                      </p>
+                    </div>
+                    {renderProviderStatus(overview?.providers?.google?.status, overview?.providers?.google?.connected)}
+                  </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* STEP 1: OAuth Credentials & Redirect URI */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-amber-400 uppercase">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-[10px]">
+                        1
+                      </span>
+                      <span>Adım 1: Google Cloud Console OAuth 2.0 Tanımlaması</span>
+                    </div>
+
+                    <div className="p-4 bg-black/40 border border-zinc-800/80 rounded-lg space-y-4">
+                      {/* Authorized Redirect URI Box */}
                       <div className="space-y-1.5">
-                        <label className="text-xs font-mono text-text-muted">Erişilebilir Mülk Seçin</label>
-                        <select
-                          value={selectedGaProperty}
-                          onChange={(e) => setSelectedGaProperty(e.target.value)}
-                          className="w-full px-4 py-2.5 rounded-xl bg-surface-1 border border-border text-xs font-mono text-text-primary"
-                        >
-                          <option value="">-- GA4 Mülkü Seçin --</option>
-                          {googleAccounts.flatMap((acc) =>
-                            (acc.propertySummaries || []).map((p: any) => (
-                              <option key={p.property} value={p.property}>
-                                {p.displayName} ({p.property})
-                              </option>
-                            ))
-                          )}
-                        </select>
+                        <div className="flex items-center justify-between text-xs font-medium text-zinc-300">
+                          <span>Google Cloud Console — Authorized Redirect URI:</span>
+                          <span className="text-[10px] text-zinc-500 font-mono">Birebir Eşleşme Zorunludur</span>
+                        </div>
+                        <div className="p-2.5 bg-zinc-950 rounded-lg border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono text-xs text-zinc-200">
+                          <span className="break-all text-amber-300/90">{googleRedirectUri}</span>
+                          <button
+                            onClick={() => handleCopy(googleRedirectUri, "google_redirect_uri")}
+                            className="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded border border-zinc-700 text-xs flex items-center justify-center gap-1.5 transition-colors self-start sm:self-auto flex-shrink-0"
+                          >
+                            {copiedKey === "google_redirect_uri" ? "✓ Kopyalandı" : "URI'yi Kopyala"}
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-zinc-400">
+                          Google Cloud Console → <i>APIs & Services</i> → <i>Credentials</i> → <i>OAuth 2.0 Client ID (Web Application)</i> ekranındaki <b>Authorized redirect URIs</b> alanına yukarıdaki adresi ekleyin.
+                        </p>
                       </div>
 
+                      {/* Required APIs Checklist */}
+                      <div className="border-t border-zinc-800/80 pt-3 space-y-2 text-xs">
+                        <span className="font-medium text-zinc-300 block">Google Cloud Projesinde Etkinleştirilmesi Gereken API'ler:</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-zinc-400 text-[11px]">
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-400 font-bold">✓</span>
+                            <span>Google Search Console API</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-400 font-bold">✓</span>
+                            <span>Google Analytics Admin & Data API</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-400 font-bold">✓</span>
+                            <span>Google Site Verification API</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-zinc-500 font-bold">○</span>
+                            <span>AdSense Management API (Opsiyonel)</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Credentials Status Indicators */}
+                      <div className="border-t border-zinc-800/80 pt-3 flex flex-wrap items-center gap-4 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-zinc-400">Client ID:</span>
+                          {overview?.diagnostics?.google?.clientIdConfigured ? (
+                            <span className="text-emerald-400 font-medium">Tanımlı ✓</span>
+                          ) : (
+                            <span className="text-amber-400 font-medium">Eksik (GOOGLE_GROWTH_CLIENT_ID)</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-zinc-400">Client Secret:</span>
+                          {overview?.diagnostics?.google?.clientSecretConfigured ? (
+                            <span className="text-emerald-400 font-medium">Tanımlı ✓</span>
+                          ) : (
+                            <span className="text-amber-400 font-medium">Eksik (GOOGLE_GROWTH_CLIENT_SECRET)</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* STEP 2: Connect Account */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-amber-400 uppercase">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-[10px]">
+                        2
+                      </span>
+                      <span>Adım 2: Google Hesabını Bağla</span>
+                    </div>
+
+                    <div className="p-4 bg-black/40 border border-zinc-800/80 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        {overview?.providers?.google?.connected ? (
+                          <div>
+                            <div className="text-xs font-medium text-emerald-400 flex items-center gap-1.5">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              <span>Google Hesabı Bağlı: {overview?.providers?.google?.email}</span>
+                            </div>
+                            <p className="text-[11px] text-zinc-400 mt-0.5">Tüm izinler ve offline refresh token güvenle saklanmaktadır.</p>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="text-xs font-medium text-zinc-200">Google OAuth Bağlantısı Bekleniyor</span>
+                            <p className="text-[11px] text-zinc-400 mt-0.5">Yetkilendirme sonrasında Search Console ve GA4 verileri otomatik okunacaktır.</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {overview?.providers?.google?.connected ? (
+                          <>
+                            <button
+                              onClick={handleConnectGoogle}
+                              className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-medium transition-colors"
+                            >
+                              Yeniden Yetkilendir
+                            </button>
+                            <button
+                              onClick={handleDisconnectGoogle}
+                              className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 rounded-lg text-xs font-medium border border-rose-800/50 transition-colors"
+                            >
+                              Bağlantıyı Kes
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={handleConnectGoogle}
+                            disabled={!overview?.diagnostics?.google?.clientIdConfigured}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors disabled:opacity-50"
+                          >
+                            {overview?.diagnostics?.google?.clientIdConfigured ? "Google Hizmetlerini Bağla" : "Kurulumu Tamamla"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* STEP 3: Service Discovery & Management */}
+                  {overview?.providers?.google?.connected && (
+                    <div className="space-y-4 pt-2 border-t border-zinc-800">
+                      <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-amber-400 uppercase">
+                        <span className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-[10px]">
+                          3
+                        </span>
+                        <span>Adım 3: Servis Keşfi & Mülk Yönetimi</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Search Console Card */}
+                        <div className="bg-black/40 border border-zinc-800 rounded-lg p-4 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-semibold text-zinc-200 uppercase tracking-wider">Search Console Mülkü</h4>
+                            {hasDomainGscProperty ? (
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-500/30">
+                                DNS Domain Property ✓
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                                URL-Prefix Property
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-xs text-zinc-400">Doğrulanmış Mülk Seçin:</label>
+                            <select
+                              value={selectedGscSite || overview?.providers?.google?.gscProperty || ""}
+                              onChange={(e) => handleSelectGscSite(e.target.value)}
+                              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 font-mono focus:outline-none focus:border-amber-500"
+                            >
+                              <option value="">-- Mülk Seçin --</option>
+                              {gscSites.map((site, i) => (
+                                <option key={i} value={site.siteUrl}>
+                                  {site.siteUrl} ({site.permissionLevel})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {hasDomainGscProperty && (
+                            <div className="p-2.5 rounded bg-emerald-950/20 border border-emerald-800/40 text-[11px] text-emerald-300">
+                              Bu domain Search Console'da DNS üzerinden doğrulanmış. Ek HTML meta doğrulaması gerekmez.
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              onClick={handleSubmitGscSitemap}
+                              disabled={isSubmittingGscSitemap}
+                              className="flex-1 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-xs font-medium border border-zinc-700 transition-colors disabled:opacity-50"
+                            >
+                              {isSubmittingGscSitemap ? "Gönderiliyor..." : "Sitemap Gönder (sitemap.xml)"}
+                            </button>
+                          </div>
+
+                          {/* URL Inspection Tool */}
+                          <div className="border-t border-zinc-800/80 pt-3 space-y-2">
+                            <label className="text-xs font-medium text-zinc-300">Canlı URL Denetimi (Search Console API):</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="https://sineai.com.tr/film/..."
+                                value={inspectUrl}
+                                onChange={(e) => setInspectUrl(e.target.value)}
+                                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 font-mono"
+                              />
+                              <button
+                                onClick={handleInspectUrl}
+                                disabled={isInspectingUrl}
+                                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-medium disabled:opacity-50"
+                              >
+                                {isInspectingUrl ? "..." : "Denetle"}
+                              </button>
+                            </div>
+
+                            {inspectResult && (
+                              <div className="p-3 bg-zinc-950 rounded border border-zinc-800 text-[11px] space-y-1 font-mono">
+                                <div className="text-emerald-400 font-semibold">Sonuç: {inspectResult.verdict}</div>
+                                <div className="text-zinc-400">Coverage: {inspectResult.coverageState}</div>
+                                <div className="text-zinc-400">Robots: {inspectResult.robotsTxtState}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Google Analytics 4 Card */}
+                        <div className="bg-black/40 border border-zinc-800 rounded-lg p-4 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-semibold text-zinc-200 uppercase tracking-wider">Google Analytics 4</h4>
+                            {seoConfig?.gaTrackingEnabled ? (
+                              <AdminStatusBadge status="ACTIVE" label="İzleme Aktif" />
+                            ) : (
+                              <AdminStatusBadge status="INACTIVE" label="İzleme Kapalı" />
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-xs text-zinc-400">GA4 Hesabı / Mülkü:</label>
+                            <select
+                              value={selectedGaProperty}
+                              onChange={(e) => setSelectedGaProperty(e.target.value)}
+                              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 font-mono focus:outline-none focus:border-amber-500"
+                            >
+                              <option value="">-- GA4 Mülkü Seçin --</option>
+                              {googleAccounts.map((acc, i) => (
+                                <optgroup key={i} label={acc.displayName}>
+                                  {(acc.properties || []).map((prop: any, j: number) => (
+                                    <option key={j} value={prop.name}>
+                                      {prop.displayName} ({prop.propertyId})
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-zinc-400">GA4 Measurement ID:</label>
+                            <input
+                              type="text"
+                              placeholder="G-XXXXXXXXXX"
+                              value={gaMeasurementId}
+                              onChange={(e) => setGaMeasurementId(e.target.value)}
+                              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 font-mono"
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between p-3 bg-zinc-900 rounded-lg border border-zinc-800">
+                            <div>
+                              <span className="text-xs font-medium text-zinc-200">İstemci Tarafı İzleme</span>
+                              <p className="text-[10px] text-zinc-500">Kullanıcı rızası (Consent Mode) ve PII sanitization korunur.</p>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={gaTrackingEnabled}
+                              onChange={(e) => setGaTrackingEnabled(e.target.checked)}
+                              className="rounded bg-zinc-800 border-zinc-700 text-amber-500 focus:ring-amber-500 h-4 w-4"
+                            />
+                          </div>
+
+                          <button
+                            onClick={handleSaveGa}
+                            disabled={isSavingGa}
+                            className="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                          >
+                            {isSavingGa ? "Kaydediliyor..." : "Analytics Ayarlarını Kaydet"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* TAB 4: BING WEBMASTER WIZARD */}
+            {/* ========================================================================= */}
+            {activeTab === "bing" && (
+              <div className="space-y-6">
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-4">
+                    <div>
+                      <h3 className="text-base font-semibold text-zinc-100">Bing Webmaster Tools Entegrasyonu</h3>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        Microsoft Bing Arama Motoru resmi API erişimi, sitemap bildirimi ve indeksleme yönetimi.
+                      </p>
+                    </div>
+                    {renderProviderStatus(overview?.providers?.bing?.status, overview?.providers?.bing?.connected)}
+                  </div>
+
+                  {/* Step 1: Credentials & URI */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-amber-400 uppercase">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-[10px]">
+                        1
+                      </span>
+                      <span>Adım 1: Bing Webmaster Tools API Access Tanımlaması</span>
+                    </div>
+
+                    <div className="p-4 bg-black/40 border border-zinc-800/80 rounded-lg space-y-4">
                       <div className="space-y-1.5">
-                        <label className="text-xs font-mono text-text-muted">Measurement ID (Örn: G-XXXXXXXXXX)</label>
+                        <div className="flex items-center justify-between text-xs font-medium text-zinc-300">
+                          <span>Bing Webmaster — Authorized Redirect URI:</span>
+                          <span className="text-[10px] text-zinc-500 font-mono">Birebir Eşleşme</span>
+                        </div>
+                        <div className="p-2.5 bg-zinc-950 rounded-lg border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono text-xs text-zinc-200">
+                          <span className="break-all text-amber-300/90">{bingRedirectUri}</span>
+                          <button
+                            onClick={() => handleCopy(bingRedirectUri, "bing_redirect_uri")}
+                            className="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded border border-zinc-700 text-xs flex items-center justify-center gap-1.5 transition-colors self-start sm:self-auto flex-shrink-0"
+                          >
+                            {copiedKey === "bing_redirect_uri" ? "✓ Kopyalandı" : "URI'yi Kopyala"}
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-zinc-400">
+                          Bing Webmaster Tools → <i>Settings</i> → <i>API Access</i> → <i>OAuth</i> alanından oluşturduğunuz Client ID ve Secret değerlerini sunucu ortamına tanımlayın.
+                        </p>
+                      </div>
+
+                      <div className="border-t border-zinc-800/80 pt-3 flex flex-wrap items-center gap-4 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-zinc-400">Client ID:</span>
+                          {overview?.diagnostics?.bing?.clientIdConfigured ? (
+                            <span className="text-emerald-400 font-medium">Tanımlı ✓</span>
+                          ) : (
+                            <span className="text-amber-400 font-medium">Eksik (BING_WEBMASTER_CLIENT_ID)</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-zinc-400">Client Secret:</span>
+                          {overview?.diagnostics?.bing?.clientSecretConfigured ? (
+                            <span className="text-emerald-400 font-medium">Tanımlı ✓</span>
+                          ) : (
+                            <span className="text-amber-400 font-medium">Eksik (BING_WEBMASTER_CLIENT_SECRET)</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Connect Button */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-amber-400 uppercase">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-[10px]">
+                        2
+                      </span>
+                      <span>Adım 2: Bing Hesabını Bağla</span>
+                    </div>
+
+                    <div className="p-4 bg-black/40 border border-zinc-800/80 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        {overview?.providers?.bing?.connected ? (
+                          <div className="text-xs font-medium text-emerald-400 flex items-center gap-1.5">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>Bing Webmaster Bağlı</span>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="text-xs font-medium text-zinc-200">Bing OAuth Bağlantısı Bekleniyor</span>
+                            <p className="text-[11px] text-zinc-400 mt-0.5">Resmi bing.com/webmasters OAuth akışı üzerinden yetkilendirilir.</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {overview?.providers?.bing?.connected ? (
+                          <>
+                            <button
+                              onClick={handleSubmitBingSitemap}
+                              disabled={isSubmittingBingSitemap}
+                              className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                            >
+                              {isSubmittingBingSitemap ? "Gönderiliyor..." : "Sitemap Gönder"}
+                            </button>
+                            <button
+                              onClick={handleDisconnectBing}
+                              className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 rounded-lg text-xs font-medium border border-rose-800/50 transition-colors"
+                            >
+                              Bağlantıyı Kes
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={handleConnectBing}
+                            disabled={!overview?.diagnostics?.bing?.clientIdConfigured}
+                            className="px-4 py-2 bg-cyan-700 hover:bg-cyan-600 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors disabled:opacity-50"
+                          >
+                            {overview?.diagnostics?.bing?.clientIdConfigured ? "Bing ile Bağlan" : "Kurulumu Tamamla"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* TAB 5: YANDEX WEBMASTER WIZARD */}
+            {/* ========================================================================= */}
+            {activeTab === "yandex" && (
+              <div className="space-y-6">
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-4">
+                    <div>
+                      <h3 className="text-base font-semibold text-zinc-100">Yandex Webmaster Entegrasyonu</h3>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        Yandex Webmaster OAuth 2.0 bağlantısı, host doğrulama ve sitemap yönetimi.
+                      </p>
+                    </div>
+                    {renderProviderStatus(overview?.providers?.yandex?.status, overview?.providers?.yandex?.connected)}
+                  </div>
+
+                  {/* Step 1: Credentials & URI */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-amber-400 uppercase">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-[10px]">
+                        1
+                      </span>
+                      <span>Adım 1: Yandex OAuth Uygulaması Tanımlaması</span>
+                    </div>
+
+                    <div className="p-4 bg-black/40 border border-zinc-800/80 rounded-lg space-y-4">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs font-medium text-zinc-300">
+                          <span>Yandex OAuth — Authorized Callback URI:</span>
+                          <span className="text-[10px] text-zinc-500 font-mono">Birebir Eşleşme</span>
+                        </div>
+                        <div className="p-2.5 bg-zinc-950 rounded-lg border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono text-xs text-zinc-200">
+                          <span className="break-all text-amber-300/90">{yandexRedirectUri}</span>
+                          <button
+                            onClick={() => handleCopy(yandexRedirectUri, "yandex_redirect_uri")}
+                            className="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded border border-zinc-700 text-xs flex items-center justify-center gap-1.5 transition-colors self-start sm:self-auto flex-shrink-0"
+                          >
+                            {copiedKey === "yandex_redirect_uri" ? "✓ Kopyalandı" : "URI'yi Kopyala"}
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-zinc-400">
+                          oauth.yandex.com adresinden oluşturduğunuz uygulamanın <i>Redirect URI</i> alanına yukarıdaki adresi ekleyin.
+                        </p>
+                      </div>
+
+                      <div className="border-t border-zinc-800/80 pt-3 flex flex-wrap items-center gap-4 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-zinc-400">Client ID:</span>
+                          {overview?.diagnostics?.yandex?.clientIdConfigured ? (
+                            <span className="text-emerald-400 font-medium">Tanımlı ✓</span>
+                          ) : (
+                            <span className="text-amber-400 font-medium">Eksik (YANDEX_WEBMASTER_CLIENT_ID)</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-zinc-400">Client Secret:</span>
+                          {overview?.diagnostics?.yandex?.clientSecretConfigured ? (
+                            <span className="text-emerald-400 font-medium">Tanımlı ✓</span>
+                          ) : (
+                            <span className="text-amber-400 font-medium">Eksik (YANDEX_WEBMASTER_CLIENT_SECRET)</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Connect Button */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-amber-400 uppercase">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-[10px]">
+                        2
+                      </span>
+                      <span>Adım 2: Yandex Hesabını Bağla</span>
+                    </div>
+
+                    <div className="p-4 bg-black/40 border border-zinc-800/80 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        {overview?.providers?.yandex?.connected ? (
+                          <div className="text-xs font-medium text-emerald-400 flex items-center gap-1.5">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>Yandex Webmaster Bağlı: {overview?.providers?.yandex?.login || overview?.providers?.yandex?.hostUrl}</span>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="text-xs font-medium text-zinc-200">Yandex OAuth Bağlantısı Bekleniyor</span>
+                            <p className="text-[11px] text-zinc-400 mt-0.5">oauth.yandex.com akışı ile yetkilendirilir.</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {overview?.providers?.yandex?.connected ? (
+                          <button
+                            onClick={handleDisconnectYandex}
+                            className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 rounded-lg text-xs font-medium border border-rose-800/50 transition-colors"
+                          >
+                            Bağlantıyı Kes
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleConnectYandex}
+                            disabled={!overview?.diagnostics?.yandex?.clientIdConfigured}
+                            className="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors disabled:opacity-50"
+                          >
+                            {overview?.diagnostics?.yandex?.clientIdConfigured ? "Yandex ile Bağlan" : "Kurulumu Tamamla"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* TAB 6: INDEXNOW DURABLE QUEUE */}
+            {/* ========================================================================= */}
+            {activeTab === "indexnow" && (
+              <div className="space-y-6">
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-4">
+                    <div>
+                      <h3 className="text-base font-semibold text-zinc-100">IndexNow Anlık Bildirim Kuyruğu</h3>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        Yayınlanan veya güncellenen film/dizi sayfalarının Bing ve Yandex arama motorlarına anlık iletimi.
+                      </p>
+                    </div>
+                    {indexNowConfig?.enabled ? (
+                      <AdminStatusBadge status="ACTIVE" label="Aktif" />
+                    ) : (
+                      <AdminStatusBadge status="INACTIVE" label="Kapalı" />
+                    )}
+                  </div>
+
+                  {/* Queue KPIs */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="p-3 bg-black/40 border border-zinc-800 rounded-lg">
+                      <span className="text-[11px] text-zinc-400 font-medium">Bekleyen (Pending)</span>
+                      <div className="text-xl font-bold text-amber-400 mt-1">{indexNowConfig?.queueStats?.pending ?? 0}</div>
+                    </div>
+                    <div className="p-3 bg-black/40 border border-zinc-800 rounded-lg">
+                      <span className="text-[11px] text-zinc-400 font-medium">İşleniyor (Processing)</span>
+                      <div className="text-xl font-bold text-blue-400 mt-1">{indexNowConfig?.queueStats?.processing ?? 0}</div>
+                    </div>
+                    <div className="p-3 bg-black/40 border border-zinc-800 rounded-lg">
+                      <span className="text-[11px] text-zinc-400 font-medium">Başarılı (Submitted)</span>
+                      <div className="text-xl font-bold text-emerald-400 mt-1">{indexNowConfig?.queueStats?.submitted ?? 0}</div>
+                    </div>
+                    <div className="p-3 bg-black/40 border border-zinc-800 rounded-lg">
+                      <span className="text-[11px] text-zinc-400 font-medium">Hatalı (Failed)</span>
+                      <div className="text-xl font-bold text-rose-400 mt-1">{indexNowConfig?.queueStats?.failed ?? 0}</div>
+                    </div>
+                  </div>
+
+                  {/* Key & Verification URL */}
+                  <div className="p-4 bg-black/40 border border-zinc-800 rounded-lg space-y-3 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-zinc-300">Aktif IndexNow Anahtarı:</span>
+                      <span className="font-mono text-zinc-200 bg-zinc-950 px-2 py-1 rounded border border-zinc-800">
+                        {indexNowConfig?.key || "Oluşturulmamış"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-zinc-300">Key Doğrulama URL'si:</span>
+                      <a
+                        href={indexNowConfig?.keyLocation || "#"}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-amber-400 hover:underline font-mono text-[11px]"
+                      >
+                        {indexNowConfig?.keyLocation || "—"} ↗
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap items-center gap-3 pt-2">
+                    <button
+                      onClick={handleToggleIndexNow}
+                      className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                        indexNowConfig?.enabled
+                          ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700"
+                          : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                      }`}
+                    >
+                      {indexNowConfig?.enabled ? "Protokolü Devre Dışı Bırak" : "IndexNow'ı Etkinleştir"}
+                    </button>
+                    <button
+                      onClick={handleTestIndexNowPing}
+                      disabled={isTestingPing || !indexNowConfig?.enabled}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                    >
+                      {isTestingPing ? "İletiliyor..." : "Test Ping Gönder"}
+                    </button>
+                    <button
+                      onClick={handleRotateIndexNowKey}
+                      disabled={isRotatingKey}
+                      className="px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-lg text-xs font-medium border border-zinc-800 transition-colors disabled:opacity-50"
+                    >
+                      {isRotatingKey ? "Yenileniyor..." : "Anahtarı Yenile (Rotate)"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* TAB 7: MONETIZATION & ADSENSE */}
+            {/* ========================================================================= */}
+            {activeTab === "adsense" && (
+              <div className="space-y-6">
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-4">
+                    <div>
+                      <h3 className="text-base font-semibold text-zinc-100">Google AdSense & Monetization Readiness</h3>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        Gelir modeli hazırlığı, reklam yerleşim politikaları ve TMDB lisans doğrulama denetimleri.
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 text-xs font-mono bg-rose-950/60 text-rose-300 border border-rose-500/30 rounded-lg font-medium">
+                      Ads Master Switch: LOCKED
+                    </span>
+                  </div>
+
+                  {/* Readiness Checklist */}
+                  <div className="space-y-3">
+                    <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider block">
+                      Phase I-D Reklam Açılış Öncesi Blocking Koşullar:
+                    </span>
+
+                    <div className="space-y-2">
+                      <div className="p-3.5 bg-black/40 border border-zinc-800 rounded-lg flex items-center justify-between text-xs">
+                        <div className="space-y-0.5">
+                          <span className="font-medium text-zinc-200">1. TMDB Commercial License Verification</span>
+                          <p className="text-[11px] text-zinc-500">
+                            AdSense açılmadan önce TMDB ticari kullanım / lisans statüsünün manuel doğrulanması zorunludur.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-[11px] font-mono font-medium ${monetization?.tmdbCommercialLicenseVerified ? "text-emerald-400" : "text-amber-400"}`}>
+                            {monetization?.tmdbCommercialLicenseVerified ? "VERIFIED ✓" : "MANUAL CHECK REQUIRED"}
+                          </span>
+                          <button
+                            onClick={() => handleSaveSeoConfig({ tmdbCommercialLicenseVerified: !monetization?.tmdbCommercialLicenseVerified })}
+                            className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] rounded border border-zinc-700 transition-colors"
+                          >
+                            {monetization?.tmdbCommercialLicenseVerified ? "İptal Et" : "Onayla"}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 bg-black/40 border border-zinc-800 rounded-lg flex items-center justify-between text-xs">
+                        <div className="space-y-0.5">
+                          <span className="font-medium text-zinc-200">2. AdSense Site Onayı (sineai.com.tr)</span>
+                          <p className="text-[11px] text-zinc-500">Google AdSense hesabındaki siteler listesinde READY olmalıdır.</p>
+                        </div>
+                        <span className="text-[11px] font-mono text-zinc-400">
+                          {adsenseHealth?.account ? "HESAP BAĞLI" : "HESAP YOK / PHASE I-D"}
+                        </span>
+                      </div>
+
+                      <div className="p-3.5 bg-black/40 border border-zinc-800 rounded-lg flex items-center justify-between text-xs">
+                        <div className="space-y-0.5">
+                          <span className="font-medium text-zinc-200">3. ads.txt ve CMP (Consent Management Platform)</span>
+                          <p className="text-[11px] text-zinc-500">GDPR/KVKK uyumlu çerez onay banner'ı ve ads.txt yönlendirmesi.</p>
+                        </div>
+                        <span className="text-[11px] font-mono text-zinc-500">PHASE I-D KAPSAMINDA</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* TAB 8: SITE VERIFICATION */}
+            {/* ========================================================================= */}
+            {activeTab === "verification" && (
+              <div className="space-y-6">
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-6">
+                  <div className="border-b border-zinc-800/80 pb-4">
+                    <h3 className="text-base font-semibold text-zinc-100">Arama Motoru Site Doğrulama</h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Domain ve URL-prefix mülkleri için DNS, OAuth veya HTML meta etiket doğrulama durumları.
+                    </p>
+                  </div>
+
+                  {/* Provider Status Summary Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Google */}
+                    <div className="p-4 bg-black/40 border border-zinc-800 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-zinc-200">Google</span>
+                        {hasDomainGscProperty ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
+                            DNS ✓
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                            Meta / OAuth
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-zinc-400">
+                        {hasDomainGscProperty
+                          ? "DNS üzerinden doğrulandı. Ek HTML meta doğrulaması gerekmez."
+                          : "Google Search Console veya HTML meta etiketi ile doğrulanabilir."}
+                      </p>
+                    </div>
+
+                    {/* Bing */}
+                    <div className="p-4 bg-black/40 border border-zinc-800 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-zinc-200">Bing</span>
+                        {overview?.providers?.bing?.connected ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
+                            OAuth ✓
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                            Manuel / Meta
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-zinc-400">
+                        {overview?.providers?.bing?.connected
+                          ? "Bing Webmaster API ile otomatik doğrulandı."
+                          : "Bing Webmaster Tools veya XML/Meta ile doğrulanabilir."}
+                      </p>
+                    </div>
+
+                    {/* Yandex */}
+                    <div className="p-4 bg-black/40 border border-zinc-800 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-zinc-200">Yandex</span>
+                        {overview?.providers?.yandex?.connected ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
+                            OAuth ✓
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                            Manuel / Meta
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-zinc-400">
+                        {overview?.providers?.yandex?.connected
+                          ? "Yandex Webmaster OAuth ile bağlandı."
+                          : "Yandex Webmaster veya HTML meta etiketi ile doğrulanabilir."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Collapsible Manual HTML Meta Fallback Accordion */}
+                  <details className="group border border-zinc-800 rounded-lg bg-black/20 overflow-hidden">
+                    <summary className="p-4 text-xs font-medium text-zinc-300 hover:text-zinc-100 cursor-pointer flex items-center justify-between select-none">
+                      <span>Alternatif / Manuel HTML Meta Doğrulama Kodları (URL-prefix fallback)</span>
+                      <span className="text-zinc-500 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+
+                    <form onSubmit={handleSaveMetaTags} className="p-4 border-t border-zinc-800/80 space-y-4">
+                      <p className="text-[11px] text-zinc-400">
+                        Aşağıdaki alanlar yalnızca DNS doğrulaması yapılamayan özel durumlarda <code>&lt;head&gt;</code> etiketine meta token eklemek için kullanılır.
+                      </p>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-zinc-300 font-medium">Google Site Verification Token (content değeri)</label>
                         <input
                           type="text"
-                          value={gaMeasurementId}
-                          onChange={(e) => setGaMeasurementId(e.target.value)}
-                          placeholder="G-..."
-                          className="w-full px-4 py-2.5 rounded-xl bg-surface-1 border border-border text-xs font-mono text-text-primary"
+                          placeholder="Örn: 4yN... (Sadece content değeri)"
+                          value={googleMetaTag}
+                          onChange={(e) => setGoogleMetaTag(e.target.value)}
+                          className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 font-mono"
                         />
                       </div>
-                    </div>
 
-                    <div className="flex items-center justify-between pt-2">
-                      <label className="flex items-center gap-2 cursor-pointer text-xs font-sans text-text-secondary">
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-zinc-300 font-medium">Bing / msvalidate.01 Token</label>
                         <input
-                          type="checkbox"
-                          checked={gaTrackingEnabled}
-                          onChange={(e) => setGaTrackingEnabled(e.target.checked)}
-                          className="w-4 h-4 rounded text-accent focus:ring-0"
+                          type="text"
+                          placeholder="Örn: 9F8E7D..."
+                          value={bingMetaTag}
+                          onChange={(e) => setBingMetaTag(e.target.value)}
+                          className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 font-mono"
                         />
-                        <span>Kullanıcı İzleme Etkin (Consent-Aware Default)</span>
-                      </label>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-zinc-300 font-medium">Yandex Verification Token (yandex-verification)</label>
+                        <input
+                          type="text"
+                          placeholder="Örn: 5a4b3c..."
+                          value={yandexMetaTag}
+                          onChange={(e) => setYandexMetaTag(e.target.value)}
+                          className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 font-mono"
+                        />
+                      </div>
 
                       <button
                         type="submit"
-                        disabled={isSavingGa}
-                        className="px-4 py-2 rounded-xl bg-accent text-white text-xs font-semibold disabled:opacity-50"
+                        disabled={isSavingMetaTags}
+                        className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
                       >
-                        {isSavingGa ? "Kaydediliyor..." : "GA4 Kaydet"}
+                        {isSavingMetaTags ? "Kaydediliyor..." : "Meta Etiketlerini Kaydet"}
                       </button>
-                    </div>
-                  </form>
-
-                  {/* Search Console Setup */}
-                  <div className="p-5 rounded-2xl bg-surface-2 border border-border space-y-4">
-                    <h3 className="text-sm font-bold font-display text-text-primary">2. Google Search Console & Sitemap</h3>
-
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <select
-                        value={selectedGscSite}
-                        onChange={(e) => handleSelectGscSite(e.target.value)}
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-surface-1 border border-border text-xs font-mono text-text-primary"
-                      >
-                        <option value="">-- Search Console Mülkü Seçin --</option>
-                        {gscSites.map((s) => (
-                          <option key={s.siteUrl} value={s.siteUrl}>
-                            {s.siteUrl} ({s.permissionLevel})
-                          </option>
-                        ))}
-                      </select>
-
-                      <button
-                        type="button"
-                        onClick={handleSubmitGscSitemap}
-                        disabled={isSubmittingGscSitemap || !selectedGscSite}
-                        className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors disabled:opacity-50"
-                      >
-                        {isSubmittingGscSitemap ? "Gönderiliyor..." : "🗺️ Sitemap Gönder"}
-                      </button>
-                    </div>
-
-                    {gscAnalytics && (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                        <div className="p-3 rounded-xl bg-surface-1 text-center">
-                          <p className="text-[10px] font-mono text-text-muted uppercase">Tıklamalar</p>
-                          <p className="text-lg font-bold font-mono text-accent">{gscAnalytics.clicks}</p>
-                        </div>
-                        <div className="p-3 rounded-xl bg-surface-1 text-center">
-                          <p className="text-[10px] font-mono text-text-muted uppercase">Gösterimler</p>
-                          <p className="text-lg font-bold font-mono text-text-primary">{gscAnalytics.impressions}</p>
-                        </div>
-                        <div className="p-3 rounded-xl bg-surface-1 text-center">
-                          <p className="text-[10px] font-mono text-text-muted uppercase">Ortalama CTR</p>
-                          <p className="text-lg font-bold font-mono text-emerald-400">%{gscAnalytics.ctr}</p>
-                        </div>
-                        <div className="p-3 rounded-xl bg-surface-1 text-center">
-                          <p className="text-[10px] font-mono text-text-muted uppercase">Ortalama Sıra</p>
-                          <p className="text-lg font-bold font-mono text-text-primary">{gscAnalytics.position}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* URL Inspection Tool */}
-                  <form onSubmit={handleInspectUrl} className="p-5 rounded-2xl bg-surface-2 border border-border space-y-4">
-                    <h3 className="text-sm font-bold font-display text-text-primary">3. Canlı URL Denetimi (Search Console)</h3>
-                    <p className="text-xs text-text-muted">
-                      Yalnızca SINEAI alan adına ait canonical bir URL girin (Örn: https://sineai.com.tr/film/interstellar-157336).
-                    </p>
-
-                    <div className="flex gap-2">
-                      <input
-                        type="url"
-                        placeholder="https://sineai.com.tr/film/..."
-                        value={inspectUrl}
-                        onChange={(e) => setInspectUrl(e.target.value)}
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-surface-1 border border-border text-xs font-mono text-text-primary"
-                      />
-                      <button
-                        type="submit"
-                        disabled={isInspectingUrl || !selectedGscSite}
-                        className="px-6 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold disabled:opacity-50"
-                      >
-                        {isInspectingUrl ? "Denetleniyor..." : "Denetle"}
-                      </button>
-                    </div>
-
-                    {inspectResult && (
-                      <div className="p-4 rounded-xl bg-surface-1 border border-border space-y-2 text-xs font-mono">
-                        <div className="flex justify-between">
-                          <span className="text-text-muted">Genel Karar:</span>
-                          <span className="font-bold text-emerald-400">{inspectResult.verdict}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-text-muted">Kapsam Durumu:</span>
-                          <span className="text-text-primary">{inspectResult.coverageState}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-text-muted">İndeksleme Durumu:</span>
-                          <span className="text-text-primary">{inspectResult.indexingState}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-text-muted">Robots.txt Durumu:</span>
-                          <span className="text-text-primary">{inspectResult.robotsTxtState}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-text-muted">Son Tarama:</span>
-                          <span className="text-text-primary">{inspectResult.lastCrawlTime || "—"}</span>
-                        </div>
-                      </div>
-                    )}
-                  </form>
-
-                  {/* AdSense Health (Read-Only) */}
-                  <div className="p-5 rounded-2xl bg-surface-2 border border-border space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-sm font-bold font-display text-text-primary">4. AdSense Sağlık & Hazırlık Durumu</h3>
-                        <p className="text-xs text-text-muted">Bu fazda reklam yerleşimi kapalıdır (Salt-Okunur).</p>
-                      </div>
-                      <AdminStatusBadge
-                        status={adsenseHealth?.isAvailable ? "OK" : "INFO"}
-                        label={adsenseHealth?.isAvailable ? "HAZIR" : "BEKLEMEDE"}
-                      />
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-surface-1 text-xs font-mono space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-text-muted">Yayıncı ID:</span>
-                        <span className="text-text-primary">{adsenseHealth?.account?.publisherId || "—"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-text-muted">Site Onayı:</span>
-                        <span className="text-text-primary">{adsenseHealth?.matchingSite?.state || "Algılanmadı"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-text-muted">Politika Sorunları:</span>
-                        <span className="text-text-primary">{adsenseHealth?.policyIssuesCount || 0} adet</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: BING */}
-        {activeTab === "bing" && (
-          <div className="p-6 sm:p-8 rounded-3xl bg-surface-1 border border-border/80 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
-              <div>
-                <h2 className="text-lg font-display font-bold text-text-primary">Bing Webmaster Entegrasyonu</h2>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Microsoft Webmaster API ile site doğrulama ve sitemap yönetimi.
-                </p>
-              </div>
-
-              <div>
-                {bingData?.status?.isConnected ? (
-                  <button
-                    onClick={handleDisconnectBing}
-                    className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/20 transition-colors"
-                  >
-                    Bing Bağlantısını Kes
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleConnectBing}
-                    className="px-6 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition-colors shadow-lg shadow-cyan-500/20 flex items-center gap-2"
-                  >
-                    <span>🔷</span>
-                    <span>Bing ile Bağlan</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {bingData?.status?.isConnected && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-surface-2 text-xs font-mono space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Bağlı Site:</span>
-                    <span className="text-text-primary">{bingData.status.siteUrl || "https://sineai.com.tr"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Son Eşitleme:</span>
-                    <span className="text-text-primary">{bingData.status.lastSyncAt ? new Date(bingData.status.lastSyncAt).toLocaleString("tr-TR") : "—"}</span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setIsSubmittingBingSitemap(true);
-                    setStatusMsg(null);
-                    try {
-                      const res = await fetch("/api/admin/growth/bing", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ siteUrl: bingData.status.siteUrl || "https://sineai.com.tr" }),
-                      });
-                      const data = await res.json();
-                      if (res.ok) {
-                        setStatusMsg({ type: "success", text: data.message || "Bing sitemap gönderildi." });
-                      } else {
-                        setStatusMsg({ type: "error", text: data.error || "Gönderim başarısız." });
-                      }
-                    } catch {
-                      setStatusMsg({ type: "error", text: "Bağlantı hatası." });
-                    } finally {
-                      setIsSubmittingBingSitemap(false);
-                    }
-                  }}
-                  disabled={isSubmittingBingSitemap}
-                  className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold disabled:opacity-50"
-                >
-                  {isSubmittingBingSitemap ? "Gönderiliyor..." : "Bing Sitemap'i Şimdi Gönder"}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TAB 5: YANDEX */}
-        {activeTab === "yandex" && (
-          <div className="p-6 sm:p-8 rounded-3xl bg-surface-1 border border-border/80 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
-              <div>
-                <h2 className="text-lg font-display font-bold text-text-primary">Yandex Webmaster Entegrasyonu</h2>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Yandex API v4 ile site doğrulama ve dizin takibi.
-                </p>
-              </div>
-
-              <div>
-                {yandexData?.status?.isConnected ? (
-                  <button
-                    onClick={handleDisconnectYandex}
-                    className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/20 transition-colors"
-                  >
-                    Yandex Bağlantısını Kes
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleConnectYandex}
-                    className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors shadow-lg shadow-red-500/20 flex items-center gap-2"
-                  >
-                    <span>🔴</span>
-                    <span>Yandex ile Bağlan</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {yandexData?.status?.isConnected && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-surface-2 text-xs font-mono space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Kullanıcı Girişi:</span>
-                    <span className="text-text-primary">{yandexData.status.connectedLogin || "—"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Erişilebilir Siteler:</span>
-                    <span className="text-text-primary">{yandexData.hosts?.length || 0} adet</span>
-                  </div>
+                    </form>
+                  </details>
                 </div>
               </div>
             )}
           </div>
-        )}
-
-        {/* TAB 6: INDEXNOW */}
-        {activeTab === "indexnow" && (
-          <div className="p-6 sm:p-8 rounded-3xl bg-surface-1 border border-border/80 space-y-6">
-            <div>
-              <h2 className="text-lg font-display font-bold text-text-primary">IndexNow Anlık Bildirim Yönetimi</h2>
-              <p className="text-xs text-text-secondary mt-0.5">
-                Arama motorlarına yeni veya güncellenen canonical URL&apos;leri anında bildirin.
-              </p>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-surface-2 border border-border space-y-4 text-xs font-mono">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <span className="text-text-muted">Aktif Anahtar:</span>
-                <span className="text-accent font-bold select-all">{indexNowConfig?.key || "—"}</span>
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <span className="text-text-muted">Dedicated Endpoint URL:</span>
-                <a
-                  href={indexNowConfig?.keyLocation}
-                  target="_blank"
-                  className="text-text-primary hover:underline truncate max-w-md"
-                >
-                  {indexNowConfig?.keyLocation || "—"}
-                </a>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-muted">Bekleyen DB Kuyruğu:</span>
-                <span className="text-amber-400 font-bold">{indexNowConfig?.queuedUrlsCount || 0} URL</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-muted">Toplam Başarılı Gönderim:</span>
-                <span className="text-emerald-400 font-bold">{indexNowConfig?.totalSubmissions || 0} URL</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-muted">Son Gönderim Zamanı:</span>
-                <span className="text-text-primary">
-                  {indexNowConfig?.lastSubmittedAt ? new Date(indexNowConfig.lastSubmittedAt).toLocaleString("tr-TR") : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-muted">Son Durum:</span>
-                <span className={indexNowConfig?.lastStatus === "SUCCESS" ? "text-emerald-400 font-bold" : indexNowConfig?.lastStatus === "FAILED" ? "text-red-400 font-bold" : "text-text-muted"}>
-                  {indexNowConfig?.lastStatus || "IDLE"}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={handleRotateIndexNowKey}
-                disabled={isRotatingKey}
-                className="px-5 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border text-xs font-semibold text-text-primary transition-colors disabled:opacity-50"
-              >
-                {isRotatingKey ? "Yenileniyor..." : "🔑 Anahtarı Yenile (Rotate)"}
-              </button>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  setStatusMsg(null);
-                  try {
-                    const res = await fetch("/api/admin/growth/indexnow", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ action: "PROCESS_QUEUE" }),
-                    });
-                    const data = await res.json();
-                    if (res.ok) {
-                      setStatusMsg({ type: "success", text: data.message || "Kuyruk işlendi." });
-                      fetchIndexNowDetails();
-                    } else {
-                      setStatusMsg({ type: "error", text: data.error || "Kuyruk işlenemedi." });
-                    }
-                  } catch {
-                    setStatusMsg({ type: "error", text: "Bağlantı hatası." });
-                  }
-                }}
-                disabled={!indexNowConfig?.queuedUrlsCount}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors disabled:opacity-50"
-              >
-                ⚡ DB Kuyruğunu Şimdi İşle ({indexNowConfig?.queuedUrlsCount || 0})
-              </button>
-
-              <button
-                type="button"
-                onClick={handleTestIndexNowPing}
-                disabled={isTestingPing}
-                className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent/90 transition-colors disabled:opacity-50"
-              >
-                {isTestingPing ? "Gönderiliyor..." : "⚡ Test Ping Gönder"}
-              </button>
-            </div>
-
-            {/* Persistent Recent Submissions History */}
-            {indexNowConfig?.recentHistory?.length > 0 && (
-              <div className="p-5 rounded-2xl bg-surface-2 border border-border space-y-3">
-                <h3 className="text-xs font-bold font-mono text-text-primary uppercase tracking-wider">
-                  Son Gönderim Geçmişi (PostgreSQL Kalıcı Kayıt)
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs font-mono">
-                    <thead>
-                      <tr className="border-b border-border text-text-muted">
-                        <th className="pb-2">URL</th>
-                        <th className="pb-2">Durum</th>
-                        <th className="pb-2">Zaman</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/60">
-                      {indexNowConfig.recentHistory.slice(0, 10).map((h: any, i: number) => (
-                        <tr key={i} className="text-text-secondary">
-                          <td className="py-2 truncate max-w-xs text-text-primary">{h.url}</td>
-                          <td className="py-2">
-                            <span className={h.status === "SUCCESS" ? "text-emerald-400 font-bold" : "text-red-400 font-bold"}>
-                              {h.status}
-                            </span>
-                          </td>
-                          <td className="py-2 text-text-muted">{new Date(h.submittedAt).toLocaleTimeString("tr-TR")}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TAB 7: VERIFICATION TAGS */}
-        {activeTab === "verification" && (
-          <form onSubmit={handleSaveMetaTags} className="p-6 sm:p-8 rounded-3xl bg-surface-1 border border-border/80 space-y-6">
-            <div>
-              <h2 className="text-lg font-display font-bold text-text-primary">Arama Motoru Doğrulama Meta Etiketleri</h2>
-              <p className="text-xs text-text-secondary mt-0.5">
-                Google, Bing ve Yandex için webmaster doğrulama kodlarını girin (Root layout head kısmına güvenli olarak basılır).
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono text-text-muted">Google Site Verification Token / Meta</label>
-                <input
-                  type="text"
-                  placeholder="google-site-verification=... veya token"
-                  value={googleMetaTag}
-                  onChange={(e) => setGoogleMetaTag(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-surface-2 border border-border text-xs font-mono text-text-primary"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono text-text-muted">Bing Site Verification Token / Meta</label>
-                <input
-                  type="text"
-                  placeholder="msvalidate.01=... veya token"
-                  value={bingMetaTag}
-                  onChange={(e) => setBingMetaTag(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-surface-2 border border-border text-xs font-mono text-text-primary"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono text-text-muted">Yandex Site Verification Token / Meta</label>
-                <input
-                  type="text"
-                  placeholder="yandex-verification=... veya token"
-                  value={yandexMetaTag}
-                  onChange={(e) => setYandexMetaTag(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-surface-2 border border-border text-xs font-mono text-text-primary"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-border/60">
-              <button
-                type="submit"
-                disabled={isSavingMetaTags}
-                className="px-6 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent/90 transition-colors disabled:opacity-50"
-              >
-                {isSavingMetaTags ? "Kaydediliyor..." : "Doğrulama Etiketlerini Kaydet"}
-              </button>
-            </div>
-          </form>
-        )}
+        </div>
       </div>
     </AdminLayout>
   );

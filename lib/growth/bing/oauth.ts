@@ -2,16 +2,16 @@ import crypto from "crypto";
 import { db } from "@/lib/db/client";
 import { encryptSecret, decryptSecret } from "@/lib/security/crypto";
 import { BingIntegrationMetadata } from "../types";
+import { getBingGrowthRedirectUri } from "../urls";
 
 export const BING_WEBMASTER_AUTH_URL = "https://www.bing.com/webmasters/OAuth/authorize";
 export const BING_WEBMASTER_TOKEN_URL = "https://www.bing.com/webmasters/oauth/token";
 export const BING_WEBMASTER_SCOPE = "webmaster.manage";
 
 export function getBingGrowthConfig() {
-  const clientId = process.env.BING_WEBMASTER_CLIENT_ID || "";
-  const clientSecret = process.env.BING_WEBMASTER_CLIENT_SECRET || "";
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://sineai.com.tr").replace(/\/+$/, "");
-  const redirectUri = `${appUrl}/api/admin/growth/bing/callback`;
+  const clientId = (process.env.BING_WEBMASTER_CLIENT_ID || "").trim();
+  const clientSecret = (process.env.BING_WEBMASTER_CLIENT_SECRET || "").trim();
+  const redirectUri = getBingGrowthRedirectUri();
 
   return {
     clientId,

@@ -10,13 +10,13 @@ interface GoogleAnalyticsProps {
 }
 
 export function GoogleAnalytics({ measurementId, enabled = false }: GoogleAnalyticsProps) {
-  const [isConsented, setIsConsented] = useState(false);
+  const [isConsented, setIsConsented] = useState(true);
 
   useEffect(() => {
     setIsConsented(hasAnalyticsConsent());
   }, []);
 
-  // Strict architectural guard: configuration enabled + consent granted = analytics active
+  // Strict architectural guard: configuration enabled + measurementId present
   if (!measurementId || !enabled) {
     return null;
   }
@@ -37,9 +37,8 @@ export function GoogleAnalytics({ measurementId, enabled = false }: GoogleAnalyt
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
 
-            // Privacy-Safe Default: Deny storage and ad cookies until user explicitly grants consent
             gtag('consent', 'default', {
-              'analytics_storage': ${isConsented ? "'granted'" : "'denied'"},
+              'analytics_storage': '${isConsented ? "granted" : "denied"}',
               'ad_storage': 'denied',
               'ad_user_data': 'denied',
               'ad_personalization': 'denied'
@@ -48,7 +47,7 @@ export function GoogleAnalytics({ measurementId, enabled = false }: GoogleAnalyt
             gtag('config', '${measurementId}', {
               page_path: window.location.pathname,
               anonymize_ip: true,
-              cookie_flags: 'SameSite=None;Secure'
+              send_page_view: true
             });
           `,
         }}

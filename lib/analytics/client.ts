@@ -18,9 +18,9 @@ const DUPLICATE_WINDOW_MS = 500;
 export function hasAnalyticsConsent(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return localStorage.getItem("sineai_analytics_consent") === "granted";
+    return localStorage.getItem("sineai_analytics_consent") !== "denied";
   } catch {
-    return false;
+    return true;
   }
 }
 

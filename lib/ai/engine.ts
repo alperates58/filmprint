@@ -8,9 +8,6 @@ import {
   MOVIE_GENRES,
   TV_GENRES,
   toSearchText,
-  countGenreOverlap,
-  parseReleaseYear,
-  isFutureRelease,
 } from "./heuristics";
 import {
   searchTMDB,
@@ -22,6 +19,9 @@ import {
   getProviderId,
   passesSafetyFilter,
   enrichMovieOrTvItem,
+  countGenreOverlap,
+  parseReleaseYear,
+  isFutureRelease,
 } from "./tmdb";
 import {
   NormalizedAiQuery,

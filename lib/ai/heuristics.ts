@@ -258,20 +258,39 @@ export function sanitizeNormalizedInput(input: any): NormalizedAiQuery {
     : "none";
   normalized.trailer_required = Boolean(normalized.trailer_required);
 
-  const numericFields = [
-    "year_min", "year_max", "min_vote_average", "min_vote_count",
-    "runtime_min", "runtime_max", "min_seasons", "max_seasons",
-    "episode_count_min", "episode_count_max"
-  ] as const;
+  type NumericFieldKey =
+    | "year_min"
+    | "year_max"
+    | "min_vote_average"
+    | "min_vote_count"
+    | "runtime_min"
+    | "runtime_max"
+    | "min_seasons"
+    | "max_seasons"
+    | "episode_count_min"
+    | "episode_count_max";
+
+  const numericFields: NumericFieldKey[] = [
+    "year_min",
+    "year_max",
+    "min_vote_average",
+    "min_vote_count",
+    "runtime_min",
+    "runtime_max",
+    "min_seasons",
+    "max_seasons",
+    "episode_count_min",
+    "episode_count_max",
+  ];
 
   for (const field of numericFields) {
-    const rawVal = (normalized as Record<string, unknown>)[field];
+    const rawVal = input && typeof input === "object" ? input[field] : normalized[field];
     if (rawVal === null || rawVal === "" || rawVal === undefined) {
-      (normalized as any)[field] = null;
+      normalized[field] = null;
       continue;
     }
     const val = Number(rawVal);
-    (normalized as any)[field] = Number.isFinite(val) && val >= 0 ? val : null;
+    normalized[field] = Number.isFinite(val) && val >= 0 ? val : null;
   }
 
   const rawRecs = Array.isArray(normalized.recommended_titles) ? normalized.recommended_titles : [];

@@ -29,7 +29,11 @@ export async function GET() {
     const urlDiagnostics = getGrowthUrlsDiagnostics();
 
     const googleMeta = ((googleSecret?.metadata as Record<string, any>) || {}) as GoogleIntegrationMetadata;
-    const isGoogleConnected = Boolean(googleSecret && googleSecret.encryptedValue);
+    const isGoogleConnected = Boolean(
+      (googleSecret && (googleSecret.encryptedValue || googleMeta.connectedEmail || googleMeta.gscProperty || googleMeta.gaProperty)) ||
+      seoConfig.gaMeasurementId ||
+      seoConfig.googleVerificationMeta
+    );
     const googleStatus: "CONNECTED" | "READY" | "SETUP_REQUIRED" = isGoogleConnected
       ? "CONNECTED"
       : googleConfig.isConfigured

@@ -264,18 +264,39 @@ export default function AdminGrowthPage() {
     loadAllData();
   }, [loadAllData]);
 
-  // Check URL parameters for OAuth status / error on mount and clean address bar
+  // Tab change handler that updates state, localStorage, and URL parameter
+  const handleTabChange = useCallback((newTab: GrowthTab) => {
+    setActiveTab(newTab);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("sineai_growth_active_tab", newTab);
+      } catch {}
+      window.history.replaceState({}, document.title, window.location.pathname + `?tab=${newTab}`);
+    }
+  }, []);
+
+  // Check URL parameters & localStorage for active tab on mount and clean address bar
   useEffect(() => {
     if (typeof window === "undefined") return;
     const urlParams = new URLSearchParams(window.location.search);
-    const tab = urlParams.get("tab") as GrowthTab | null;
+    const urlTab = urlParams.get("tab") as GrowthTab | null;
+    let savedTab: GrowthTab | null = null;
+    try {
+      savedTab = localStorage.getItem("sineai_growth_active_tab") as GrowthTab | null;
+    } catch {}
+    const validTabs: GrowthTab[] = ["overview", "seo", "google", "bing", "yandex", "indexnow", "adsense", "verification"];
+
+    const initialTab = (urlTab && validTabs.includes(urlTab))
+      ? urlTab
+      : (savedTab && validTabs.includes(savedTab))
+      ? savedTab
+      : "overview";
+
+    setActiveTab(initialTab);
+
     const status = urlParams.get("status");
     const error = urlParams.get("error");
     const errorCode = urlParams.get("error_code");
-
-    if (tab && ["overview", "seo", "google", "bing", "yandex", "indexnow", "adsense", "verification"].includes(tab)) {
-      setActiveTab(tab);
-    }
 
     if (status === "connected") {
       setStatusMsg({ type: "success", text: "Google entegrasyon bağlantısı başarıyla kuruldu." });
@@ -292,11 +313,9 @@ export default function AdminGrowthPage() {
       });
     }
 
-    // Clean query parameters so page refreshes do not repeatedly trigger status notifications
-    if (status || error || errorCode) {
-      const cleanUrl = window.location.pathname + (tab ? `?tab=${tab}` : "");
-      window.history.replaceState({}, document.title, cleanUrl);
-    }
+    // Clean query parameters so page refreshes do not repeatedly trigger status notifications, but retain ?tab=
+    const cleanUrl = window.location.pathname + `?tab=${initialTab}`;
+    window.history.replaceState({}, document.title, cleanUrl);
   }, []);
 
   // Handle OAuth Connect
@@ -719,7 +738,23 @@ export default function AdminGrowthPage() {
           </div>
           <div className="flex items-center gap-2.5">
             <button
-              onClick={loadAllData}
+              onClick={() => {
+                if (activeTab === "google") {
+                  fetchGoogleDetails();
+                  fetchOverview();
+                } else if (activeTab === "seo") {
+                  fetchSeoSettings();
+                  fetchOverview();
+                } else if (activeTab === "bing") {
+                  fetchBingDetails();
+                } else if (activeTab === "yandex") {
+                  fetchYandexDetails();
+                } else if (activeTab === "indexnow") {
+                  fetchIndexNowDetails();
+                } else {
+                  loadAllData();
+                }
+              }}
               disabled={isLoading}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md transition-colors disabled:opacity-50"
             >
@@ -826,7 +861,7 @@ export default function AdminGrowthPage() {
           <select
             id="mobile-tab-select"
             value={activeTab}
-            onChange={(e) => setActiveTab(e.target.value as GrowthTab)}
+            onChange={(e) => handleTabChange(e.target.value as GrowthTab)}
             className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 font-medium focus:outline-none focus:border-amber-500"
           >
             {navItems.map((item) => (
@@ -854,7 +889,7 @@ export default function AdminGrowthPage() {
                       </div>
                     )}
                     <button
-                      onClick={() => setActiveTab(item.id)}
+                      onClick={() => handleTabChange(item.id)}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                         isActive
                           ? "bg-amber-500/10 text-amber-400 border border-amber-500/30 shadow-sm"

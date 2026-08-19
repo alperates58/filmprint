@@ -49,6 +49,7 @@ export async function GET(request: Request) {
       selectedSite,
       status: result.status,
       error: result.error,
+      activationUrl: result.activationUrl || "https://console.cloud.google.com/apis/library/searchconsole.googleapis.com",
     });
   } catch (error: any) {
     if (error?.message === "UNAUTHORIZED_ADMIN") {

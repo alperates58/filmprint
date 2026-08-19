@@ -51,22 +51,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "En az bir ayar (mülk ID, measurement ID veya izleme durumu) belirtilmelidir" }, { status: 400 });
     }
 
-    if (propertyId) {
-      await selectGa4Property({
-        propertyId,
-        propertyName,
-        measurementId,
-        trackingEnabled,
-      });
+    await selectGa4Property({
+      propertyId: propertyId || undefined,
+      propertyName: propertyName || undefined,
+      measurementId: measurementId !== undefined ? measurementId : undefined,
+      trackingEnabled,
+    });
 
-      await logAdminAudit(
-        session.id,
-        "GROWTH_GA_PROPERTY_CHANGED",
-        "GoogleAnalytics",
-        propertyId,
-        { propertyName, measurementId, trackingEnabled }
-      );
-    }
+    await logAdminAudit(
+      session.id,
+      "GROWTH_GA_PROPERTY_CHANGED",
+      "GoogleAnalytics",
+      propertyId || measurementId || "settings",
+      { propertyName, measurementId, trackingEnabled }
+    );
 
     return NextResponse.json({
       success: true,

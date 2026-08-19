@@ -25,6 +25,7 @@ export interface Ga4AccountsListResult {
   accounts: GaAccountSummary[];
   status: "READY" | "EMPTY" | "API_DISABLED" | "UNAUTHENTICATED" | "ERROR";
   error?: string;
+  activationUrl?: string;
 }
 
 /**
@@ -51,6 +52,15 @@ export async function listGa4AccountSummaries(): Promise<Ga4AccountsListResult> 
 
     if (!response.ok) {
       const errorText = await response.text();
+      let activationUrl = "https://console.cloud.google.com/apis/library/analyticsadmin.googleapis.com";
+      try {
+        const errorJson = JSON.parse(errorText);
+        const link = errorJson?.error?.details?.find((d: any) => d?.links)?.links?.[0]?.url;
+        if (link) activationUrl = link;
+      } catch {
+        // Non-fatal JSON parse
+      }
+
       const isApiDisabled =
         response.status === 403 &&
         (errorText.includes("SERVICE_DISABLED") ||
@@ -61,7 +71,8 @@ export async function listGa4AccountSummaries(): Promise<Ga4AccountsListResult> 
         return {
           accounts: [],
           status: "API_DISABLED",
-          error: "Google Analytics Admin API etkinleştirilmemiş. Google Cloud Console'dan 'Google Analytics Admin API' etkinleştirilmelidir.",
+          error: "Google Analytics Admin API etkinleştirilmemiş. Google Cloud Console projenizde servisi etkinleştirin.",
+          activationUrl,
         };
       }
 
@@ -147,8 +158,8 @@ export async function listGa4DataStreams(propertyId: string): Promise<GaDataStre
  * Saves selected GA4 property and measurement ID into integration metadata and system settings.
  */
 export async function selectGa4Property(params: {
-  propertyId: string;
-  propertyName: string;
+  propertyId?: string;
+  propertyName?: string;
   measurementId?: string;
   trackingEnabled?: boolean;
 }): Promise<void> {
@@ -159,11 +170,13 @@ export async function selectGa4Property(params: {
   const currentMeta = ((existing?.metadata as Record<string, any>) || {}) as GoogleIntegrationMetadata;
   const updatedMeta: GoogleIntegrationMetadata = {
     ...currentMeta,
-    gaProperty: {
-      id: params.propertyId,
-      displayName: params.propertyName,
-    },
-    gaMeasurementId: params.measurementId || currentMeta.gaMeasurementId || "",
+    gaProperty: params.propertyId
+      ? {
+          id: params.propertyId,
+          displayName: params.propertyName || params.propertyId,
+        }
+      : currentMeta.gaProperty,
+    gaMeasurementId: params.measurementId !== undefined ? params.measurementId : (currentMeta.gaMeasurementId || ""),
     gaTrackingEnabled: params.trackingEnabled !== false,
     lastSyncAt: new Date().toISOString(),
   };
@@ -178,7 +191,7 @@ export async function selectGa4Property(params: {
     },
   });
 
-  if (params.measurementId) {
+  if (params.measurementId !== undefined) {
     await updateSeoSystemSetting("ga_measurement_id", params.measurementId.trim());
   }
   if (typeof params.trackingEnabled === "boolean") {

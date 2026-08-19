@@ -45,6 +45,7 @@ export interface GscSitesListResult {
   sites: GscSiteProperty[];
   status: "READY" | "EMPTY" | "API_DISABLED" | "UNAUTHENTICATED" | "ERROR";
   error?: string;
+  activationUrl?: string;
 }
 
 /**
@@ -68,6 +69,15 @@ export async function listSearchConsoleSites(): Promise<GscSitesListResult> {
 
     if (!response.ok) {
       const errorText = await response.text();
+      let activationUrl = "https://console.cloud.google.com/apis/library/searchconsole.googleapis.com";
+      try {
+        const errorJson = JSON.parse(errorText);
+        const link = errorJson?.error?.details?.find((d: any) => d?.links)?.links?.[0]?.url;
+        if (link) activationUrl = link;
+      } catch {
+        // Non-fatal JSON parse
+      }
+
       const isApiDisabled =
         response.status === 403 &&
         (errorText.includes("SERVICE_DISABLED") ||
@@ -80,7 +90,8 @@ export async function listSearchConsoleSites(): Promise<GscSitesListResult> {
         return {
           sites: [],
           status: "API_DISABLED",
-          error: "Google Search Console API etkinleştirilmemiş. Google Cloud Console'dan 'Google Search Console API' etkinleştirilmelidir.",
+          error: "Google Search Console API etkinleştirilmemiş. Google Cloud Console projenizde servisi etkinleştirin.",
+          activationUrl,
         };
       }
 

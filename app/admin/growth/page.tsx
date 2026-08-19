@@ -48,6 +48,7 @@ export default function AdminGrowthPage() {
   const [isSavingGa, setIsSavingGa] = useState(false);
   const [gaStatus, setGaStatus] = useState<"IDLE" | "LOADING" | "READY" | "EMPTY" | "API_DISABLED" | "ERROR">("IDLE");
   const [gaError, setGaError] = useState<string | null>(null);
+  const [gaActivationUrl, setGaActivationUrl] = useState<string>("https://console.cloud.google.com/apis/library/analyticsadmin.googleapis.com");
 
   const [gscSites, setGscSites] = useState<any[]>([]);
   const [selectedGscSite, setSelectedGscSite] = useState("");
@@ -55,6 +56,7 @@ export default function AdminGrowthPage() {
   const [isSubmittingGscSitemap, setIsSubmittingGscSitemap] = useState(false);
   const [gscStatus, setGscStatus] = useState<"IDLE" | "LOADING" | "READY" | "EMPTY" | "API_DISABLED" | "ERROR">("IDLE");
   const [gscError, setGscError] = useState<string | null>(null);
+  const [gscActivationUrl, setGscActivationUrl] = useState<string>("https://console.cloud.google.com/apis/library/searchconsole.googleapis.com");
 
   const [inspectUrl, setInspectUrl] = useState("");
   const [inspectResult, setInspectResult] = useState<any>(null);
@@ -122,80 +124,85 @@ export default function AdminGrowthPage() {
     }
   }, []);
 
-  const fetchGoogleDetails = useCallback(async () => {
+  const refreshGa = useCallback(async () => {
     setGaStatus("LOADING");
-    setGscStatus("LOADING");
-    setAdsenseStatus("LOADING");
     setGaError(null);
-    setGscError(null);
-    setAdsenseError(null);
-
-    // 1. Fetch GA4 independently
-    fetch("/api/admin/growth/google/analytics")
-      .then(async (res) => {
-        const data = await res.json();
-        if (data.accounts) {
-          setGoogleAccounts(data.accounts || []);
-          setGaStatus(data.status || (data.accounts.length > 0 ? "READY" : "EMPTY"));
-          setGaError(data.error || null);
-        } else {
-          setGaStatus(data.status || "ERROR");
-          setGaError(data.error || "GA4 hesapları alınamadı");
-        }
-      })
-      .catch((err) => {
-        setGaStatus("ERROR");
-        setGaError(err?.message || "GA4 bağlantı hatası");
-      });
-
-    // 2. Fetch Search Console independently
-    fetch("/api/admin/growth/google/search-console")
-      .then(async (res) => {
-        const data = await res.json();
-        if (data.sites) {
-          setGscSites(data.sites || []);
-          setGscStatus(data.status || (data.sites.length > 0 ? "READY" : "EMPTY"));
-          setGscError(data.error || null);
-
-          if (data.selectedSite) {
-            setSelectedGscSite(data.selectedSite);
-          } else if (data.sites.length > 0) {
-            // Auto-select exact sineai domain property
-            const exactSineai = data.sites.find(
-              (s: any) => s.siteUrl === "sc-domain:sineai.com.tr" || s.siteUrl.includes("sineai.com.tr")
-            );
-            if (exactSineai) {
-              setSelectedGscSite(exactSineai.siteUrl);
-            }
-          }
-        } else {
-          setGscStatus(data.status || "ERROR");
-          setGscError(data.error || "Search Console mülkleri alınamadı");
-        }
-      })
-      .catch((err) => {
-        setGscStatus("ERROR");
-        setGscError(err?.message || "Search Console bağlantı hatası");
-      });
-
-    // 3. Fetch AdSense independently
-    fetch("/api/admin/growth/google/adsense")
-      .then(async (res) => {
-        const data = await res.json();
-        if (res.ok) {
-          setAdsenseHealth(data);
-          setAdsenseStatus(data.isAvailable ? "READY" : "EMPTY");
-          setAdsenseError(data.message || null);
-        } else {
-          setAdsenseStatus("ERROR");
-          setAdsenseError(data.error || "AdSense verileri alınamadı");
-        }
-      })
-      .catch((err) => {
-        setAdsenseStatus("ERROR");
-        setAdsenseError(err?.message || "AdSense bağlantı hatası");
-      });
+    try {
+      const res = await fetch("/api/admin/growth/google/analytics");
+      const data = await res.json();
+      if (data.accounts) {
+        setGoogleAccounts(data.accounts || []);
+        setGaStatus(data.status || (data.accounts.length > 0 ? "READY" : "EMPTY"));
+        setGaError(data.error || null);
+        if (data.activationUrl) setGaActivationUrl(data.activationUrl);
+      } else {
+        setGaStatus(data.status || "ERROR");
+        setGaError(data.error || "GA4 hesapları alınamadı");
+        if (data.activationUrl) setGaActivationUrl(data.activationUrl);
+      }
+    } catch (err: any) {
+      setGaStatus("ERROR");
+      setGaError(err?.message || "GA4 bağlantı hatası");
+    }
   }, []);
+
+  const refreshGsc = useCallback(async () => {
+    setGscStatus("LOADING");
+    setGscError(null);
+    try {
+      const res = await fetch("/api/admin/growth/google/search-console");
+      const data = await res.json();
+      if (data.sites) {
+        setGscSites(data.sites || []);
+        setGscStatus(data.status || (data.sites.length > 0 ? "READY" : "EMPTY"));
+        setGscError(data.error || null);
+        if (data.activationUrl) setGscActivationUrl(data.activationUrl);
+
+        if (data.selectedSite) {
+          setSelectedGscSite(data.selectedSite);
+        } else if (data.sites.length > 0) {
+          // Auto-select exact sineai domain property
+          const exactSineai = data.sites.find(
+            (s: any) => s.siteUrl === "sc-domain:sineai.com.tr" || s.siteUrl.includes("sineai.com.tr")
+          );
+          if (exactSineai) {
+            setSelectedGscSite(exactSineai.siteUrl);
+          }
+        }
+      } else {
+        setGscStatus(data.status || "ERROR");
+        setGscError(data.error || "Search Console mülkleri alınamadı");
+        if (data.activationUrl) setGscActivationUrl(data.activationUrl);
+      }
+    } catch (err: any) {
+      setGscStatus("ERROR");
+      setGscError(err?.message || "Search Console bağlantı hatası");
+    }
+  }, []);
+
+  const refreshAdsense = useCallback(async () => {
+    setAdsenseStatus("LOADING");
+    setAdsenseError(null);
+    try {
+      const res = await fetch("/api/admin/growth/google/adsense");
+      const data = await res.json();
+      if (res.ok) {
+        setAdsenseHealth(data);
+        setAdsenseStatus(data.isAvailable ? "READY" : "EMPTY");
+        setAdsenseError(data.message || null);
+      } else {
+        setAdsenseStatus("ERROR");
+        setAdsenseError(data.error || "AdSense verileri alınamadı");
+      }
+    } catch (err: any) {
+      setAdsenseStatus("ERROR");
+      setAdsenseError(err?.message || "AdSense bağlantı hatası");
+    }
+  }, []);
+
+  const fetchGoogleDetails = useCallback(async () => {
+    await Promise.all([refreshGa(), refreshGsc(), refreshAdsense()]);
+  }, [refreshGa, refreshGsc, refreshAdsense]);
 
   const fetchBingDetails = useCallback(async () => {
     try {
@@ -257,7 +264,7 @@ export default function AdminGrowthPage() {
     loadAllData();
   }, [loadAllData]);
 
-  // Check URL parameters for OAuth status / error & auto-trigger refresh
+  // Check URL parameters for OAuth status / error on mount and clean address bar
   useEffect(() => {
     if (typeof window === "undefined") return;
     const urlParams = new URLSearchParams(window.location.search);
@@ -271,8 +278,7 @@ export default function AdminGrowthPage() {
     }
 
     if (status === "connected") {
-      setStatusMsg({ type: "success", text: "Google entegrasyon bağlantısı başarıyla kuruldu. Servisler güncelleniyor..." });
-      loadAllData();
+      setStatusMsg({ type: "success", text: "Google entegrasyon bağlantısı başarıyla kuruldu." });
     }
 
     if (error || errorCode) {
@@ -285,7 +291,13 @@ export default function AdminGrowthPage() {
         text: error || "Yetkilendirme sırasında bir hata oluştu.",
       });
     }
-  }, [loadAllData]);
+
+    // Clean query parameters so page refreshes do not repeatedly trigger status notifications
+    if (status || error || errorCode) {
+      const cleanUrl = window.location.pathname + (tab ? `?tab=${tab}` : "");
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, []);
 
   // Handle OAuth Connect
   const handleConnectGoogle = async () => {
@@ -1523,11 +1535,33 @@ export default function AdminGrowthPage() {
                           </div>
 
                           {gscStatus === "API_DISABLED" && (
-                            <div className="p-3 rounded bg-amber-950/30 border border-amber-800/50 text-amber-300 text-xs space-y-1">
-                              <div className="font-semibold">Google Search Console API Etkinleştirilmemiş</div>
-                              <p className="text-[11px] text-amber-200/80">
-                                Google Cloud Console projenizde <b>Google Search Console API</b> servisini etkinleştirmeniz gerekmektedir.
+                            <div className="p-3.5 rounded-lg bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs space-y-2.5">
+                              <div className="flex items-center gap-2 text-amber-300 font-semibold">
+                                <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <span>Google Search Console API Etkinleştirilmemiş</span>
+                              </div>
+                              <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                                Google Cloud Console projenizde <b>Google Search Console API</b> servisini tek tıkla açabilirsiniz:
                               </p>
+                              <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <a
+                                  href={gscActivationUrl || "https://console.cloud.google.com/apis/library/searchconsole.googleapis.com"}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+                                >
+                                  <span>Google Cloud'da API'yi Etkinleştir ↗</span>
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={refreshGsc}
+                                  className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-xs font-medium border border-zinc-700 transition-colors flex items-center gap-1"
+                                >
+                                  <span>Kontrol Et / Yenile ↻</span>
+                                </button>
+                              </div>
                             </div>
                           )}
 
@@ -1538,20 +1572,39 @@ export default function AdminGrowthPage() {
                           )}
 
                           {gscStatus === "EMPTY" && (
-                            <div className="p-3 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs">
-                              Bu Google hesabında doğrulanmış bir Search Console mülkü bulunamadı.
+                            <div className="p-3 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs space-y-1.5">
+                              <div>Bu Google hesabında erişilebilir Search Console mülkü bulunamadı.</div>
+                              <a
+                                href="https://search.google.com/search-console"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-blue-400 hover:underline inline-flex items-center gap-1"
+                              >
+                                Search Console'da Mülk Ekle / Doğrula ↗
+                              </a>
                             </div>
                           )}
 
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
                               <label className="text-xs text-zinc-400">Doğrulanmış Mülk:</label>
-                              <button
-                                onClick={fetchGoogleDetails}
-                                className="text-[11px] text-amber-400 hover:underline"
-                              >
-                                Yenile ↻
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <a
+                                  href="https://search.google.com/search-console"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[11px] text-blue-400 hover:underline"
+                                >
+                                  GSC Paneli ↗
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={refreshGsc}
+                                  className="text-[11px] text-amber-400 hover:underline font-mono"
+                                >
+                                  Yenile ↻
+                                </button>
+                              </div>
                             </div>
                             <select
                               value={selectedGscSite || overview?.providers?.google?.gscProperty || ""}
@@ -1564,7 +1617,32 @@ export default function AdminGrowthPage() {
                                   {site.siteUrl} ({site.permissionLevel || "Erişim Var"})
                                 </option>
                               ))}
+                              {!gscSites.some((s) => s.siteUrl === "sc-domain:sineai.com.tr") && (
+                                <option value="sc-domain:sineai.com.tr">sc-domain:sineai.com.tr (Domain Mülkü)</option>
+                              )}
+                              {!gscSites.some((s) => s.siteUrl === "https://sineai.com.tr/" || s.siteUrl === "https://sineai.com.tr") && (
+                                <option value="https://sineai.com.tr/">https://sineai.com.tr/ (URL Mülkü)</option>
+                              )}
                             </select>
+
+                            {/* Quick Select Buttons */}
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                              <span className="text-[10px] text-zinc-500">Hızlı Ata:</span>
+                              <button
+                                type="button"
+                                onClick={() => handleSelectGscSite("sc-domain:sineai.com.tr")}
+                                className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] text-zinc-300 font-mono border border-zinc-700 transition-colors"
+                              >
+                                sc-domain:sineai.com.tr
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSelectGscSite("https://sineai.com.tr/")}
+                                className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] text-zinc-300 font-mono border border-zinc-700 transition-colors"
+                              >
+                                https://sineai.com.tr/
+                              </button>
+                            </div>
                           </div>
 
                           {hasDomainGscProperty && (
@@ -1625,11 +1703,33 @@ export default function AdminGrowthPage() {
                           </div>
 
                           {gaStatus === "API_DISABLED" && (
-                            <div className="p-3 rounded bg-amber-950/30 border border-amber-800/50 text-amber-300 text-xs space-y-1">
-                              <div className="font-semibold">Google Analytics Admin API Etkinleştirilmemiş</div>
-                              <p className="text-[11px] text-amber-200/80">
-                                Google Cloud Console projenizde <b>Google Analytics Admin API</b> servisini etkinleştirebilir veya Measurement ID'yi aşağıya manuel girebilirsiniz.
+                            <div className="p-3.5 rounded-lg bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs space-y-2.5">
+                              <div className="flex items-center gap-2 text-amber-300 font-semibold">
+                                <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <span>Google Analytics Admin API Etkinleştirilmemiş</span>
+                              </div>
+                              <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                                Otomatik mülk listeleme için API'yi açabilir veya API olmadan aşağıya <b>Measurement ID (G-XXXXXXXXXX)</b> girerek doğrudan kaydedebilirsiniz.
                               </p>
+                              <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <a
+                                  href={gaActivationUrl || "https://console.cloud.google.com/apis/library/analyticsadmin.googleapis.com"}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+                                >
+                                  <span>Google Cloud'da API'yi Etkinleştir ↗</span>
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={refreshGa}
+                                  className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-xs font-medium border border-zinc-700 transition-colors flex items-center gap-1"
+                                >
+                                  <span>Kontrol Et / Yenile ↻</span>
+                                </button>
+                              </div>
                             </div>
                           )}
 
@@ -1646,7 +1746,16 @@ export default function AdminGrowthPage() {
                           )}
 
                           <div className="space-y-2">
-                            <label className="text-xs text-zinc-400">GA4 Hesabı / Mülkü:</label>
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs text-zinc-400">GA4 Hesabı / Mülkü (Opsiyonel):</label>
+                              <button
+                                type="button"
+                                onClick={refreshGa}
+                                className="text-[11px] text-amber-400 hover:underline font-mono"
+                              >
+                                Yenile ↻
+                              </button>
+                            </div>
                             <select
                               value={selectedGaProperty}
                               onChange={(e) => {
@@ -1678,7 +1787,7 @@ export default function AdminGrowthPage() {
                               placeholder="G-XXXXXXXXXX"
                               value={gaMeasurementId}
                               onChange={(e) => setGaMeasurementId(e.target.value)}
-                              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 font-mono"
+                              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 font-mono focus:outline-none focus:border-amber-500"
                             />
                           </div>
 

@@ -4,10 +4,21 @@ import { evaluateMovieSeoEligibility, evaluateTvSeoEligibility } from "./quality
 import { SeoCatalogMetrics } from "../types";
 import { MOVIE_GENRES, TV_GENRES } from "./genres";
 
+// In-memory cache for catalog metrics with 60-second TTL
+let cachedMetrics: { data: SeoCatalogMetrics; expiresAt: number } | null = null;
+
+export function invalidateSeoCatalogMetricsCache(): void {
+  cachedMetrics = null;
+}
+
 /**
  * Calculates current catalog SEO eligibility and staged rollout metrics.
  */
-export async function getSeoCatalogMetrics(): Promise<SeoCatalogMetrics> {
+export async function getSeoCatalogMetrics(forceRefresh = false): Promise<SeoCatalogMetrics> {
+  if (!forceRefresh && cachedMetrics && cachedMetrics.expiresAt > Date.now()) {
+    return cachedMetrics.data;
+  }
+
   const config = await getSeoSystemConfig();
 
   let movies: any[] = [];
@@ -84,7 +95,7 @@ export async function getSeoCatalogMetrics(): Promise<SeoCatalogMetrics> {
   const genreUrlsCount = MOVIE_GENRES.length + TV_GENRES.length;
   const totalSitemapUrls = staticUrlsCount + genreUrlsCount + indexedMoviesCount + indexedTvShowsCount;
 
-  return {
+  const result: SeoCatalogMetrics = {
     totalMovies: movies.length,
     eligibleMovies,
     lowQualityMovies,
@@ -97,6 +108,13 @@ export async function getSeoCatalogMetrics(): Promise<SeoCatalogMetrics> {
     tvRolloutLimit: config.tvMaxIndexed,
     totalSitemapUrls,
   };
+
+  cachedMetrics = {
+    data: result,
+    expiresAt: Date.now() + 60 * 1000, // 60 seconds TTL cache
+  };
+
+  return result;
 }
 
 /**

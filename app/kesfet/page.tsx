@@ -5,7 +5,6 @@ import { Header } from "@/components/ui/Header";
 import { BottomNav } from "@/components/ui/BottomNav";
 import { Footer } from "@/components/ui/Footer";
 import { EnrichedAiMovieItem, AiRecommendationResponse } from "@/lib/ai/types";
-import Image from "next/image";
 import Link from "next/link";
 
 const MOOD_CHIPS = [

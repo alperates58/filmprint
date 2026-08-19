@@ -242,6 +242,9 @@ export function Header({
                       : "text-text-secondary hover:text-text-primary"
                   }`}
                 >
+                  Dizilerim
+                </Link>
+
                 <Link
                   href="/kesfet"
                   className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 font-semibold text-xs tracking-wide ${

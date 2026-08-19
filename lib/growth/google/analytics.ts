@@ -84,6 +84,14 @@ export async function listGa4AccountSummaries(): Promise<Ga4AccountsListResult> 
         };
       }
 
+      if (response.status === 503 || response.status === 502 || response.status === 504) {
+        return {
+          accounts: [],
+          status: "EMPTY",
+          error: "Google Analytics servisi etkinleştirildi, Google tarafında yayılması 1-2 dakika sürebilir (503). Measurement ID ile doğrudan kaydedebilirsiniz.",
+        };
+      }
+
       return {
         accounts: [],
         status: "ERROR",

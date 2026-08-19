@@ -133,24 +133,39 @@ export default function RecommendationsPage() {
             <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-text-primary">
               Sana Özel Film Önerileri
             </h1>
-            <p className="text-xs sm:text-sm text-text-secondary max-w-2xl leading-relaxed">
-              Film DNA profiliniz, izlediğiniz filmler ve kalibrasyon sinyalleriniz kullanılarak oluşturulmuş yüksek uyumlu yapımlar.
+            <p className="text-sm text-text-secondary max-w-xl">
+              Film DNA profilinizdeki ağırlıklar, türe özel zevk katsayılarınız ve son geri bildirimleriniz ile harmanlanmış kişisel seçki.
             </p>
           </div>
 
-          {/* Refresh Recommendations Button */}
-          {data && data.ready && (
-            <button
-              onClick={handleRefresh}
-              disabled={isLoading || isRefreshing}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-2 border border-border hover:border-accent text-text-primary text-xs font-sans font-semibold transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 self-start sm:self-auto min-h-[44px]"
-            >
-              <span className={`text-base ${isRefreshing ? "animate-spin text-accent" : ""}`}>
-                🔄
-              </span>
-              <span>{isRefreshing ? "Yenileniyor..." : "Farklı Öneriler Getir"}</span>
-            </button>
-          )}
+          <button
+            onClick={handleRefresh}
+            disabled={isLoading || isRefreshing}
+            className="self-start sm:self-auto px-4 py-2 rounded-xl bg-surface-2 border border-border hover:border-accent text-text-primary text-xs font-medium transition-all flex items-center gap-2 disabled:opacity-50 min-h-[40px]"
+          >
+            <span className={isRefreshing ? "animate-spin" : ""}>🔄</span>
+            <span>{isRefreshing ? "Yenileniyor..." : "Yeni Öneriler Getir"}</span>
+          </button>
+        </div>
+
+        {/* Quick AI Keşfet Callout */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-950/60 via-indigo-950/40 to-surface-1 border border-purple-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 font-bold text-lg flex-shrink-0">
+              ✨
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Farklı bir ruh halinde misin?</h3>
+              <p className="text-xs text-zinc-300">"Beyin yakan gizemli bir film" veya "Okyanusta geçen aşk hikayesi" gibi aklındakini yapay zekaya sor.</p>
+            </div>
+          </div>
+          <Link
+            href="/kesfet"
+            className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-md shadow-purple-600/30 transition-all flex items-center gap-1.5 self-end sm:self-center flex-shrink-0"
+          >
+            <span>AI İle Keşfet</span>
+            <span>→</span>
+          </Link>
         </div>
 
         {/* Loading State */}

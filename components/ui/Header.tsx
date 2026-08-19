@@ -173,6 +173,18 @@ export function Header({
                   <span>🍿</span>
                   <span>Movie Night</span>
                 </Link>
+
+                <Link
+                  href="/kesfet"
+                  className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 font-semibold text-xs tracking-wide ${
+                    pathname === "/kesfet"
+                      ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30 border border-purple-400"
+                      : "bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 hover:text-white border border-purple-500/30"
+                  }`}
+                >
+                  <span className="animate-pulse">✨</span>
+                  <span>AI İle Keşfet</span>
+                </Link>
               </>
             ) : (
               // TV Mode Navigation Links
@@ -230,7 +242,16 @@ export function Header({
                       : "text-text-secondary hover:text-text-primary"
                   }`}
                 >
-                  Dizilerim
+                <Link
+                  href="/kesfet"
+                  className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 font-semibold text-xs tracking-wide ${
+                    pathname === "/kesfet"
+                      ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30 border border-purple-400"
+                      : "bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 hover:text-white border border-purple-500/30"
+                  }`}
+                >
+                  <span className="animate-pulse">✨</span>
+                  <span>AI İle Keşfet</span>
                 </Link>
               </>
             )}
@@ -322,11 +343,20 @@ export function Header({
           </div>
         </div>
 
-        {/* Mobile Header Right Profile Button */}
+        {/* Mobile Header Right Profile & AI Button */}
         <div className="flex items-center gap-2 md:hidden">
           <Link
+            href="/kesfet"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-purple-950/60 border border-purple-500/40 text-purple-300 font-semibold text-xs min-h-[38px]"
+            aria-label="AI İle Keşfet"
+          >
+            <span className="text-xs">✨</span>
+            <span>AI Keşfet</span>
+          </Link>
+
+          <Link
             href={isTvMode ? "/tv/profile" : "/profile"}
-            className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-2 border border-border min-h-[44px] min-w-[44px] justify-center"
+            className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-2 border border-border min-h-[38px] min-w-[38px] justify-center"
             aria-label="Profil"
           >
             {avatar ? (

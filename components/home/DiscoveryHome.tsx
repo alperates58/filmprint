@@ -223,6 +223,37 @@ export function DiscoveryHome({
         </section>
 
         {/* ========================================================================= */}
+        {/* ✨ AI KEŞFET PROMPT HERO BANNER                                           */}
+        {/* ========================================================================= */}
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-950/70 via-indigo-950/50 to-zinc-900/90 border border-purple-500/30 p-6 sm:p-8 shadow-xl">
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-900/50 border border-purple-500/30 text-purple-300 text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+                <span>Yapay Zekâ Keşif Motoru</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                Bu gece ne izlemek istiyorsun?
+              </h2>
+              <p className="text-xs sm:text-sm text-zinc-300">
+                Ruh halini veya aklındaki deneyimi yaz; yapay zekâ en uygun film ve dizileri Türkiye platform rozetleri ve özel gerekçeleriyle çıkarsın.
+              </p>
+            </div>
+
+            <div className="w-full md:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <Link
+                href="/kesfet"
+                className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95"
+              >
+                <span>✨</span>
+                <span>AI İle Keşfetmeye Başla</span>
+                <span>→</span>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
         {/* TOP MATCH HERO CARD (IF AVAILABLE)                                        */}
         {/* ========================================================================= */}
         {topHeroMatch && topHeroMatch.movie && (

@@ -265,11 +265,12 @@ export function sanitizeNormalizedInput(input: any): NormalizedAiQuery {
   ] as const;
 
   for (const field of numericFields) {
-    if (normalized[field] === null || normalized[field] === "" || normalized[field] === undefined) {
+    const rawVal = (normalized as Record<string, unknown>)[field];
+    if (rawVal === null || rawVal === "" || rawVal === undefined) {
       (normalized as any)[field] = null;
       continue;
     }
-    const val = Number(normalized[field]);
+    const val = Number(rawVal);
     (normalized as any)[field] = Number.isFinite(val) && val >= 0 ? val : null;
   }
 

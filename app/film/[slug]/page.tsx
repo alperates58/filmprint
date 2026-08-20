@@ -167,34 +167,34 @@ export default async function PublicMoviePage({ params }: PageProps) {
   let isFavorite = false;
 
   if (currentUser) {
-    const libraryEntry = await db.libraryEntry.findUnique({
-      where: {
-        userId_contentId_mediaType: {
-          userId: currentUser.id,
-          contentId: movie.id,
-          mediaType: "FILM",
-        },
-      },
-    });
-
-    if (libraryEntry) {
-      userStatus = libraryEntry.state;
-      userRating = libraryEntry.rating;
-      isFavorite = libraryEntry.isFavorite;
-    } else {
-      const interaction = await db.movieInteraction.findUnique({
+    const [libraryEntry, interaction] = await Promise.all([
+      db.userContentLibrary.findUnique({
         where: {
           userId_movieId: {
             userId: currentUser.id,
             movieId: movie.id,
           },
         },
-      });
-      if (interaction) {
-        userStatus = interaction.status;
-        userRating = interaction.rating;
-        isFavorite = interaction.isFavorite || false;
-      }
+      }),
+      db.movieInteraction.findUnique({
+        where: {
+          userId_movieId: {
+            userId: currentUser.id,
+            movieId: movie.id,
+          },
+        },
+      }),
+    ]);
+
+    if (libraryEntry) {
+      isFavorite = libraryEntry.isFavorite;
+    }
+
+    if (interaction) {
+      userStatus = interaction.status;
+      userRating = interaction.rating;
+    } else if (libraryEntry?.state) {
+      userStatus = libraryEntry.state;
     }
   }
 

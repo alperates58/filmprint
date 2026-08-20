@@ -73,7 +73,11 @@ export function getTmdbImageUrl(
   path: string | null | undefined,
   size: "w185" | "w300" | "w500" | "w780" | "w1280" | "original" = "w500"
 ): string | null {
-  if (!isValidTmdbImagePath(path)) return null;
-  const cleanPath = path!.trim();
+  if (!path || typeof path !== "string") return null;
+  const cleanPath = path.trim();
+  if (cleanPath.startsWith("http://") || cleanPath.startsWith("https://")) {
+    return cleanPath;
+  }
+  if (!isValidTmdbImagePath(cleanPath)) return null;
   return `https://image.tmdb.org/t/p/${size}${cleanPath}`;
 }

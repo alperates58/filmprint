@@ -85,13 +85,47 @@ const SORT_OPTIONS = [
   { label: "İlk Eklenenler", value: "oldest" },
 ];
 
+function AdminMediaPoster({
+  posterPath,
+  title,
+  type = "movie",
+  size = "w500",
+}: {
+  posterPath: string | null;
+  title: string;
+  type?: "movie" | "tv";
+  size?: "w185" | "w300" | "w500" | "w780" | "w1280" | "original";
+}) {
+  const [hasError, setHasError] = useState(false);
+  const posterUrl = getTmdbImageUrl(posterPath, size);
+
+  if (!posterUrl || hasError) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-surface-2 text-text-muted text-center p-1 select-none">
+        <span className="text-sm opacity-60">{type === "tv" ? "📺" : "🎬"}</span>
+        <span className="text-[9px] font-mono mt-0.5 opacity-50">Yok</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={posterUrl}
+      alt={title}
+      loading="lazy"
+      onError={() => setHasError(true)}
+      className="w-full h-full object-cover"
+    />
+  );
+}
+
 export function AdminMediaManager() {
   const [activeType, setActiveType] = useState<"movie" | "tv">("movie");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("all");
   const [selectedYear, setSelectedYear] = useState("all");
   const [minRating, setMinRating] = useState("0");
-  const [sortOption, setSortOption] = useState("newest");
+  const [sortOption, setSortOption] = useState("pop_desc");
   const [currentPage, setCurrentPage] = useState(1);
 
   // Data & loading states
@@ -523,13 +557,7 @@ export function AdminMediaManager() {
                       {/* Poster */}
                       <td className="py-2.5 px-4">
                         <div className="w-10 h-14 rounded-lg overflow-hidden bg-surface-2 border border-border relative flex-shrink-0">
-                          {posterUrl ? (
-                            <img src={posterUrl} alt={item.title} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[10px] text-text-muted font-mono">
-                              Yok
-                            </div>
-                          )}
+                          <AdminMediaPoster posterPath={item.posterPath} title={item.title} type={item.type} size="w500" />
                         </div>
                       </td>
 
@@ -676,13 +704,7 @@ export function AdminMediaManager() {
                 className="rounded-2xl bg-surface-1 border border-border overflow-hidden shadow-sm flex flex-col justify-between hover:border-accent/40 transition-all group"
               >
                 <div className="aspect-[2/3] relative bg-surface-2 overflow-hidden">
-                  {posterUrl ? (
-                    <img src={posterUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-text-muted text-xs font-mono">
-                      Görsel Yok
-                    </div>
-                  )}
+                  <AdminMediaPoster posterPath={item.posterPath} title={item.title} type={item.type} size="w500" />
                   <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-xs font-mono font-bold text-amber-300 border border-amber-500/20">
                     ⭐ {item.voteAverage.toFixed(1)}
                   </div>

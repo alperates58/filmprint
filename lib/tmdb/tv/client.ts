@@ -160,6 +160,67 @@ export class TMDBTvClient {
   }
 
   /**
+   * Fetches high-relevance recommendations and similar TV shows for a given TMDB show ID.
+   * Combines /tv/{id}/recommendations and /tv/{id}/similar with adult filtering and deduplication.
+   */
+  public async getSimilarAndRecommendedTvShows(
+    tmdbId: number,
+    limit: number = 12
+  ): Promise<TMDBTvShow[]> {
+    const apiKey = await this.resolveApiKey();
+    if (!apiKey) return [];
+
+    try {
+      const [recRes, simRes] = await Promise.allSettled([
+        fetchTmdbTvJson<{ results?: TMDBTvShow[] }>(
+          `${TMDB_API_BASE}/tv/${tmdbId}/recommendations?api_key=${apiKey}&language=tr-TR&page=1`
+        ),
+        fetchTmdbTvJson<{ results?: TMDBTvShow[] }>(
+          `${TMDB_API_BASE}/tv/${tmdbId}/similar?api_key=${apiKey}&language=tr-TR&page=1`
+        ),
+      ]);
+
+      const candidates: TMDBTvShow[] = [];
+      const seenIds = new Set<number>([tmdbId]);
+
+      if (recRes.status === "fulfilled" && Array.isArray(recRes.value.results)) {
+        for (const item of recRes.value.results) {
+          if (
+            item.id &&
+            !seenIds.has(item.id) &&
+            item.poster_path &&
+            !item.adult &&
+            (item.name || item.original_name)
+          ) {
+            seenIds.add(item.id);
+            candidates.push(item);
+          }
+        }
+      }
+
+      if (simRes.status === "fulfilled" && Array.isArray(simRes.value.results)) {
+        for (const item of simRes.value.results) {
+          if (
+            item.id &&
+            !seenIds.has(item.id) &&
+            item.poster_path &&
+            !item.adult &&
+            (item.name || item.original_name)
+          ) {
+            seenIds.add(item.id);
+            candidates.push(item);
+          }
+        }
+      }
+
+      return candidates.slice(0, limit);
+    } catch (error) {
+      console.error("[TMDB TV Client] Error fetching similar/recommended TV shows:", error);
+      return [];
+    }
+  }
+
+  /**
    * Fetches popular TV shows from TMDB API server-side with explicit include_adult=false.
    */
   public async getPopularTv(page: number = 1): Promise<TMDBTvShow[]> {

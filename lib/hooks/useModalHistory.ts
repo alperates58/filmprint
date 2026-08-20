@@ -16,6 +16,7 @@ export function useModalHistory({ isOpen, onClose, modalRef }: UseModalHistoryOp
   const previousActiveElement = useRef<HTMLElement | null>(null);
   const isClosingViaBackRef = useRef<boolean>(false);
   const didPushStateRef = useRef<boolean>(false);
+  const initialPathRef = useRef<string>("");
 
   // Focus saving & restoration
   useEffect(() => {
@@ -23,8 +24,17 @@ export function useModalHistory({ isOpen, onClose, modalRef }: UseModalHistoryOp
       if (typeof document !== "undefined") {
         previousActiveElement.current = document.activeElement as HTMLElement;
       }
+      if (typeof window !== "undefined") {
+        initialPathRef.current = window.location.pathname + window.location.search;
+      }
     } else {
-      if (previousActiveElement.current && typeof previousActiveElement.current.focus === "function") {
+      const currentPath = typeof window !== "undefined" ? window.location.pathname + window.location.search : "";
+      if (
+        currentPath === initialPathRef.current &&
+        previousActiveElement.current &&
+        typeof previousActiveElement.current.focus === "function" &&
+        document.body.contains(previousActiveElement.current)
+      ) {
         previousActiveElement.current.focus();
       }
     }
@@ -36,6 +46,7 @@ export function useModalHistory({ isOpen, onClose, modalRef }: UseModalHistoryOp
 
     isClosingViaBackRef.current = false;
     didPushStateRef.current = false;
+    const initialPath = window.location.pathname + window.location.search;
 
     // Push a transient state for back button interception if not already pushed
     if (!window.history.state?.modalOpen) {
@@ -62,9 +73,15 @@ export function useModalHistory({ isOpen, onClose, modalRef }: UseModalHistoryOp
       window.removeEventListener("popstate", handlePopState);
       window.removeEventListener("keydown", handleKeyDown);
 
-      // Clean up the modal history entry if closed via UI (X button / backdrop click / ESC / swipe)
-      // and NOT via the browser/Android back button
-      if (!isClosingViaBackRef.current && didPushStateRef.current && window.history.state?.modalOpen) {
+      const currentPath = window.location.pathname + window.location.search;
+      // Clean up the modal history entry if closed via UI on the same page
+      // and NOT via navigation to a new route or the browser/Android back button
+      if (
+        currentPath === initialPath &&
+        !isClosingViaBackRef.current &&
+        didPushStateRef.current &&
+        window.history.state?.modalOpen
+      ) {
         window.history.back();
       }
     };

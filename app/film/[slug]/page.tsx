@@ -13,8 +13,10 @@ import { slugify } from "@/lib/growth/seo/slug";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { ScoreBadge } from "@/components/ui/ScoreBadge";
+import { ScrollToTop } from "@/components/ui/ScrollToTop";
 import { getCurrentUser } from "@/lib/auth/service";
 import { MediaPageActions } from "@/components/media/MediaPageActions";
+import { getRelatedMoviesForMovie } from "@/lib/movies/related";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -149,16 +151,19 @@ export default async function PublicMoviePage({ params }: PageProps) {
     redirect(getMovieCanonicalPath(movie.title, movie.tmdbId));
   }
 
-  // Fetch related movies in the same genre
+  // Fetch related movies in the same genre / recommendations
   const [relatedMovies, currentUser] = await Promise.all([
-    db.movie.findMany({
-      where: {
-        id: { not: movie.id },
-        posterPath: { not: null },
+    getRelatedMoviesForMovie(
+      {
+        id: movie.id,
+        tmdbId: movie.tmdbId,
+        title: movie.title,
+        genres: movie.genres,
+        director: movie.director,
+        releaseYear: movie.releaseYear,
       },
-      orderBy: { popularity: "desc" },
-      take: 6,
-    }),
+      6
+    ),
     getCurrentUser(),
   ]);
 
@@ -224,6 +229,7 @@ export default async function PublicMoviePage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-bg-base text-text-primary flex flex-col font-sans">
+      <ScrollToTop />
       <Header />
 
       {/* JSON-LD Structured Data */}

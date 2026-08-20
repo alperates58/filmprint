@@ -710,6 +710,77 @@ export class TMDBClient {
   }
 
   /**
+   * Fetches high-relevance recommendations and similar movies for a given TMDB movie ID.
+   * Combines /movie/{id}/recommendations and /movie/{id}/similar with adult filtering and deduplication.
+   */
+  public async getSimilarAndRecommendedMovies(
+    tmdbId: number,
+    limit: number = 12
+  ): Promise<TMDBMovie[]> {
+    const apiKey = await this.resolveApiKey();
+    if (!apiKey) return [];
+
+    try {
+      const [recRes, simRes] = await Promise.allSettled([
+        fetch(
+          `${TMDB_API_BASE}/movie/${tmdbId}/recommendations?api_key=${apiKey}&language=tr-TR&page=1`,
+          { next: { revalidate: 86400 } }
+        ),
+        fetch(
+          `${TMDB_API_BASE}/movie/${tmdbId}/similar?api_key=${apiKey}&language=tr-TR&page=1`,
+          { next: { revalidate: 86400 } }
+        ),
+      ]);
+
+      const candidates: TMDBMovie[] = [];
+      const seenIds = new Set<number>([tmdbId]);
+
+      // 1. Process recommendations first (highest quality semantic similarity)
+      if (recRes.status === "fulfilled" && recRes.value.ok) {
+        const data = await recRes.value.json();
+        if (Array.isArray(data.results)) {
+          for (const item of data.results) {
+            if (
+              item.id &&
+              !seenIds.has(item.id) &&
+              item.poster_path &&
+              !item.adult &&
+              (item.title || item.original_title)
+            ) {
+              seenIds.add(item.id);
+              candidates.push(item);
+            }
+          }
+        }
+      }
+
+      // 2. Supplement with similar endpoint if needed
+      if (simRes.status === "fulfilled" && simRes.value.ok) {
+        const data = await simRes.value.json();
+        if (Array.isArray(data.results)) {
+          for (const item of data.results) {
+            if (
+              item.id &&
+              !seenIds.has(item.id) &&
+              item.poster_path &&
+              !item.adult &&
+              (item.title || item.original_title)
+            ) {
+              seenIds.add(item.id);
+              candidates.push(item);
+            }
+          }
+        }
+      }
+
+      return candidates.slice(0, limit);
+    } catch (error) {
+      console.error("[TMDB Client] Error fetching similar/recommended movies:", error);
+      return [];
+    }
+  }
+
+  /**
    * Fetches popular movies from TMDB API server-side with explicit include_adult=false.
    */
   public async getPopularMovies(page: number = 1): Promise<TMDBMovie[]> {

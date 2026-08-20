@@ -9,11 +9,13 @@ import { useEffect, useRef } from "react";
  */
 export function useScrollLock(isLocked: boolean = true) {
   const scrollYRef = useRef<number>(0);
+  const initialPathRef = useRef<string>("");
 
   useEffect(() => {
     if (!isLocked || typeof window === "undefined") return;
 
     scrollYRef.current = window.scrollY;
+    initialPathRef.current = window.location.pathname + window.location.search;
 
     const originalBodyOverflow = document.body.style.overflow;
     const originalBodyPosition = document.body.style.position;
@@ -45,10 +47,21 @@ export function useScrollLock(isLocked: boolean = true) {
       document.body.style.width = originalBodyWidth;
       document.body.style.paddingRight = originalBodyPaddingRight;
 
-      window.scrollTo({
-        top: scrollYRef.current,
-        behavior: "instant" as ScrollBehavior,
-      });
+      const currentPath = window.location.pathname + window.location.search;
+      if (currentPath === initialPathRef.current) {
+        // Only restore previous scroll position if we remain on the same route/page
+        window.scrollTo({
+          top: scrollYRef.current,
+          behavior: "instant" as ScrollBehavior,
+        });
+      } else {
+        // If navigating to a new route, start cleanly from the top
+        window.scrollTo({
+          top: 0,
+          left: 0,
+          behavior: "instant" as ScrollBehavior,
+        });
+      }
     };
   }, [isLocked]);
 }

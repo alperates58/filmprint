@@ -13,8 +13,10 @@ import { slugify } from "@/lib/growth/seo/slug";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { ScoreBadge } from "@/components/ui/ScoreBadge";
+import { ScrollToTop } from "@/components/ui/ScrollToTop";
 import { getCurrentUser } from "@/lib/auth/service";
 import { MediaPageActions } from "@/components/media/MediaPageActions";
+import { getRelatedTvShowsForShow } from "@/lib/tv/related";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -151,16 +153,19 @@ export default async function PublicTvPage({ params }: PageProps) {
     redirect(getTvCanonicalPath(show.name, show.tmdbId));
   }
 
-  // Fetch related TV shows in the same genre and current user
+  // Fetch related TV shows in the same genre / recommendations
   const [relatedShows, currentUser] = await Promise.all([
-    db.tvShow.findMany({
-      where: {
-        id: { not: show.id },
-        posterPath: { not: null },
+    getRelatedTvShowsForShow(
+      {
+        id: show.id,
+        tmdbId: show.tmdbId,
+        name: show.name,
+        genres: show.genres,
+        creators: show.creators,
+        firstAirYear: firstAirYear ? parseInt(firstAirYear, 10) : null,
       },
-      orderBy: { popularity: "desc" },
-      take: 6,
-    }),
+      6
+    ),
     getCurrentUser(),
   ]);
 
@@ -229,6 +234,7 @@ export default async function PublicTvPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-bg-base text-text-primary flex flex-col font-sans">
+      <ScrollToTop />
       <Header />
 
       {/* JSON-LD Structured Data */}

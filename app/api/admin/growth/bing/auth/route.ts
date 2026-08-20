@@ -5,13 +5,13 @@ import { buildBingGrowthAuthUrl, getBingGrowthConfig } from "@/lib/growth/bing/o
 export async function GET() {
   try {
     const session = await requireAdminSession();
-    const config = getBingGrowthConfig();
+    const config = await getBingGrowthConfig();
 
     if (!config.isConfigured) {
       return NextResponse.json(
         {
           status: "SETUP_REQUIRED",
-          error: "Bing OAuth yapılandırılmamış (BING_WEBMASTER_CLIENT_ID / BING_WEBMASTER_CLIENT_SECRET eksik).",
+          error: "Bing OAuth yapılandırılmamış (Client ID veya Client Secret eksik).",
           redirectUri: config.redirectUri,
           clientIdConfigured: Boolean(config.clientId),
           clientSecretConfigured: Boolean(config.clientSecret),
@@ -20,7 +20,7 @@ export async function GET() {
       );
     }
 
-    const authUrl = buildBingGrowthAuthUrl(session.id);
+    const authUrl = buildBingGrowthAuthUrl(session.id, config);
     return NextResponse.json({
       status: "READY",
       authUrl,

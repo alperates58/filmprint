@@ -5,13 +5,13 @@ import { buildYandexGrowthAuthUrl, getYandexGrowthConfig } from "@/lib/growth/ya
 export async function GET() {
   try {
     const session = await requireAdminSession();
-    const config = getYandexGrowthConfig();
+    const config = await getYandexGrowthConfig();
 
     if (!config.isConfigured) {
       return NextResponse.json(
         {
           status: "SETUP_REQUIRED",
-          error: "Yandex OAuth yapılandırılmamış (YANDEX_WEBMASTER_CLIENT_ID / YANDEX_WEBMASTER_CLIENT_SECRET eksik).",
+          error: "Yandex OAuth yapılandırılmamış (Client ID veya Client Secret eksik).",
           redirectUri: config.redirectUri,
           clientIdConfigured: Boolean(config.clientId),
           clientSecretConfigured: Boolean(config.clientSecret),
@@ -20,7 +20,7 @@ export async function GET() {
       );
     }
 
-    const authUrl = buildYandexGrowthAuthUrl(session.id);
+    const authUrl = buildYandexGrowthAuthUrl(session.id, config);
     return NextResponse.json({
       status: "READY",
       authUrl,

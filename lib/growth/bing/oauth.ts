@@ -3,21 +3,39 @@ import { db } from "@/lib/db/client";
 import { encryptSecret, decryptSecret } from "@/lib/security/crypto";
 import { BingIntegrationMetadata } from "../types";
 import { getBingGrowthRedirectUri } from "../urls";
+import { getGrowthCredential, getGrowthCredentialSync } from "../credentials";
 
 export const BING_WEBMASTER_AUTH_URL = "https://www.bing.com/webmasters/OAuth/authorize";
 export const BING_WEBMASTER_TOKEN_URL = "https://www.bing.com/webmasters/oauth/token";
 export const BING_WEBMASTER_SCOPE = "webmaster.manage";
 
-export function getBingGrowthConfig() {
-  const clientId = (process.env.BING_WEBMASTER_CLIENT_ID || "").trim();
-  const clientSecret = (process.env.BING_WEBMASTER_CLIENT_SECRET || "").trim();
+export async function getBingGrowthConfig() {
+  const creds = await getGrowthCredential("bing");
   const redirectUri = getBingGrowthRedirectUri();
 
   return {
-    clientId,
-    clientSecret,
+    clientId: creds.clientId,
+    clientSecret: creds.clientSecret,
     redirectUri,
-    isConfigured: Boolean(clientId && clientSecret),
+    isConfigured: creds.isConfigured,
+    source: creds.source,
+    clientIdMasked: creds.clientIdMasked,
+    clientSecretMasked: creds.clientSecretMasked,
+  };
+}
+
+export function getBingGrowthConfigSync() {
+  const creds = getGrowthCredentialSync("bing");
+  const redirectUri = getBingGrowthRedirectUri();
+
+  return {
+    clientId: creds.clientId,
+    clientSecret: creds.clientSecret,
+    redirectUri,
+    isConfigured: creds.isConfigured,
+    source: creds.source,
+    clientIdMasked: creds.clientIdMasked,
+    clientSecretMasked: creds.clientSecretMasked,
   };
 }
 
@@ -25,8 +43,11 @@ export function getBingGrowthConfig() {
  * Builds official Bing Webmaster Tools OAuth 2.0 URL.
  * Uses dedicated Bing Webmaster OAuth authorization endpoint: https://www.bing.com/webmasters/OAuth/authorize
  */
-export function buildBingGrowthAuthUrl(adminUserId: string): string {
-  const config = getBingGrowthConfig();
+export function buildBingGrowthAuthUrl(
+  adminUserId: string,
+  explicitConfig?: { clientId?: string; clientSecret?: string; redirectUri?: string }
+): string {
+  const config = explicitConfig || getBingGrowthConfigSync();
   const rawState = `${adminUserId}:${Date.now()}:${crypto.randomBytes(16).toString("hex")}`;
   const stateSignature = crypto
     .createHmac("sha256", config.clientSecret || "bing_state_key")
@@ -35,8 +56,8 @@ export function buildBingGrowthAuthUrl(adminUserId: string): string {
   const state = `${rawState}:${stateSignature}`;
 
   const params = new URLSearchParams({
-    client_id: config.clientId,
-    redirect_uri: config.redirectUri,
+    client_id: config.clientId || "",
+    redirect_uri: config.redirectUri || "",
     response_type: "code",
     scope: BING_WEBMASTER_SCOPE,
     state,
@@ -48,47 +69,68 @@ export function buildBingGrowthAuthUrl(adminUserId: string): string {
 /**
  * Validates Bing OAuth state.
  */
-export function verifyBingGrowthState(state: string): boolean {
+export function verifyBingGrowthState(state: string, explicitSecret?: string): boolean {
   if (!state || typeof state !== "string") return false;
   const parts = state.split(":");
   if (parts.length !== 4) return false;
 
   const [adminUserId, timestampStr, nonce, signature] = parts;
-  const config = getBingGrowthConfig();
-
   const timestamp = parseInt(timestampStr, 10);
   if (isNaN(timestamp) || Date.now() - timestamp > 15 * 60 * 1000) {
     return false;
   }
 
-  const rawState = `${adminUserId}:${timestampStr}:${nonce}`;
-  const expectedSig = crypto
-    .createHmac("sha256", config.clientSecret || "bing_state_key")
-    .update(rawState)
-    .digest("hex");
+  const sigBuffer = Buffer.from(signature, "hex");
+  if (sigBuffer.length !== 32) return false;
 
-  return crypto.timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(expectedSig, "hex"));
+  const rawState = `${adminUserId}:${timestampStr}:${nonce}`;
+  const config = getBingGrowthConfigSync();
+  const candidateKeys = [
+    explicitSecret,
+    config.clientSecret,
+    process.env.BING_WEBMASTER_CLIENT_SECRET,
+    "bing_state_key",
+  ].filter((k): k is string => Boolean(k && k.trim()));
+
+  for (const key of candidateKeys) {
+    const expectedSig = crypto
+      .createHmac("sha256", key)
+      .update(rawState)
+      .digest("hex");
+    try {
+      if (crypto.timingSafeEqual(sigBuffer, Buffer.from(expectedSig, "hex"))) {
+        return true;
+      }
+    } catch {
+      // Continue next key
+    }
+  }
+
+  return false;
 }
 
 /**
  * Exchanges authorization code for Bing OAuth tokens via official Bing Webmaster token endpoint:
  * https://www.bing.com/webmasters/oauth/token
  */
-export async function exchangeBingGrowthCode(code: string): Promise<{
+export async function exchangeBingGrowthCode(
+  code: string,
+  explicitConfig?: { clientId?: string; clientSecret?: string; redirectUri?: string }
+): Promise<{
   accessToken: string;
   refreshToken?: string;
   expiresIn: number;
 }> {
-  const config = getBingGrowthConfig();
+  const config = explicitConfig || (await getBingGrowthConfig());
 
   const response = await fetch(BING_WEBMASTER_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       code,
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
-      redirect_uri: config.redirectUri,
+      client_id: config.clientId || "",
+      client_secret: config.clientSecret || "",
+      redirect_uri: config.redirectUri || "",
       grant_type: "authorization_code",
     }),
   });
@@ -181,14 +223,14 @@ export async function getBingGrowthAccessToken(): Promise<string | null> {
     return null;
   }
 
-  const config = getBingGrowthConfig();
+  const config = await getBingGrowthConfig();
   try {
     const response = await fetch(BING_WEBMASTER_TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: config.clientId,
-        client_secret: config.clientSecret,
+        client_id: config.clientId || "",
+        client_secret: config.clientSecret || "",
         refresh_token: refreshToken,
         grant_type: "refresh_token",
       }),

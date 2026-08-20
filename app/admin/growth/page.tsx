@@ -84,6 +84,32 @@ export default function AdminGrowthPage() {
   const [yandexMetaTag, setYandexMetaTag] = useState("");
   const [isSavingMetaTags, setIsSavingMetaTags] = useState(false);
 
+  // Provider Credentials Management State
+  const [googleClientId, setGoogleClientId] = useState("");
+  const [googleClientSecret, setGoogleClientSecret] = useState("");
+  const [showGoogleSecret, setShowGoogleSecret] = useState(false);
+  const [isSavingGoogleCreds, setIsSavingGoogleCreds] = useState(false);
+
+  const [bingClientId, setBingClientId] = useState("");
+  const [bingClientSecret, setBingClientSecret] = useState("");
+  const [showBingSecret, setShowBingSecret] = useState(false);
+  const [isSavingBingCreds, setIsSavingBingCreds] = useState(false);
+
+  const [yandexClientId, setYandexClientId] = useState("");
+  const [yandexClientSecret, setYandexClientSecret] = useState("");
+  const [showYandexSecret, setShowYandexSecret] = useState(false);
+  const [isSavingYandexCreds, setIsSavingYandexCreds] = useState(false);
+
+  // AdSense Manual Settings State
+  const [adsensePublisherId, setAdsensePublisherId] = useState("");
+  const [adsenseAdsTxt, setAdsenseAdsTxt] = useState("");
+  const [adsenseAutoAds, setAdsenseAutoAds] = useState(false);
+  const [isSavingAdsenseSettings, setIsSavingAdsenseSettings] = useState(false);
+
+  // IndexNow Custom Key State
+  const [indexNowCustomKey, setIndexNowCustomKey] = useState("");
+  const [isSavingIndexNowKey, setIsSavingIndexNowKey] = useState(false);
+
   // Helper: Copy to Clipboard
   const handleCopy = (text: string, key: string) => {
     if (!text) return;
@@ -100,6 +126,12 @@ export default function AdminGrowthPage() {
         setOverview(data);
         setSeoMetrics(data.metrics);
         setMonetization(data.monetizationReadiness);
+
+        if (data.diagnostics?.adsense) {
+          if (data.diagnostics.adsense.publisherId) setAdsensePublisherId(data.diagnostics.adsense.publisherId);
+          if (data.diagnostics.adsense.adsTxt) setAdsenseAdsTxt(data.diagnostics.adsense.adsTxt);
+          if (typeof data.diagnostics.adsense.autoAdsEnabled === "boolean") setAdsenseAutoAds(data.diagnostics.adsense.autoAdsEnabled);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -406,6 +438,104 @@ export default function AdminGrowthPage() {
       }
     } catch {
       setStatusMsg({ type: "error", text: "Bağlantı kesilemedi." });
+    }
+  };
+
+  // Provider Credentials Management Handler
+  const handleSaveCredentials = async (
+    provider: "google" | "bing" | "yandex",
+    clientId: string,
+    clientSecret: string
+  ) => {
+    if (provider === "google") setIsSavingGoogleCreds(true);
+    if (provider === "bing") setIsSavingBingCreds(true);
+    if (provider === "yandex") setIsSavingYandexCreds(true);
+
+    try {
+      const res = await fetch("/api/admin/growth/credentials", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider,
+          clientId: clientId.trim() || undefined,
+          clientSecret: clientSecret.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatusMsg({
+          type: "success",
+          text: data.message || `${provider.toUpperCase()} API kimlik bilgileri başarıyla kaydedildi.`,
+        });
+        if (provider === "google") setGoogleClientSecret("");
+        if (provider === "bing") setBingClientSecret("");
+        if (provider === "yandex") setYandexClientSecret("");
+        await fetchOverview();
+      } else {
+        setStatusMsg({ type: "error", text: data.error || "Kayıt sırasında hata oluştu." });
+      }
+    } catch {
+      setStatusMsg({ type: "error", text: "Bağlantı hatası oluştu." });
+    } finally {
+      if (provider === "google") setIsSavingGoogleCreds(false);
+      if (provider === "bing") setIsSavingBingCreds(false);
+      if (provider === "yandex") setIsSavingYandexCreds(false);
+    }
+  };
+
+  // AdSense Manual Settings Handler
+  const handleSaveAdsenseSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingAdsenseSettings(true);
+    try {
+      const res = await fetch("/api/admin/growth/google/adsense", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publisherId: adsensePublisherId.trim(),
+          adsTxt: adsenseAdsTxt,
+          autoAdsEnabled: adsenseAutoAds,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatusMsg({ type: "success", text: data.message || "AdSense ayarları başarıyla kaydedildi." });
+        await fetchOverview();
+        await refreshAdsense();
+      } else {
+        setStatusMsg({ type: "error", text: data.error || "AdSense ayarları kaydedilemedi." });
+      }
+    } catch {
+      setStatusMsg({ type: "error", text: "Bağlantı hatası oluştu." });
+    } finally {
+      setIsSavingAdsenseSettings(false);
+    }
+  };
+
+  // IndexNow Custom Key Handler
+  const handleSaveIndexNowCustomKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!indexNowCustomKey.trim()) return;
+    setIsSavingIndexNowKey(true);
+    try {
+      const res = await fetch("/api/admin/growth/indexnow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "SET_CUSTOM_KEY", key: indexNowCustomKey.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatusMsg({ type: "success", text: data.message || "Özel IndexNow anahtarı kaydedildi." });
+        setIndexNowConfig(data.config);
+        setIndexNowCustomKey("");
+        await fetchOverview();
+      } else {
+        setStatusMsg({ type: "error", text: data.error || "IndexNow anahtarı kaydedilemedi." });
+      }
+    } catch {
+      setStatusMsg({ type: "error", text: "Bağlantı hatası oluştu." });
+    } finally {
+      setIsSavingIndexNowKey(false);
     }
   };
 
@@ -1424,25 +1554,89 @@ export default function AdminGrowthPage() {
                         </div>
                       </div>
 
-                      {/* Credentials Status Indicators */}
-                      <div className="border-t border-zinc-800/80 pt-3 flex flex-wrap items-center gap-4 text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-zinc-400">Client ID:</span>
-                          {overview?.diagnostics?.google?.clientIdConfigured ? (
-                            <span className="text-emerald-400 font-medium">Tanımlı ✓</span>
-                          ) : (
-                            <span className="text-amber-400 font-medium">Eksik (GOOGLE_GROWTH_CLIENT_ID)</span>
-                          )}
+                      {/* Direct Credentials Entry Form */}
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleSaveCredentials("google", googleClientId, googleClientSecret);
+                        }}
+                        className="border-t border-zinc-800/80 pt-4 space-y-3"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                          <span className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+                            <span>🔑</span> Google OAuth Kimlik Bilgilerini Düzenle
+                          </span>
+                          <span className="text-[10px] font-mono text-zinc-500">
+                            AES-256-GCM ile Veritabanında Şifrelenir
+                          </span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-zinc-400">Client Secret:</span>
-                          {overview?.diagnostics?.google?.clientSecretConfigured ? (
-                            <span className="text-emerald-400 font-medium">Tanımlı ✓</span>
-                          ) : (
-                            <span className="text-amber-400 font-medium">Eksik (GOOGLE_GROWTH_CLIENT_SECRET)</span>
-                          )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-zinc-400 flex items-center justify-between">
+                              <span>Client ID:</span>
+                              {overview?.diagnostics?.google?.clientIdConfigured ? (
+                                <span className="text-[10px] text-emerald-400 font-mono">
+                                  {overview?.diagnostics?.google?.source === "database" ? "✓ DB'de Tanımlı" : "✓ .env'de Tanımlı"}
+                                  {overview?.diagnostics?.google?.clientIdMasked ? ` (${overview.diagnostics.google.clientIdMasked})` : ""}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-amber-400 font-mono">Eksik</span>
+                              )}
+                            </label>
+                            <input
+                              type="text"
+                              value={googleClientId}
+                              onChange={(e) => setGoogleClientId(e.target.value)}
+                              placeholder={overview?.diagnostics?.google?.clientIdMasked || "xxxx.apps.googleusercontent.com"}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-zinc-400 flex items-center justify-between">
+                              <span>Client Secret:</span>
+                              {overview?.diagnostics?.google?.clientSecretConfigured ? (
+                                <span className="text-[10px] text-emerald-400 font-mono">
+                                  {overview?.diagnostics?.google?.source === "database" ? "✓ DB'de Tanımlı" : "✓ .env'de Tanımlı"}
+                                  {overview?.diagnostics?.google?.clientSecretMasked ? ` (${overview.diagnostics.google.clientSecretMasked})` : ""}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-amber-400 font-mono">Eksik</span>
+                              )}
+                            </label>
+                            <div className="relative">
+                              <input
+                                type={showGoogleSecret ? "text" : "password"}
+                                value={googleClientSecret}
+                                onChange={(e) => setGoogleClientSecret(e.target.value)}
+                                placeholder={overview?.diagnostics?.google?.clientSecretConfigured ? "Değiştirmek için yeni secret girin..." : "GOCSPX-..."}
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-3 pr-14 py-2 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowGoogleSecret(!showGoogleSecret)}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-[11px] font-medium"
+                              >
+                                {showGoogleSecret ? "Gizle" : "Göster"}
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-zinc-500">
+                            Öncelik: <b className="text-zinc-400">Admin Paneli (DB) &gt; .env &gt; Varsayılan</b>
+                          </span>
+                          <button
+                            type="submit"
+                            disabled={isSavingGoogleCreds || (!googleClientId.trim() && !googleClientSecret.trim())}
+                            className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black font-semibold rounded-lg text-xs transition-colors"
+                          >
+                            {isSavingGoogleCreds ? "Kaydediliyor..." : "Kimlik Bilgilerini Kaydet"}
+                          </button>
+                        </div>
+                      </form>
                     </div>
                   </div>
 
@@ -1899,24 +2093,89 @@ export default function AdminGrowthPage() {
                         </p>
                       </div>
 
-                      <div className="border-t border-zinc-800/80 pt-3 flex flex-wrap items-center gap-4 text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-zinc-400">Client ID:</span>
-                          {overview?.diagnostics?.bing?.clientIdConfigured ? (
-                            <span className="text-emerald-400 font-medium">Tanımlı ✓</span>
-                          ) : (
-                            <span className="text-amber-400 font-medium">Eksik (BING_WEBMASTER_CLIENT_ID)</span>
-                          )}
+                      {/* Direct Credentials Entry Form */}
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleSaveCredentials("bing", bingClientId, bingClientSecret);
+                        }}
+                        className="border-t border-zinc-800/80 pt-4 space-y-3"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                          <span className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+                            <span>🔑</span> Bing OAuth Kimlik Bilgilerini Düzenle
+                          </span>
+                          <span className="text-[10px] font-mono text-zinc-500">
+                            AES-256-GCM ile Veritabanında Şifrelenir
+                          </span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-zinc-400">Client Secret:</span>
-                          {overview?.diagnostics?.bing?.clientSecretConfigured ? (
-                            <span className="text-emerald-400 font-medium">Tanımlı ✓</span>
-                          ) : (
-                            <span className="text-amber-400 font-medium">Eksik (BING_WEBMASTER_CLIENT_SECRET)</span>
-                          )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-zinc-400 flex items-center justify-between">
+                              <span>Client ID:</span>
+                              {overview?.diagnostics?.bing?.clientIdConfigured ? (
+                                <span className="text-[10px] text-emerald-400 font-mono">
+                                  {overview?.diagnostics?.bing?.source === "database" ? "✓ DB'de Tanımlı" : "✓ .env'de Tanımlı"}
+                                  {overview?.diagnostics?.bing?.clientIdMasked ? ` (${overview.diagnostics.bing.clientIdMasked})` : ""}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-amber-400 font-mono">Eksik</span>
+                              )}
+                            </label>
+                            <input
+                              type="text"
+                              value={bingClientId}
+                              onChange={(e) => setBingClientId(e.target.value)}
+                              placeholder={overview?.diagnostics?.bing?.clientIdMasked || "Bing Application Client ID..."}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-zinc-400 flex items-center justify-between">
+                              <span>Client Secret:</span>
+                              {overview?.diagnostics?.bing?.clientSecretConfigured ? (
+                                <span className="text-[10px] text-emerald-400 font-mono">
+                                  {overview?.diagnostics?.bing?.source === "database" ? "✓ DB'de Tanımlı" : "✓ .env'de Tanımlı"}
+                                  {overview?.diagnostics?.bing?.clientSecretMasked ? ` (${overview.diagnostics.bing.clientSecretMasked})` : ""}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-amber-400 font-mono">Eksik</span>
+                              )}
+                            </label>
+                            <div className="relative">
+                              <input
+                                type={showBingSecret ? "text" : "password"}
+                                value={bingClientSecret}
+                                onChange={(e) => setBingClientSecret(e.target.value)}
+                                placeholder={overview?.diagnostics?.bing?.clientSecretConfigured ? "Değiştirmek için yeni secret girin..." : "Bing Client Secret..."}
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-3 pr-14 py-2 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowBingSecret(!showBingSecret)}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-[11px] font-medium"
+                              >
+                                {showBingSecret ? "Gizle" : "Göster"}
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-zinc-500">
+                            Öncelik: <b className="text-zinc-400">Admin Paneli (DB) &gt; .env &gt; Varsayılan</b>
+                          </span>
+                          <button
+                            type="submit"
+                            disabled={isSavingBingCreds || (!bingClientId.trim() && !bingClientSecret.trim())}
+                            className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black font-semibold rounded-lg text-xs transition-colors"
+                          >
+                            {isSavingBingCreds ? "Kaydediliyor..." : "Kimlik Bilgilerini Kaydet"}
+                          </button>
+                        </div>
+                      </form>
                     </div>
                   </div>
 
@@ -2024,24 +2283,89 @@ export default function AdminGrowthPage() {
                         </p>
                       </div>
 
-                      <div className="border-t border-zinc-800/80 pt-3 flex flex-wrap items-center gap-4 text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-zinc-400">Client ID:</span>
-                          {overview?.diagnostics?.yandex?.clientIdConfigured ? (
-                            <span className="text-emerald-400 font-medium">Tanımlı ✓</span>
-                          ) : (
-                            <span className="text-amber-400 font-medium">Eksik (YANDEX_WEBMASTER_CLIENT_ID)</span>
-                          )}
+                      {/* Direct Credentials Entry Form */}
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleSaveCredentials("yandex", yandexClientId, yandexClientSecret);
+                        }}
+                        className="border-t border-zinc-800/80 pt-4 space-y-3"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                          <span className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+                            <span>🔑</span> Yandex OAuth Kimlik Bilgilerini Düzenle
+                          </span>
+                          <span className="text-[10px] font-mono text-zinc-500">
+                            AES-256-GCM ile Veritabanında Şifrelenir
+                          </span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-zinc-400">Client Secret:</span>
-                          {overview?.diagnostics?.yandex?.clientSecretConfigured ? (
-                            <span className="text-emerald-400 font-medium">Tanımlı ✓</span>
-                          ) : (
-                            <span className="text-amber-400 font-medium">Eksik (YANDEX_WEBMASTER_CLIENT_SECRET)</span>
-                          )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-zinc-400 flex items-center justify-between">
+                              <span>Client ID:</span>
+                              {overview?.diagnostics?.yandex?.clientIdConfigured ? (
+                                <span className="text-[10px] text-emerald-400 font-mono">
+                                  {overview?.diagnostics?.yandex?.source === "database" ? "✓ DB'de Tanımlı" : "✓ .env'de Tanımlı"}
+                                  {overview?.diagnostics?.yandex?.clientIdMasked ? ` (${overview.diagnostics.yandex.clientIdMasked})` : ""}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-amber-400 font-mono">Eksik</span>
+                              )}
+                            </label>
+                            <input
+                              type="text"
+                              value={yandexClientId}
+                              onChange={(e) => setYandexClientId(e.target.value)}
+                              placeholder={overview?.diagnostics?.yandex?.clientIdMasked || "Yandex Client ID..."}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[11px] text-zinc-400 flex items-center justify-between">
+                              <span>Client Secret:</span>
+                              {overview?.diagnostics?.yandex?.clientSecretConfigured ? (
+                                <span className="text-[10px] text-emerald-400 font-mono">
+                                  {overview?.diagnostics?.yandex?.source === "database" ? "✓ DB'de Tanımlı" : "✓ .env'de Tanımlı"}
+                                  {overview?.diagnostics?.yandex?.clientSecretMasked ? ` (${overview.diagnostics.yandex.clientSecretMasked})` : ""}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-amber-400 font-mono">Eksik</span>
+                              )}
+                            </label>
+                            <div className="relative">
+                              <input
+                                type={showYandexSecret ? "text" : "password"}
+                                value={yandexClientSecret}
+                                onChange={(e) => setYandexClientSecret(e.target.value)}
+                                placeholder={overview?.diagnostics?.yandex?.clientSecretConfigured ? "Değiştirmek için yeni secret girin..." : "Yandex Client Secret..."}
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-3 pr-14 py-2 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowYandexSecret(!showYandexSecret)}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-[11px] font-medium"
+                              >
+                                {showYandexSecret ? "Gizle" : "Göster"}
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-zinc-500">
+                            Öncelik: <b className="text-zinc-400">Admin Paneli (DB) &gt; .env &gt; Varsayılan</b>
+                          </span>
+                          <button
+                            type="submit"
+                            disabled={isSavingYandexCreds || (!yandexClientId.trim() && !yandexClientSecret.trim())}
+                            className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black font-semibold rounded-lg text-xs transition-colors"
+                          >
+                            {isSavingYandexCreds ? "Kaydediliyor..." : "Kimlik Bilgilerini Kaydet"}
+                          </button>
+                        </div>
+                      </form>
                     </div>
                   </div>
 
@@ -2135,25 +2459,70 @@ export default function AdminGrowthPage() {
                     </div>
                   </div>
 
-                  {/* Key & Verification URL */}
-                  <div className="p-4 bg-black/40 border border-zinc-800 rounded-lg space-y-3 text-xs">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-zinc-300">Aktif IndexNow Anahtarı:</span>
-                      <span className="font-mono text-zinc-200 bg-zinc-950 px-2 py-1 rounded border border-zinc-800">
-                        {indexNowConfig?.key || "Oluşturulmamış"}
-                      </span>
+                  {/* Key & Custom Key Form */}
+                  <div className="p-4 bg-black/40 border border-zinc-800 rounded-lg space-y-4 text-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800/80 pb-3">
+                      <div>
+                        <span className="font-medium text-zinc-300">Aktif IndexNow Anahtarı:</span>
+                        <div className="font-mono text-amber-300/90 bg-zinc-950 px-2.5 py-1.5 rounded border border-zinc-800 mt-1 break-all">
+                          {indexNowConfig?.key || "Oluşturulmamış"}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 self-start sm:self-auto flex-shrink-0">
+                        {indexNowConfig?.key && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(indexNowConfig.key, "indexnow_key")}
+                            className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded border border-zinc-700 text-xs"
+                          >
+                            {copiedKey === "indexnow_key" ? "✓ Kopyalandı" : "Anahtarı Kopyala"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleRotateIndexNowKey}
+                          disabled={isRotatingKey}
+                          className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded border border-zinc-700 text-xs disabled:opacity-50"
+                        >
+                          {isRotatingKey ? "Yenileniyor..." : "Rastgele Yeni Üret"}
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-zinc-300">Key Doğrulama URL'si:</span>
+
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="font-medium text-zinc-400">Key Doğrulama URL'si (TXT):</span>
                       <a
                         href={indexNowConfig?.keyLocation || "#"}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-amber-400 hover:underline font-mono text-[11px]"
+                        className="text-amber-400 hover:underline font-mono"
                       >
                         {indexNowConfig?.keyLocation || "—"} ↗
                       </a>
                     </div>
+
+                    {/* Custom Key Input Form */}
+                    <form onSubmit={handleSaveIndexNowCustomKey} className="border-t border-zinc-800/80 pt-3 space-y-2">
+                      <label className="text-[11px] text-zinc-400 font-medium block">
+                        Özel IndexNow Anahtarı Tanımla:
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={indexNowCustomKey}
+                          onChange={(e) => setIndexNowCustomKey(e.target.value)}
+                          placeholder="Örn: 32 karakterlik özel alfanümerik anahtar..."
+                          className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                        />
+                        <button
+                          type="submit"
+                          disabled={isSavingIndexNowKey || !indexNowCustomKey.trim()}
+                          className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black font-semibold rounded-lg text-xs transition-colors"
+                        >
+                          {isSavingIndexNowKey ? "Kaydediliyor..." : "Özel Anahtarı Kaydet"}
+                        </button>
+                      </div>
+                    </form>
                   </div>
 
                   {/* Actions */}
@@ -2174,13 +2543,6 @@ export default function AdminGrowthPage() {
                       className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
                     >
                       {isTestingPing ? "İletiliyor..." : "Test Ping Gönder"}
-                    </button>
-                    <button
-                      onClick={handleRotateIndexNowKey}
-                      disabled={isRotatingKey}
-                      className="px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-lg text-xs font-medium border border-zinc-800 transition-colors disabled:opacity-50"
-                    >
-                      {isRotatingKey ? "Yenileniyor..." : "Anahtarı Yenile (Rotate)"}
                     </button>
                   </div>
                 </div>
@@ -2245,12 +2607,96 @@ export default function AdminGrowthPage() {
                       <div className="p-3.5 bg-black/40 border border-zinc-800 rounded-lg flex items-center justify-between text-xs">
                         <div className="space-y-0.5">
                           <span className="font-medium text-zinc-200">3. ads.txt ve CMP (Consent Management Platform)</span>
-                          <p className="text-[11px] text-zinc-500">GDPR/KVKK uyumlu çerez onay banner'ı ve ads.txt yönlendirmesi.</p>
+                          <p className="text-[11px] text-zinc-500">GDPR/KVKK uyumlu çerez onay banner'ı ve /ads.txt yönlendirmesi.</p>
                         </div>
-                        <span className="text-[11px] font-mono text-zinc-500">PHASE I-D KAPSAMINDA</span>
+                        <span className={`text-[11px] font-mono ${adsenseAdsTxt ? "text-emerald-400 font-medium" : "text-zinc-500"}`}>
+                          {adsenseAdsTxt ? "CONFIGURED ✓" : "PHASE I-D KAPSAMINDA"}
+                        </span>
                       </div>
                     </div>
                   </div>
+
+                  {/* Manual AdSense & ads.txt Configuration Form */}
+                  <form onSubmit={handleSaveAdsenseSettings} className="border-t border-zinc-800/80 pt-4 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <span className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+                        <span>💰</span> AdSense ve ads.txt Ayarlarını Düzenle
+                      </span>
+                      <span className="text-[10px] font-mono text-zinc-500">
+                        Doğrudan Veritabanına Kaydedilir
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-zinc-400 font-medium flex items-center justify-between">
+                        <span>AdSense Publisher ID:</span>
+                        {adsensePublisherId && (
+                          <span className="text-[10px] text-emerald-400 font-mono">Tanımlı ✓</span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={adsensePublisherId}
+                        onChange={(e) => setAdsensePublisherId(e.target.value)}
+                        placeholder="pub-1234567890123456"
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500"
+                      />
+                      <p className="text-[11px] text-zinc-500">
+                        Google AdSense hesap numaranız (pub-xxxxxxxxxxxxxx formatında).
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-zinc-400 font-medium">ads.txt İçeriği:</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cleanPub = (adsensePublisherId || "pub-0000000000000000").replace(/^pub-/, "");
+                            setAdsenseAdsTxt(`google.com, pub-${cleanPub}, DIRECT, f08c47fec0942fa0`);
+                          }}
+                          className="text-[11px] text-amber-400 hover:underline font-mono"
+                        >
+                          + Standart Google Şablonu Ekle
+                        </button>
+                      </div>
+                      <textarea
+                        rows={4}
+                        value={adsenseAdsTxt}
+                        onChange={(e) => setAdsenseAdsTxt(e.target.value)}
+                        placeholder="google.com, pub-1234567890123456, DIRECT, f08c47fec0942fa0"
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 resize-none"
+                      />
+                      <p className="text-[11px] text-zinc-500">
+                        Bu alan doldurulduğunda <code>/ads.txt</code> adresinden doğrudan yayınlanır.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-black/40 rounded-lg border border-zinc-800/80">
+                      <div>
+                        <span className="text-xs font-medium text-zinc-200">Otomatik Reklamlar (Auto Ads)</span>
+                        <p className="text-[10px] text-zinc-500">
+                          (Phase I-D açılışına kadar güvenlik amaçlı kilitli tutulabilir)
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={adsenseAutoAds}
+                        onChange={(e) => setAdsenseAutoAds(e.target.checked)}
+                        className="rounded bg-zinc-800 border-zinc-700 text-amber-500 focus:ring-amber-500 h-4 w-4"
+                      />
+                    </div>
+
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="submit"
+                        disabled={isSavingAdsenseSettings}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black font-semibold rounded-lg text-xs transition-colors"
+                      >
+                        {isSavingAdsenseSettings ? "Kaydediliyor..." : "AdSense Ayarlarını Kaydet"}
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
             )}

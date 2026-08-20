@@ -5,13 +5,13 @@ import { buildGoogleGrowthAuthUrl, getGoogleGrowthConfig } from "@/lib/growth/go
 export async function GET() {
   try {
     const session = await requireAdminSession();
-    const config = getGoogleGrowthConfig();
+    const config = await getGoogleGrowthConfig();
 
     if (!config.isConfigured) {
       return NextResponse.json(
         {
           status: "SETUP_REQUIRED",
-          error: "Google Growth OAuth yapılandırılmamış. (GOOGLE_GROWTH_CLIENT_ID / GOOGLE_GROWTH_CLIENT_SECRET eksik)",
+          error: "Google Growth OAuth yapılandırılmamış. (Client ID veya Client Secret eksik)",
           redirectUri: config.redirectUri,
           clientIdConfigured: Boolean(config.clientId),
           clientSecretConfigured: Boolean(config.clientSecret),
@@ -20,7 +20,7 @@ export async function GET() {
       );
     }
 
-    const authUrl = buildGoogleGrowthAuthUrl(session.id);
+    const authUrl = buildGoogleGrowthAuthUrl(session.id, config);
     return NextResponse.json({
       status: "READY",
       authUrl,

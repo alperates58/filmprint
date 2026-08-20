@@ -3,6 +3,7 @@ import { db } from "@/lib/db/client";
 import { encryptSecret, decryptSecret } from "@/lib/security/crypto";
 import { GoogleIntegrationMetadata } from "../types";
 import { getGoogleGrowthRedirectUri } from "../urls";
+import { getGrowthCredential, getGrowthCredentialSync } from "../credentials";
 
 export const GOOGLE_GROWTH_SCOPES = [
   "openid",
@@ -14,24 +15,44 @@ export const GOOGLE_GROWTH_SCOPES = [
   "https://www.googleapis.com/auth/siteverification.verify_only",
 ].join(" ");
 
-export function getGoogleGrowthConfig() {
-  const clientId = (process.env.GOOGLE_GROWTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || "").trim();
-  const clientSecret = (process.env.GOOGLE_GROWTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || "").trim();
+export async function getGoogleGrowthConfig() {
+  const creds = await getGrowthCredential("google");
   const redirectUri = getGoogleGrowthRedirectUri();
 
   return {
-    clientId,
-    clientSecret,
+    clientId: creds.clientId,
+    clientSecret: creds.clientSecret,
     redirectUri,
-    isConfigured: Boolean(clientId && clientSecret),
+    isConfigured: creds.isConfigured,
+    source: creds.source,
+    clientIdMasked: creds.clientIdMasked,
+    clientSecretMasked: creds.clientSecretMasked,
+  };
+}
+
+export function getGoogleGrowthConfigSync() {
+  const creds = getGrowthCredentialSync("google");
+  const redirectUri = getGoogleGrowthRedirectUri();
+
+  return {
+    clientId: creds.clientId,
+    clientSecret: creds.clientSecret,
+    redirectUri,
+    isConfigured: creds.isConfigured,
+    source: creds.source,
+    clientIdMasked: creds.clientIdMasked,
+    clientSecretMasked: creds.clientSecretMasked,
   };
 }
 
 /**
  * Builds Google OAuth URL for Growth integrations with offline access.
  */
-export function buildGoogleGrowthAuthUrl(adminUserId: string): string {
-  const config = getGoogleGrowthConfig();
+export function buildGoogleGrowthAuthUrl(
+  adminUserId: string,
+  explicitConfig?: { clientId?: string; clientSecret?: string; redirectUri?: string }
+): string {
+  const config = explicitConfig || getGoogleGrowthConfigSync();
   const rawState = `${adminUserId}:${Date.now()}:${crypto.randomBytes(16).toString("hex")}`;
   const stateSignature = crypto
     .createHmac("sha256", config.clientSecret || "growth_state_key")
@@ -40,8 +61,8 @@ export function buildGoogleGrowthAuthUrl(adminUserId: string): string {
   const state = `${rawState}:${stateSignature}`;
 
   const params = new URLSearchParams({
-    client_id: config.clientId,
-    redirect_uri: config.redirectUri,
+    client_id: config.clientId || "",
+    redirect_uri: config.redirectUri || "",
     response_type: "code",
     scope: GOOGLE_GROWTH_SCOPES,
     state,
@@ -56,7 +77,7 @@ export function buildGoogleGrowthAuthUrl(adminUserId: string): string {
 /**
  * Verifies OAuth state signature.
  */
-export function verifyGoogleGrowthState(state: string): boolean {
+export function verifyGoogleGrowthState(state: string, explicitSecret?: string): boolean {
   if (!state || typeof state !== "string") return false;
 
   const parts = state.split(":");
@@ -70,38 +91,59 @@ export function verifyGoogleGrowthState(state: string): boolean {
     return false;
   }
 
-  const config = getGoogleGrowthConfig();
-  const rawState = `${adminUserId}:${timestampStr}:${nonce}`;
-  const expectedSignature = crypto
-    .createHmac("sha256", config.clientSecret || "growth_state_key")
-    .update(rawState)
-    .digest("hex");
+  const sigBuffer = Buffer.from(receivedSignature, "hex");
+  if (sigBuffer.length !== 32) return false;
 
-  return crypto.timingSafeEqual(
-    Buffer.from(receivedSignature, "hex"),
-    Buffer.from(expectedSignature, "hex")
-  );
+  const config = getGoogleGrowthConfigSync();
+  const rawState = `${adminUserId}:${timestampStr}:${nonce}`;
+
+  const candidateKeys = [
+    explicitSecret,
+    config.clientSecret,
+    process.env.GOOGLE_GROWTH_CLIENT_SECRET,
+    process.env.GOOGLE_CLIENT_SECRET,
+    "growth_state_key",
+  ].filter((k): k is string => Boolean(k && k.trim()));
+
+  for (const key of candidateKeys) {
+    const expectedSignature = crypto
+      .createHmac("sha256", key)
+      .update(rawState)
+      .digest("hex");
+    try {
+      if (crypto.timingSafeEqual(sigBuffer, Buffer.from(expectedSignature, "hex"))) {
+        return true;
+      }
+    } catch {
+      // Continue next key
+    }
+  }
+
+  return false;
 }
 
 /**
  * Exchanges authorization code for Google access and refresh tokens.
  */
-export async function exchangeGoogleGrowthCode(code: string): Promise<{
+export async function exchangeGoogleGrowthCode(
+  code: string,
+  explicitConfig?: { clientId?: string; clientSecret?: string; redirectUri?: string }
+): Promise<{
   accessToken: string;
   refreshToken?: string;
   expiresIn: number;
   email?: string;
 }> {
-  const config = getGoogleGrowthConfig();
+  const config = explicitConfig || (await getGoogleGrowthConfig());
 
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       code,
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
-      redirect_uri: config.redirectUri,
+      client_id: config.clientId || "",
+      client_secret: config.clientSecret || "",
+      redirect_uri: config.redirectUri || "",
       grant_type: "authorization_code",
     }),
   });
@@ -206,19 +248,18 @@ export async function getGoogleGrowthAccessToken(): Promise<string | null> {
     refreshToken = decryptSecret(record.encryptedValue);
   } catch (err: any) {
     console.error("[GoogleGrowth] Failed to decrypt refresh token:", err);
-    // Mark record as error/reauth required
     await markGoogleReauthRequired("Şifreli anahtar çözülemedi. Lütfen yeniden bağlanın.");
     return null;
   }
 
-  const config = getGoogleGrowthConfig();
+  const config = await getGoogleGrowthConfig();
   try {
     const response = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: config.clientId,
-        client_secret: config.clientSecret,
+        client_id: config.clientId || "",
+        client_secret: config.clientSecret || "",
         refresh_token: refreshToken,
         grant_type: "refresh_token",
       }),

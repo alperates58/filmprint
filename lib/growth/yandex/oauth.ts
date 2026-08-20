@@ -3,25 +3,46 @@ import { db } from "@/lib/db/client";
 import { encryptSecret, decryptSecret } from "@/lib/security/crypto";
 import { YandexIntegrationMetadata } from "../types";
 import { getYandexGrowthRedirectUri } from "../urls";
+import { getGrowthCredential, getGrowthCredentialSync } from "../credentials";
 
-export function getYandexGrowthConfig() {
-  const clientId = (process.env.YANDEX_WEBMASTER_CLIENT_ID || "").trim();
-  const clientSecret = (process.env.YANDEX_WEBMASTER_CLIENT_SECRET || "").trim();
+export async function getYandexGrowthConfig() {
+  const creds = await getGrowthCredential("yandex");
   const redirectUri = getYandexGrowthRedirectUri();
 
   return {
-    clientId,
-    clientSecret,
+    clientId: creds.clientId,
+    clientSecret: creds.clientSecret,
     redirectUri,
-    isConfigured: Boolean(clientId && clientSecret),
+    isConfigured: creds.isConfigured,
+    source: creds.source,
+    clientIdMasked: creds.clientIdMasked,
+    clientSecretMasked: creds.clientSecretMasked,
+  };
+}
+
+export function getYandexGrowthConfigSync() {
+  const creds = getGrowthCredentialSync("yandex");
+  const redirectUri = getYandexGrowthRedirectUri();
+
+  return {
+    clientId: creds.clientId,
+    clientSecret: creds.clientSecret,
+    redirectUri,
+    isConfigured: creds.isConfigured,
+    source: creds.source,
+    clientIdMasked: creds.clientIdMasked,
+    clientSecretMasked: creds.clientSecretMasked,
   };
 }
 
 /**
  * Builds Yandex OAuth 2.0 URL.
  */
-export function buildYandexGrowthAuthUrl(adminUserId: string): string {
-  const config = getYandexGrowthConfig();
+export function buildYandexGrowthAuthUrl(
+  adminUserId: string,
+  explicitConfig?: { clientId?: string; clientSecret?: string; redirectUri?: string }
+): string {
+  const config = explicitConfig || getYandexGrowthConfigSync();
   const rawState = `${adminUserId}:${Date.now()}:${crypto.randomBytes(16).toString("hex")}`;
   const stateSignature = crypto
     .createHmac("sha256", config.clientSecret || "yandex_state_key")
@@ -30,8 +51,8 @@ export function buildYandexGrowthAuthUrl(adminUserId: string): string {
   const state = `${rawState}:${stateSignature}`;
 
   const params = new URLSearchParams({
-    client_id: config.clientId,
-    redirect_uri: config.redirectUri,
+    client_id: config.clientId || "",
+    redirect_uri: config.redirectUri || "",
     response_type: "code",
     state,
     force_confirm: "yes",
@@ -43,45 +64,66 @@ export function buildYandexGrowthAuthUrl(adminUserId: string): string {
 /**
  * Validates Yandex OAuth state.
  */
-export function verifyYandexGrowthState(state: string): boolean {
+export function verifyYandexGrowthState(state: string, explicitSecret?: string): boolean {
   if (!state || typeof state !== "string") return false;
   const parts = state.split(":");
   if (parts.length !== 4) return false;
 
   const [adminUserId, timestampStr, nonce, signature] = parts;
-  const config = getYandexGrowthConfig();
-
   const timestamp = parseInt(timestampStr, 10);
   if (isNaN(timestamp) || Date.now() - timestamp > 15 * 60 * 1000) {
     return false;
   }
 
-  const rawState = `${adminUserId}:${timestampStr}:${nonce}`;
-  const expectedSig = crypto
-    .createHmac("sha256", config.clientSecret || "yandex_state_key")
-    .update(rawState)
-    .digest("hex");
+  const sigBuffer = Buffer.from(signature, "hex");
+  if (sigBuffer.length !== 32) return false;
 
-  return crypto.timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(expectedSig, "hex"));
+  const rawState = `${adminUserId}:${timestampStr}:${nonce}`;
+  const config = getYandexGrowthConfigSync();
+  const candidateKeys = [
+    explicitSecret,
+    config.clientSecret,
+    process.env.YANDEX_WEBMASTER_CLIENT_SECRET,
+    "yandex_state_key",
+  ].filter((k): k is string => Boolean(k && k.trim()));
+
+  for (const key of candidateKeys) {
+    const expectedSig = crypto
+      .createHmac("sha256", key)
+      .update(rawState)
+      .digest("hex");
+    try {
+      if (crypto.timingSafeEqual(sigBuffer, Buffer.from(expectedSig, "hex"))) {
+        return true;
+      }
+    } catch {
+      // Continue next key
+    }
+  }
+
+  return false;
 }
 
 /**
  * Exchanges authorization code for Yandex tokens.
  */
-export async function exchangeYandexGrowthCode(code: string): Promise<{
+export async function exchangeYandexGrowthCode(
+  code: string,
+  explicitConfig?: { clientId?: string; clientSecret?: string; redirectUri?: string }
+): Promise<{
   accessToken: string;
   refreshToken?: string;
   expiresIn: number;
 }> {
-  const config = getYandexGrowthConfig();
+  const config = explicitConfig || (await getYandexGrowthConfig());
 
   const response = await fetch("https://oauth.yandex.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       code,
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
+      client_id: config.clientId || "",
+      client_secret: config.clientSecret || "",
       grant_type: "authorization_code",
     }),
   });

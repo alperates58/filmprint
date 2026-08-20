@@ -141,6 +141,38 @@ export async function rotateIndexNowKey(): Promise<IndexNowMetadata> {
 }
 
 /**
+ * Sets a custom user-defined IndexNow key securely.
+ */
+export async function setIndexNowCustomKey(rawKey: string): Promise<IndexNowMetadata> {
+  const cleanKey = rawKey.trim().replace(/[^a-zA-Z0-9-]/g, "");
+  if (!cleanKey || cleanKey.length < 8) {
+    throw new Error("Geçersiz IndexNow anahtarı (en az 8 karakter alfanümerik olmalıdır).");
+  }
+
+  const existing = await db.integrationSecret.findUnique({
+    where: { provider: "indexnow" },
+  });
+  const currentMeta = (existing?.metadata as Record<string, any>) || {};
+
+  await db.integrationSecret.upsert({
+    where: { provider: "indexnow" },
+    update: {
+      encryptedValue: cleanKey,
+      lastFour: cleanKey.slice(-4),
+      metadata: { ...currentMeta, enabled: currentMeta.enabled !== false } as any,
+    },
+    create: {
+      provider: "indexnow",
+      encryptedValue: cleanKey,
+      lastFour: cleanKey.slice(-4),
+      metadata: { enabled: true } as any,
+    },
+  });
+
+  return getIndexNowConfig();
+}
+
+/**
  * Toggles IndexNow enabled state in IntegrationSecret.
  */
 export async function setIndexNowEnabled(enabled: boolean): Promise<void> {

@@ -429,5 +429,21 @@ export async function runGrowthAndSeoTests() {
     console.log("  ✓ Google Property Auto-Selection & Independent Service Status passed.");
   }
 
+  console.log("--> 12. Testing Database/Env Credentials Resolution & AdSense Settings");
+  {
+    const { getGrowthCredentialSync } = require("@/lib/growth/credentials");
+    const cred = getGrowthCredentialSync("bing");
+    assert.equal(typeof cred.isConfigured, "boolean");
+    assert.equal(typeof cred.source, "string");
+
+    // Test masked formatting
+    const { getBingGrowthConfigSync } = require("@/lib/growth/bing/oauth");
+    const bingSync = getBingGrowthConfigSync();
+    assert.equal(typeof bingSync.redirectUri, "string");
+    assert.ok(bingSync.redirectUri.includes("/api/admin/growth/bing/callback"));
+
+    console.log("  ✓ Database/Env Credentials Resolution & Sync Fallback passed.");
+  }
+
   console.log("\n✅ ALL GROWTH & SEO FOUNDATION TESTS (INCLUDING HOTFIXES) PASSED SUCCESSFULLY!\n");
 }

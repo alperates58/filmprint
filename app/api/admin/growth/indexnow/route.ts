@@ -3,6 +3,7 @@ import { requireAdminSession, logAdminAudit } from "@/lib/admin/auth";
 import {
   getIndexNowConfig,
   rotateIndexNowKey,
+  setIndexNowCustomKey,
   setIndexNowEnabled,
   submitUrlsToIndexNow,
   processPendingIndexNowJobs,
@@ -40,6 +41,24 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         message: "IndexNow anahtarı başarıyla yenilendi.",
+        config: updated,
+      });
+    }
+
+    if (body.action === "SET_CUSTOM_KEY") {
+      const updated = await setIndexNowCustomKey(body.key);
+
+      await logAdminAudit(
+        session.id,
+        "INDEXNOW_CUSTOM_KEY_SET",
+        "IntegrationSecret",
+        "indexnow",
+        { keyLocation: updated.keyLocation }
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: "IndexNow özel anahtarı başarıyla kaydedildi.",
         config: updated,
       });
     }

@@ -9,23 +9,36 @@ import { getGrowthUrlsDiagnostics } from "@/lib/growth/urls";
 import { getGoogleGrowthConfig } from "@/lib/growth/google/oauth";
 import { getBingGrowthConfig } from "@/lib/growth/bing/oauth";
 import { getYandexGrowthConfig } from "@/lib/growth/yandex/oauth";
+import { getAdSenseSettings } from "@/lib/growth/credentials";
 
 export async function GET() {
   try {
     await requireAdminSession();
 
-    const [metrics, indexNowConfig, seoConfig, googleSecret, bingSecret, yandexSecret] = await Promise.all([
+    const [
+      metrics,
+      indexNowConfig,
+      seoConfig,
+      googleSecret,
+      bingSecret,
+      yandexSecret,
+      googleConfig,
+      bingConfig,
+      yandexConfig,
+      adsenseSettings,
+    ] = await Promise.all([
       getSeoCatalogMetrics(),
       getIndexNowConfig(),
       getSeoSystemConfig(),
       db.integrationSecret.findUnique({ where: { provider: "google_growth" } }),
       db.integrationSecret.findUnique({ where: { provider: "bing_webmaster" } }),
       db.integrationSecret.findUnique({ where: { provider: "yandex_webmaster" } }),
+      getGoogleGrowthConfig(),
+      getBingGrowthConfig(),
+      getYandexGrowthConfig(),
+      getAdSenseSettings(),
     ]);
 
-    const googleConfig = getGoogleGrowthConfig();
-    const bingConfig = getBingGrowthConfig();
-    const yandexConfig = getYandexGrowthConfig();
     const urlDiagnostics = getGrowthUrlsDiagnostics();
 
     const googleMeta = ((googleSecret?.metadata as Record<string, any>) || {}) as GoogleIntegrationMetadata;
@@ -57,9 +70,9 @@ export async function GET() {
       : "SETUP_REQUIRED";
 
     const monetizationReadiness = {
-      adsenseConnected: isGoogleConnected && Boolean(googleMeta.adsenseConnected),
-      adsenseSiteStatus: googleMeta.adsenseSite?.state || "NOT_DETECTED",
-      adsTxtStatus: "PHASE_ID_PENDING",
+      adsenseConnected: isGoogleConnected && Boolean(googleMeta.adsenseConnected || adsenseSettings.publisherId),
+      adsenseSiteStatus: googleMeta.adsenseSite?.state || (adsenseSettings.publisherId ? "READY" : "NOT_DETECTED"),
+      adsTxtStatus: adsenseSettings.adsTxt ? "CONFIGURED" : "PHASE_ID_PENDING",
       cmpStatus: "PHASE_ID_PENDING",
       consentModeReady: true,
       tmdbCommercialLicenseVerified: Boolean(seoConfig.tmdbCommercialLicenseVerified),
@@ -99,28 +112,44 @@ export async function GET() {
           totalSubmissions: indexNowConfig.totalSubmissions,
           lastStatus: indexNowConfig.lastStatus,
           lastSubmittedAt: indexNowConfig.lastSubmittedAt,
+          key: indexNowConfig.key,
+          keyLocation: indexNowConfig.keyLocation,
         },
       },
       diagnostics: {
         urls: urlDiagnostics,
-        encryptionKeyConfigured: Boolean(process.env.MASTER_ENCRYPTION_KEY?.trim()),
+        encryptionKeyConfigured: Boolean(process.env.MASTER_ENCRYPTION_KEY?.trim() || process.env.GROWTH_ENCRYPTION_KEY?.trim()),
         google: {
           status: googleStatus,
           clientIdConfigured: Boolean(googleConfig.clientId),
           clientSecretConfigured: Boolean(googleConfig.clientSecret),
+          clientIdMasked: googleConfig.clientIdMasked,
+          clientSecretMasked: googleConfig.clientSecretMasked,
+          source: googleConfig.source,
           redirectUri: googleConfig.redirectUri,
         },
         bing: {
           status: bingStatus,
           clientIdConfigured: Boolean(bingConfig.clientId),
           clientSecretConfigured: Boolean(bingConfig.clientSecret),
+          clientIdMasked: bingConfig.clientIdMasked,
+          clientSecretMasked: bingConfig.clientSecretMasked,
+          source: bingConfig.source,
           redirectUri: bingConfig.redirectUri,
         },
         yandex: {
           status: yandexStatus,
           clientIdConfigured: Boolean(yandexConfig.clientId),
           clientSecretConfigured: Boolean(yandexConfig.clientSecret),
+          clientIdMasked: yandexConfig.clientIdMasked,
+          clientSecretMasked: yandexConfig.clientSecretMasked,
+          source: yandexConfig.source,
           redirectUri: yandexConfig.redirectUri,
+        },
+        adsense: {
+          publisherId: adsenseSettings.publisherId,
+          adsTxt: adsenseSettings.adsTxt,
+          autoAdsEnabled: adsenseSettings.autoAdsEnabled,
         },
       },
     });

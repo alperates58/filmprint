@@ -314,7 +314,7 @@ export function TvDetailsModal({
         <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 flex items-center gap-2">
           {(details?.tmdbId || (tvShowId && !isNaN(Number(tvShowId)))) && (
             <Link
-              href={`/dizi/${generateTvSlug(displayName, details?.tmdbId || Number(tvShowId))}`}
+              href={`/dizi/${generateTvSlug(displayTitle, details?.tmdbId || Number(tvShowId))}`}
               className="px-3.5 py-2 rounded-full bg-surface-1/90 hover:bg-surface-2 border border-border/80 text-xs text-text-secondary hover:text-text-primary font-semibold flex items-center gap-1.5 shadow-md backdrop-blur-md transition-all active:scale-95"
               title="Dizinin Özel Sayfasına Git"
             >
@@ -529,7 +529,7 @@ export function TvDetailsModal({
               {/* Dedicated Full Page Button */}
               {(details?.tmdbId || (tvShowId && !isNaN(Number(tvShowId)))) && (
                 <Link
-                  href={`/dizi/${generateTvSlug(displayName, details?.tmdbId || Number(tvShowId))}`}
+                  href={`/dizi/${generateTvSlug(displayTitle, details?.tmdbId || Number(tvShowId))}`}
                   className="min-h-[48px] px-4 py-2.5 rounded-xl border border-purple-500/30 hover:border-purple-500/60 bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 hover:text-white font-semibold flex items-center gap-2 active:scale-95 transition-all"
                   title="Dizinin Özel Sayfasına Git"
                 >

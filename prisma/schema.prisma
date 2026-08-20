@@ -131,7 +131,6 @@ model Movie {
   libraryEntries          UserContentLibrary[]
   selectedInMovieNights   MovieNightSession[]      @relation("SelectedMovieNight")
 
-  @@index([tmdbId])
   @@index([popularity])
   @@index([voteAverage(sort: Desc), popularity(sort: Desc)])
 }
@@ -320,7 +319,6 @@ model TvShow {
   recommendationExplanations TvRecommendationExplanation[]
   libraryEntries          UserContentLibrary[]
 
-  @@index([tmdbId])
   @@index([popularity])
   @@index([voteAverage(sort: Desc), popularity(sort: Desc)])
 }

@@ -511,7 +511,7 @@ export function AdminMediaManager() {
               </thead>
               <tbody className="divide-y divide-border/60 text-xs">
                 {items.map((item) => {
-                  const posterUrl = getTmdbImageUrl(item.posterPath, "w92");
+                  const posterUrl = getTmdbImageUrl(item.posterPath, "w185");
                   const slug =
                     item.type === "movie"
                       ? generateMovieSlug(item.title, item.tmdbId)

@@ -6,13 +6,14 @@ interface UseModalHistoryOptions {
   isOpen: boolean;
   onClose: () => void;
   modalRef?: React.RefObject<HTMLElement | null>;
+  isNavigatingRef?: React.RefObject<boolean>;
 }
 
 /**
  * Handles modal history pushState, popstate (Android/browser back button),
  * Escape key dismiss, and focus restoration without leaving zombie history entries.
  */
-export function useModalHistory({ isOpen, onClose, modalRef }: UseModalHistoryOptions) {
+export function useModalHistory({ isOpen, onClose, modalRef, isNavigatingRef }: UseModalHistoryOptions) {
   const previousActiveElement = useRef<HTMLElement | null>(null);
   const isClosingViaBackRef = useRef<boolean>(false);
   const didPushStateRef = useRef<boolean>(false);
@@ -28,6 +29,8 @@ export function useModalHistory({ isOpen, onClose, modalRef }: UseModalHistoryOp
         initialPathRef.current = window.location.pathname + window.location.search;
       }
     } else {
+      if (isNavigatingRef?.current) return;
+
       const currentPath = typeof window !== "undefined" ? window.location.pathname + window.location.search : "";
       if (
         currentPath === initialPathRef.current &&
@@ -38,7 +41,7 @@ export function useModalHistory({ isOpen, onClose, modalRef }: UseModalHistoryOp
         previousActiveElement.current.focus();
       }
     }
-  }, [isOpen]);
+  }, [isOpen, isNavigatingRef]);
 
   // History & Keyboard handling
   useEffect(() => {
@@ -73,6 +76,8 @@ export function useModalHistory({ isOpen, onClose, modalRef }: UseModalHistoryOp
       window.removeEventListener("popstate", handlePopState);
       window.removeEventListener("keydown", handleKeyDown);
 
+      if (isNavigatingRef?.current) return;
+
       const currentPath = window.location.pathname + window.location.search;
       // Clean up the modal history entry if closed via UI on the same page
       // and NOT via navigation to a new route or the browser/Android back button
@@ -85,5 +90,5 @@ export function useModalHistory({ isOpen, onClose, modalRef }: UseModalHistoryOp
         window.history.back();
       }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isNavigatingRef]);
 }

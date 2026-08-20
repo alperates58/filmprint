@@ -100,10 +100,11 @@ export function MovieDetailsModal({
 
   const modalContainerRef = useRef<HTMLDivElement>(null);
   const contentScrollRef = useRef<HTMLDivElement>(null);
+  const isNavigatingRef = useRef<boolean>(false);
 
   // Hook integrations
-  useScrollLock(Boolean(movieId));
-  useModalHistory({ isOpen: Boolean(movieId), onClose, modalRef: modalContainerRef });
+  useScrollLock(Boolean(movieId), isNavigatingRef);
+  useModalHistory({ isOpen: Boolean(movieId), onClose, modalRef: modalContainerRef, isNavigatingRef });
 
   // Touch swipe-to-dismiss (isolated strictly to drag handle)
   const touchStartY = useRef<number>(0);
@@ -294,7 +295,9 @@ export function MovieDetailsModal({
           {(details?.tmdbId || (movieId && !isNaN(Number(movieId)))) && (
             <Link
               href={`/film/${generateMovieSlug(displayTitle, details?.tmdbId || Number(movieId))}`}
-              onClick={onClose}
+              onClick={() => {
+                isNavigatingRef.current = true;
+              }}
               className="px-3.5 py-2 rounded-full bg-surface-1/90 hover:bg-surface-2 border border-border/80 text-xs text-text-secondary hover:text-text-primary font-semibold flex items-center gap-1.5 shadow-md backdrop-blur-md transition-all active:scale-95"
               title="Filmin Özel Sayfasına Git"
             >
@@ -505,7 +508,9 @@ export function MovieDetailsModal({
               {(details?.tmdbId || (movieId && !isNaN(Number(movieId)))) && (
                 <Link
                   href={`/film/${generateMovieSlug(displayTitle, details?.tmdbId || Number(movieId))}`}
-                  onClick={onClose}
+                  onClick={() => {
+                    isNavigatingRef.current = true;
+                  }}
                   className="min-h-[48px] px-4 py-2.5 rounded-xl border border-purple-500/30 hover:border-purple-500/60 bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 hover:text-white font-semibold flex items-center gap-2 active:scale-95 transition-all"
                   title="Filmin Özel Sayfasına Git"
                 >

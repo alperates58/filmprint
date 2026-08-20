@@ -7,7 +7,10 @@ import { useEffect, useRef } from "react";
  * Prevents background scroll leakage, rubber-banding, and layout jump
  * across Desktop Chrome/Firefox/Safari and Mobile Android/iOS WebViews.
  */
-export function useScrollLock(isLocked: boolean = true) {
+export function useScrollLock(
+  isLocked: boolean = true,
+  isNavigatingRef?: React.RefObject<boolean>
+) {
   const scrollYRef = useRef<number>(0);
   const initialPathRef = useRef<string>("");
 
@@ -48,20 +51,20 @@ export function useScrollLock(isLocked: boolean = true) {
       document.body.style.paddingRight = originalBodyPaddingRight;
 
       const currentPath = window.location.pathname + window.location.search;
-      if (currentPath === initialPathRef.current) {
-        // Only restore previous scroll position if we remain on the same route/page
-        window.scrollTo({
-          top: scrollYRef.current,
-          behavior: "instant" as ScrollBehavior,
-        });
-      } else {
+      if (isNavigatingRef?.current || currentPath !== initialPathRef.current) {
         // If navigating to a new route, start cleanly from the top
         window.scrollTo({
           top: 0,
           left: 0,
           behavior: "instant" as ScrollBehavior,
         });
+      } else {
+        // Only restore previous scroll position if we remain on the same route/page
+        window.scrollTo({
+          top: scrollYRef.current,
+          behavior: "instant" as ScrollBehavior,
+        });
       }
     };
-  }, [isLocked]);
+  }, [isLocked, isNavigatingRef]);
 }

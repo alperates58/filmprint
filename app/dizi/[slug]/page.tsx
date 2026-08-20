@@ -153,6 +153,8 @@ export default async function PublicTvPage({ params }: PageProps) {
     redirect(getTvCanonicalPath(show.name, show.tmdbId));
   }
 
+  const firstAirYear = show.firstAirDate ? show.firstAirDate.substring(0, 4) : null;
+
   // Fetch related TV shows in the same genre / recommendations
   const [relatedShows, currentUser] = await Promise.all([
     getRelatedTvShowsForShow(
@@ -207,7 +209,6 @@ export default async function PublicTvPage({ params }: PageProps) {
 
   const posterUrl = getTmdbImageUrl(show.posterPath, "w500");
   const backdropUrl = getTmdbImageUrl(show.backdropPath, "w1280");
-  const firstAirYear = show.firstAirDate ? show.firstAirDate.substring(0, 4) : null;
 
   const tvJsonLd = generateTvJsonLd({
     tmdbId: show.tmdbId,

@@ -205,6 +205,7 @@ export default async function TvProfilePage() {
             {/* 1. Ultra-Premium Hero Card */}
             <ProfileHeroCard
               mediaType="TV"
+              userId={currentUser.id}
               userName={currentUser.name || "SineAI Kullanıcısı"}
               userAvatar={currentUser.image || undefined}
               userEmail={currentUser.email || undefined}
@@ -220,6 +221,8 @@ export default async function TvProfilePage() {
                 isPrimary: arch.isPrimary,
                 icon: arch.icon,
               }))}
+              genres={profile.genres.map((g) => ({ name: g.name, score: g.score }))}
+              topEra={profile.eras?.[0]?.label}
               ctaHref="/tv/calibration"
               ctaLabel="Dizi DNA'mı Keskinleştir"
             />

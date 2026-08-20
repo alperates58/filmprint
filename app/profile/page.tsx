@@ -196,6 +196,7 @@ export default async function ProfilePage() {
             {/* 1. Ultra-Premium Hero Card */}
             <ProfileHeroCard
               mediaType="FILM"
+              userId={currentUser.id}
               userName={currentUser.name || "SineAI Kullanıcısı"}
               userAvatar={currentUser.image || undefined}
               userEmail={currentUser.email || undefined}
@@ -211,6 +212,8 @@ export default async function ProfilePage() {
                 isPrimary: idx === 0,
                 icon: idx === 0 ? "👑" : "✨",
               }))}
+              genres={data.profile.genres}
+              topEra={data.profile.eras?.[0]?.label}
               ctaHref="/"
               ctaLabel="Film DNA'mı Keskinleştir"
             />

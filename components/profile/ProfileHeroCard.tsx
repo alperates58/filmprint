@@ -2,9 +2,11 @@
 
 import React from "react";
 import Link from "next/link";
+import { ShareModal } from "../share/ShareModal";
 
 export interface ProfileHeroCardProps {
   mediaType: "FILM" | "TV";
+  userId?: string;
   userName: string;
   userAvatar?: string;
   userEmail?: string;
@@ -16,12 +18,16 @@ export interface ProfileHeroCardProps {
   rankBadgeIcon?: string;
   maturityLabel?: string;
   archetypes?: Array<{ name: string; isPrimary?: boolean; icon?: string }>;
+  genres?: Array<{ name: string; score: number }>;
+  topEra?: string;
+  lovedMovies?: Array<{ title: string; releaseYear?: number | null }>;
   ctaHref?: string;
   ctaLabel?: string;
 }
 
 export function ProfileHeroCard({
   mediaType,
+  userId,
   userName,
   userAvatar,
   userEmail,
@@ -33,6 +39,9 @@ export function ProfileHeroCard({
   rankBadgeIcon,
   maturityLabel,
   archetypes = [],
+  genres = [],
+  topEra,
+  lovedMovies = [],
   ctaHref = "/",
   ctaLabel = "DNA'yı Keskinleştir",
 }: ProfileHeroCardProps) {
@@ -41,6 +50,7 @@ export function ProfileHeroCard({
 
   const [liveSummary, setLiveSummary] = React.useState(summaryText);
   const [isRegenerating, setIsRegenerating] = React.useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = React.useState(false);
 
   React.useEffect(() => {
     setLiveSummary(summaryText);
@@ -142,7 +152,16 @@ export function ProfileHeroCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setIsShareModalOpen(true)}
+              className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-violet-500/25 active:scale-95 cursor-pointer"
+              title="Sinematik DNA Kartını Paylaş"
+            >
+              <span className="animate-pulse">✨</span>
+              <span>DNA Kartını Paylaş</span>
+            </button>
+
             <Link
               href="/account"
               className="px-3.5 py-2.5 rounded-2xl bg-surface-2 hover:bg-surface-3 border border-border text-text-primary text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
@@ -246,6 +265,27 @@ export function ProfileHeroCard({
           {ctaLabel} →
         </Link>
       </div>
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        data={{
+          userId,
+          userName: userName || "SineAI Kullanıcısı",
+          userAvatar,
+          rankLabel,
+          rankBadgeIcon,
+          confidencePercent,
+          sampleCount,
+          archetypes,
+          genres,
+          topEra,
+          aiQuote: liveSummary ? liveSummary.split("\n\n")[0] : undefined,
+          lovedMovies,
+          isTv: !isFilm,
+        }}
+      />
     </div>
   );
 }

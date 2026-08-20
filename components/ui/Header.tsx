@@ -354,20 +354,11 @@ export function Header({
           </div>
         </div>
 
-        {/* Mobile Header Right Profile & AI Button */}
-        <div className="flex items-center gap-1.5 sm:gap-2 md:hidden relative flex-shrink-0">
-          <Link
-            href="/kesfet"
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-purple-950/60 hover:bg-purple-900/60 border border-purple-500/40 text-purple-300 font-semibold text-[11px] sm:text-xs min-h-[34px] sm:min-h-[38px] flex-shrink-0"
-            aria-label="AI İle Keşfet"
-          >
-            <span className="text-xs">✨</span>
-            <span>AI<span className="hidden xs:inline"> Keşfet</span></span>
-          </Link>
-
+        {/* Mobile Header Right: User Profile Avatar */}
+        <div className="flex items-center md:hidden relative flex-shrink-0">
           <button
             onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-            className="flex items-center justify-center p-0.5 sm:p-1 rounded-xl bg-surface-2 border border-border min-h-[34px] min-w-[34px] sm:min-h-[38px] sm:min-w-[38px] cursor-pointer flex-shrink-0 active:scale-95"
+            className="flex items-center justify-center p-1 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border min-h-[36px] min-w-[36px] sm:min-h-[38px] sm:min-w-[38px] cursor-pointer flex-shrink-0 active:scale-95 transition-all shadow-sm"
             aria-label="Profil Menüsü"
           >
             {avatar ? (

@@ -8,15 +8,17 @@ export function BottomNav() {
   const pathname = usePathname();
   const isTvMode = pathname.startsWith("/tv");
 
-  // Do not render BottomNav on public shared profile or immersive movie night pages
+  // Do not render BottomNav on public shared profile or immersive movie night room pages
   if (pathname.startsWith("/p/") || pathname.startsWith("/night/")) {
     return null;
   }
 
-  // Determine active states
+  // Active state links
   const homeHref = isTvMode ? "/tv" : "/";
   const recsHref = isTvMode ? "/tv/recommendations" : "/recommendations";
   const calibHref = isTvMode ? "/tv/calibration" : "/calibrate";
+  const aiHref = "/kesfet";
+  const nightHref = "/night";
   const libraryHref = isTvMode ? "/library?mediaType=TV" : "/library?mediaType=FILM";
   const profileHref = isTvMode ? "/tv/profile" : "/profile";
 
@@ -25,6 +27,8 @@ export function BottomNav() {
     : pathname === "/" || pathname === "";
   const isRecsActive = pathname.includes("/recommendations");
   const isCalibActive = pathname.includes("/calibrat");
+  const isAiActive = pathname === "/kesfet";
+  const isNightActive = pathname.startsWith("/night");
   const isLibraryActive = pathname.startsWith("/library") || pathname.startsWith("/watch-later");
   const isProfileActive = pathname.includes("/profile");
 
@@ -36,7 +40,7 @@ export function BottomNav() {
       isActive: isHomeActive,
       icon: (active: boolean) => (
         <svg
-          className={`w-5 h-5 transition-transform duration-200 ${active ? "scale-110" : ""}`}
+          className={`w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-200 ${active ? "scale-110" : ""}`}
           fill={active ? "currentColor" : "none"}
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -57,7 +61,7 @@ export function BottomNav() {
       isActive: isRecsActive,
       icon: (active: boolean) => (
         <svg
-          className={`w-5 h-5 transition-transform duration-200 ${active ? "scale-110" : ""}`}
+          className={`w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-200 ${active ? "scale-110" : ""}`}
           fill={active ? "currentColor" : "none"}
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -73,13 +77,12 @@ export function BottomNav() {
     },
     {
       id: "calibrate",
-      label: "Kalibre Et",
+      label: "Kalibrasyon",
       href: calibHref,
       isActive: isCalibActive,
-      isCenterAction: true,
       icon: (active: boolean) => (
         <svg
-          className={`w-5 h-5 transition-transform duration-200 ${active ? "scale-110" : ""}`}
+          className={`w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-200 ${active ? "scale-110" : ""}`}
           fill={active ? "currentColor" : "none"}
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -94,13 +97,34 @@ export function BottomNav() {
       ),
     },
     {
+      id: "ai",
+      label: "AI Keşfet",
+      href: aiHref,
+      isActive: isAiActive,
+      isCenterAction: true,
+      icon: (active: boolean) => (
+        <span className="text-xl animate-pulse">✨</span>
+      ),
+    },
+    {
+      id: "night",
+      label: "Movie Night",
+      href: nightHref,
+      isActive: isNightActive,
+      icon: (active: boolean) => (
+        <span className={`text-base transition-transform duration-200 ${active ? "scale-110" : ""}`}>
+          🍿
+        </span>
+      ),
+    },
+    {
       id: "library",
       label: "Kütüphane",
       href: libraryHref,
       isActive: isLibraryActive,
       icon: (active: boolean) => (
         <svg
-          className={`w-5 h-5 transition-transform duration-200 ${active ? "scale-110" : ""}`}
+          className={`w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-200 ${active ? "scale-110" : ""}`}
           fill={active ? "currentColor" : "none"}
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -121,7 +145,7 @@ export function BottomNav() {
       isActive: isProfileActive,
       icon: (active: boolean) => (
         <svg
-          className={`w-5 h-5 transition-transform duration-200 ${active ? "scale-110" : ""}`}
+          className={`w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-200 ${active ? "scale-110" : ""}`}
           fill={active ? "currentColor" : "none"}
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -140,9 +164,9 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Mobil Alt Navigasyon"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface-1/90 backdrop-blur-xl border-t border-border/80 pb-[env(safe-area-inset-bottom,0px)] shadow-lg"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface-1/95 backdrop-blur-2xl border-t border-border/80 pb-[env(safe-area-inset-bottom,0px)] shadow-2xl"
     >
-      <div className="flex items-center justify-around h-16 px-1 max-w-md mx-auto">
+      <div className="flex items-center justify-between h-16 px-1.5 max-w-lg mx-auto">
         {tabs.map((tab) => {
           const active = tab.isActive;
 
@@ -151,21 +175,21 @@ export function BottomNav() {
               <Link
                 key={tab.id}
                 href={tab.href}
-                className="relative flex flex-col items-center justify-center -mt-4 group min-w-[56px] min-h-[56px]"
+                className="relative flex flex-col items-center justify-center -mt-5 group min-w-[48px] min-h-[48px]"
                 aria-label={tab.label}
               >
                 <div
-                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-all duration-200 active:scale-95 ${
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-200 active:scale-95 border ${
                     active
-                      ? "bg-accent text-white shadow-glow"
-                      : "bg-surface-2 border border-border-strong text-text-primary hover:border-accent"
+                      ? "bg-gradient-to-tr from-purple-600 via-violet-600 to-fuchsia-500 text-white border-purple-300/60 shadow-purple-500/40 ring-2 ring-purple-400/40 scale-105"
+                      : "bg-gradient-to-tr from-purple-950 via-surface-2 to-purple-900/80 text-purple-300 border-purple-500/40 hover:scale-105 shadow-purple-900/30"
                   }`}
                 >
                   {tab.icon(active)}
                 </div>
                 <span
-                  className={`text-[10px] font-sans font-medium mt-1 transition-colors ${
-                    active ? "text-accent font-semibold" : "text-text-secondary"
+                  className={`text-[9px] font-sans font-bold tracking-tight mt-1 transition-colors ${
+                    active ? "text-purple-300" : "text-text-muted group-hover:text-purple-300"
                   }`}
                 >
                   {tab.label}
@@ -178,20 +202,20 @@ export function BottomNav() {
             <Link
               key={tab.id}
               href={tab.href}
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 px-1 transition-all duration-200 active:scale-95 ${
-                active ? "text-accent" : "text-text-muted hover:text-text-secondary"
+              className={`flex-1 flex flex-col items-center justify-center py-1 group transition-all min-w-0 ${
+                active ? "text-accent" : "text-text-muted hover:text-text-primary"
               }`}
               aria-label={tab.label}
             >
-              <div className="relative">
+              <div className="relative p-1">
                 {tab.icon(active)}
                 {active && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-accent" />
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-accent" />
                 )}
               </div>
               <span
-                className={`text-[10px] font-sans transition-colors mt-0.5 ${
-                  active ? "text-accent font-semibold" : "text-text-secondary"
+                className={`text-[8.5px] sm:text-[9px] font-sans font-medium tracking-tighter truncate max-w-[48px] transition-colors ${
+                  active ? "font-bold text-text-primary" : "text-text-muted group-hover:text-text-secondary"
                 }`}
               >
                 {tab.label}

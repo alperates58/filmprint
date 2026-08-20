@@ -13,6 +13,8 @@ import { slugify } from "@/lib/growth/seo/slug";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { ScoreBadge } from "@/components/ui/ScoreBadge";
+import { getCurrentUser } from "@/lib/auth/service";
+import { MediaPageActions } from "@/components/media/MediaPageActions";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -148,14 +150,53 @@ export default async function PublicMoviePage({ params }: PageProps) {
   }
 
   // Fetch related movies in the same genre
-  const relatedMovies = await db.movie.findMany({
-    where: {
-      id: { not: movie.id },
-      posterPath: { not: null },
-    },
-    orderBy: { popularity: "desc" },
-    take: 6,
-  });
+  const [relatedMovies, currentUser] = await Promise.all([
+    db.movie.findMany({
+      where: {
+        id: { not: movie.id },
+        posterPath: { not: null },
+      },
+      orderBy: { popularity: "desc" },
+      take: 6,
+    }),
+    getCurrentUser(),
+  ]);
+
+  let userStatus: string | null = null;
+  let userRating: string | null = null;
+  let isFavorite = false;
+
+  if (currentUser) {
+    const libraryEntry = await db.libraryEntry.findUnique({
+      where: {
+        userId_contentId_mediaType: {
+          userId: currentUser.id,
+          contentId: movie.id,
+          mediaType: "FILM",
+        },
+      },
+    });
+
+    if (libraryEntry) {
+      userStatus = libraryEntry.state;
+      userRating = libraryEntry.rating;
+      isFavorite = libraryEntry.isFavorite;
+    } else {
+      const interaction = await db.movieInteraction.findUnique({
+        where: {
+          userId_movieId: {
+            userId: currentUser.id,
+            movieId: movie.id,
+          },
+        },
+      });
+      if (interaction) {
+        userStatus = interaction.status;
+        userRating = interaction.rating;
+        isFavorite = interaction.isFavorite || false;
+      }
+    }
+  }
 
   const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
   const backdropUrl = getTmdbImageUrl(movie.backdropPath, "w1280");
@@ -307,22 +348,16 @@ export default async function PublicMoviePage({ params }: PageProps) {
                 </div>
               )}
 
-              {/* SINEAI CTA Bar */}
-              <div className="pt-4 flex flex-wrap gap-3 items-center">
-                <Link
-                  href={`/calibrate`}
-                  className="px-5 py-3 rounded-2xl bg-accent text-white font-sans text-sm font-semibold hover:bg-accent/90 transition-colors shadow-lg shadow-accent/20 flex items-center gap-2"
-                >
-                  <span>🎯</span>
-                  <span>Zevkime Uygun mu? Film DNA&apos;mı Oluştur</span>
-                </Link>
-                <Link
-                  href={`/night`}
-                  className="px-4 py-3 rounded-2xl bg-surface-2 hover:bg-surface-3 border border-border text-text-secondary hover:text-text-primary font-sans text-sm font-medium transition-colors"
-                >
-                  🍿 Arkadaşımla Ortak İzle
-                </Link>
-              </div>
+              {/* Interactive Library & Rating Actions */}
+              <MediaPageActions
+                contentId={movie.id}
+                tmdbId={movie.tmdbId}
+                mediaType="FILM"
+                title={movie.title}
+                initialStatus={userStatus}
+                initialRating={userRating}
+                initialFavorite={isFavorite}
+              />
             </div>
           </div>
         </section>

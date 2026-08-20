@@ -13,6 +13,8 @@ import { slugify } from "@/lib/growth/seo/slug";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { ScoreBadge } from "@/components/ui/ScoreBadge";
+import { getCurrentUser } from "@/lib/auth/service";
+import { MediaPageActions } from "@/components/media/MediaPageActions";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -149,15 +151,54 @@ export default async function PublicTvPage({ params }: PageProps) {
     redirect(getTvCanonicalPath(show.name, show.tmdbId));
   }
 
-  // Fetch related TV shows in the same genre
-  const relatedShows = await db.tvShow.findMany({
-    where: {
-      id: { not: show.id },
-      posterPath: { not: null },
-    },
-    orderBy: { popularity: "desc" },
-    take: 6,
-  });
+  // Fetch related TV shows in the same genre and current user
+  const [relatedShows, currentUser] = await Promise.all([
+    db.tvShow.findMany({
+      where: {
+        id: { not: show.id },
+        posterPath: { not: null },
+      },
+      orderBy: { popularity: "desc" },
+      take: 6,
+    }),
+    getCurrentUser(),
+  ]);
+
+  let userStatus: string | null = null;
+  let userRating: string | null = null;
+  let isFavorite = false;
+
+  if (currentUser) {
+    const libraryEntry = await db.libraryEntry.findUnique({
+      where: {
+        userId_contentId_mediaType: {
+          userId: currentUser.id,
+          contentId: show.id,
+          mediaType: "TV",
+        },
+      },
+    });
+
+    if (libraryEntry) {
+      userStatus = libraryEntry.state;
+      userRating = libraryEntry.rating;
+      isFavorite = libraryEntry.isFavorite;
+    } else {
+      const interaction = await db.tvShowInteraction.findUnique({
+        where: {
+          userId_tvShowId: {
+            userId: currentUser.id,
+            tvShowId: show.id,
+          },
+        },
+      });
+      if (interaction) {
+        userStatus = interaction.status;
+        userRating = interaction.rating;
+        isFavorite = interaction.isFavorite || false;
+      }
+    }
+  }
 
   const posterUrl = getTmdbImageUrl(show.posterPath, "w500");
   const backdropUrl = getTmdbImageUrl(show.backdropPath, "w1280");
@@ -318,22 +359,16 @@ export default async function PublicTvPage({ params }: PageProps) {
                 </div>
               )}
 
-              {/* SINEAI CTA Bar */}
-              <div className="pt-4 flex flex-wrap gap-3 items-center">
-                <Link
-                  href={`/tv/calibration`}
-                  className="px-5 py-3 rounded-2xl bg-accent text-white font-sans text-sm font-semibold hover:bg-accent/90 transition-colors shadow-lg shadow-accent/20 flex items-center gap-2"
-                >
-                  <span>📺</span>
-                  <span>Zevkime Uygun mu? Dizi DNA&apos;mı Oluştur</span>
-                </Link>
-                <Link
-                  href={`/tv/recommendations`}
-                  className="px-4 py-3 rounded-2xl bg-surface-2 hover:bg-surface-3 border border-border text-text-secondary hover:text-text-primary font-sans text-sm font-medium transition-colors"
-                >
-                  ✨ Kişisel Dizi Önerilerim
-                </Link>
-              </div>
+              {/* Interactive Library & Rating Actions */}
+              <MediaPageActions
+                contentId={show.id}
+                tmdbId={show.tmdbId}
+                mediaType="TV"
+                title={show.name}
+                initialStatus={userStatus}
+                initialRating={userRating}
+                initialFavorite={isFavorite}
+              />
             </div>
           </div>
         </section>

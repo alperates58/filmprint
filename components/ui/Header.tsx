@@ -347,7 +347,7 @@ export function Header({
         </div>
 
         {/* Mobile Header Right Profile & AI Button */}
-        <div className="flex items-center gap-2 md:hidden">
+        <div className="flex items-center gap-2 md:hidden relative">
           <Link
             href="/kesfet"
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-purple-950/60 border border-purple-500/40 text-purple-300 font-semibold text-xs min-h-[38px]"
@@ -357,10 +357,10 @@ export function Header({
             <span>AI Keşfet</span>
           </Link>
 
-          <Link
-            href={isTvMode ? "/tv/profile" : "/profile"}
-            className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-2 border border-border min-h-[38px] min-w-[38px] justify-center"
-            aria-label="Profil"
+          <button
+            onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+            className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-2 border border-border min-h-[38px] min-w-[38px] justify-center cursor-pointer"
+            aria-label="Profil Menüsü"
           >
             {avatar ? (
               <img
@@ -373,7 +373,60 @@ export function Header({
                 {displayName ? displayName.charAt(0).toUpperCase() : "👤"}
               </div>
             )}
-          </Link>
+          </button>
+
+          {/* Mobile Dropdown Menu */}
+          {userDropdownOpen && (
+            <div
+              className="absolute right-0 top-12 w-60 rounded-2xl bg-surface-2 border border-border-strong p-2 shadow-2xl z-50 animate-fadeIn space-y-1 text-xs font-sans"
+              onClick={() => setUserDropdownOpen(false)}
+            >
+              <div className="p-3 border-b border-border/80 space-y-1 bg-surface-1/50 rounded-xl">
+                <p className="font-semibold text-text-primary text-xs truncate">{displayName}</p>
+                {email && <p className="text-text-muted text-[11px] truncate">{email}</p>}
+                <div className="pt-1 flex items-center gap-1.5">
+                  <span className="text-sm">{progression.currentRank.badgeIcon}</span>
+                  <span className="text-[11px] font-semibold text-accent font-mono">
+                    {progression.currentRank.label} ({activeCount} Puan)
+                  </span>
+                </div>
+              </div>
+
+              <Link
+                href={isTvMode ? "/tv/profile" : "/profile"}
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-surface-3 text-text-primary transition-colors"
+              >
+                <span>🧬</span>
+                <span>{isTvMode ? "Dizi DNA Profilim" : "Film DNA Profilim"}</span>
+              </Link>
+
+              <Link
+                href="/library"
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-surface-3 text-text-primary transition-colors"
+              >
+                <span>📁</span>
+                <span>Tüm Kütüphanem</span>
+              </Link>
+
+              <Link
+                href="/account"
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-surface-3 text-text-primary transition-colors"
+              >
+                <span>⚙️</span>
+                <span>Hesap Ayarları</span>
+              </Link>
+
+              <div className="pt-1 border-t border-border/60">
+                <a
+                  href="/api/auth/logout"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-destructive/15 text-destructive transition-colors"
+                >
+                  <span>🚪</span>
+                  <span>Çıkış Yap</span>
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>

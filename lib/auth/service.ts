@@ -120,15 +120,19 @@ export async function createUserSession(userId: string): Promise<string> {
  * Invalidates user session and removes session cookies.
  */
 export async function logoutUser(): Promise<void> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(USER_SESSION_COOKIE_NAME)?.value;
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(USER_SESSION_COOKIE_NAME)?.value;
 
-  if (token) {
-    await db.userSession.deleteMany({
-      where: { token },
-    }).catch(() => {});
+    if (token) {
+      await db.userSession.deleteMany({
+        where: { token },
+      }).catch(() => {});
+    }
+
+    cookieStore.delete(USER_SESSION_COOKIE_NAME);
+    cookieStore.delete(LEGACY_ANONYMOUS_COOKIE_NAME);
+  } catch (err) {
+    console.error("[logoutUser error]:", err);
   }
-
-  cookieStore.delete(USER_SESSION_COOKIE_NAME);
-  // Do NOT auto-create a new anonymous session on logout. User must go to /auth.
 }

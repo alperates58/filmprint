@@ -23,11 +23,23 @@ export async function getSeoCatalogMetrics(forceRefresh = false): Promise<SeoCat
 
   let movies: any[] = [];
   let tvShows: any[] = [];
+  let totalMoviesCount = 0;
+  let totalTvShowsCount = 0;
+
+  const movieSampleSize = Math.min(Math.max(config.movieMaxIndexed * 3, 1000), 15000);
+  const tvSampleSize = Math.min(Math.max(config.tvMaxIndexed * 3, 1000), 7500);
 
   try {
     if (db?.movie?.findMany && db?.tvShow?.findMany) {
-      const [m, t] = await Promise.all([
+      const [totalM, totalT, m, t] = await Promise.all([
+        db.movie.count().catch(() => 0),
+        db.tvShow.count().catch(() => 0),
         db.movie.findMany({
+          orderBy: [
+            { popularity: "desc" },
+            { voteAverage: "desc" },
+          ],
+          take: movieSampleSize,
           select: {
             id: true,
             tmdbId: true,
@@ -42,6 +54,11 @@ export async function getSeoCatalogMetrics(forceRefresh = false): Promise<SeoCat
           },
         }),
         db.tvShow.findMany({
+          orderBy: [
+            { popularity: "desc" },
+            { voteAverage: "desc" },
+          ],
+          take: tvSampleSize,
           select: {
             id: true,
             tmdbId: true,
@@ -58,6 +75,8 @@ export async function getSeoCatalogMetrics(forceRefresh = false): Promise<SeoCat
           },
         }),
       ]);
+      totalMoviesCount = totalM;
+      totalTvShowsCount = totalT;
       movies = m;
       tvShows = t;
     }
@@ -96,11 +115,11 @@ export async function getSeoCatalogMetrics(forceRefresh = false): Promise<SeoCat
   const totalSitemapUrls = staticUrlsCount + genreUrlsCount + indexedMoviesCount + indexedTvShowsCount;
 
   const result: SeoCatalogMetrics = {
-    totalMovies: movies.length,
+    totalMovies: totalMoviesCount || movies.length,
     eligibleMovies,
     lowQualityMovies,
     indexedMoviesCount,
-    totalTvShows: tvShows.length,
+    totalTvShows: totalTvShowsCount || tvShows.length,
     eligibleTvShows,
     lowQualityTvShows,
     indexedTvShowsCount,
@@ -127,6 +146,8 @@ export async function getStagedEligibleMovies(): Promise<any[]> {
   }
 
   let movies: any[] = [];
+  const boundedTake = Math.min(Math.max(config.movieMaxIndexed * 3, 1000), 15000);
+
   try {
     if (db?.movie?.findMany) {
       movies = await db.movie.findMany({
@@ -137,6 +158,7 @@ export async function getStagedEligibleMovies(): Promise<any[]> {
           { popularity: "desc" },
           { voteAverage: "desc" },
         ],
+        take: boundedTake,
         select: {
           id: true,
           tmdbId: true,
@@ -179,6 +201,8 @@ export async function getStagedEligibleTvShows(): Promise<any[]> {
   }
 
   let shows: any[] = [];
+  const boundedTake = Math.min(Math.max(config.tvMaxIndexed * 3, 1000), 7500);
+
   try {
     if (db?.tvShow?.findMany) {
       shows = await db.tvShow.findMany({
@@ -189,6 +213,7 @@ export async function getStagedEligibleTvShows(): Promise<any[]> {
           { popularity: "desc" },
           { voteAverage: "desc" },
         ],
+        take: boundedTake,
         select: {
           id: true,
           tmdbId: true,

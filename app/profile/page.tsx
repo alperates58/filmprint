@@ -26,7 +26,7 @@ export default async function ProfilePage() {
     redirect("/auth?returnTo=/profile");
   }
 
-  const [data, counts] = await Promise.all([
+  const [data, counts, tasteProfileRecord] = await Promise.all([
     getOrCalculateUserProfile(currentUser.id),
     Promise.all([
       db.movieInteraction.count({ where: { userId: currentUser.id, status: InteractionStatus.WATCHED } }),
@@ -35,10 +35,17 @@ export default async function ProfilePage() {
       db.recommendationFeedback.count({ where: { userId: currentUser.id, action: "WATCH_LATER" } }),
       db.userContentLibrary.count({ where: { userId: currentUser.id, mediaType: "FILM", isFavorite: true } }),
     ]),
+    db.userTasteProfile.findUnique({
+      where: { userId: currentUser.id },
+      select: { profileJson: true },
+    }),
   ]);
 
   const [watchedCount, notWatchedCount, unsureCount, watchLaterCount, favoriteCount] = counts;
   const progression = getProgressionForCount(data.current);
+
+  const profileJson = (tasteProfileRecord?.profileJson as Record<string, any>) || {};
+  const showEmail = profileJson.settings?.showEmail !== false;
 
   // Prepare Stat Grid items if profile is ready
   let statItems: ProfileStatItem[] = [];
@@ -199,7 +206,7 @@ export default async function ProfilePage() {
               userId={currentUser.id}
               userName={currentUser.name || "SineAI Kullanıcısı"}
               userAvatar={currentUser.image || undefined}
-              userEmail={currentUser.email || undefined}
+              userEmail={showEmail && currentUser.email ? currentUser.email : undefined}
               confidenceScore={data.profile.confidence}
               confidenceLabel={data.profile.confidenceLabel}
               sampleCount={data.profile.sample.ratedMovies}

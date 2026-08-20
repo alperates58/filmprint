@@ -858,6 +858,47 @@ export class TMDBClient {
   }
 
   /**
+   * Fetches a movie from local database, or pulls from TMDB and syncs to DB if missing.
+   */
+  public async getOrFetchMovie(tmdbId: number): Promise<CachedMovieData | null> {
+    const local = await db.movie.findUnique({ where: { tmdbId } });
+    if (local) {
+      const meta = (local.metadata as Record<string, any>) || {};
+      return {
+        id: local.id,
+        tmdbId: local.tmdbId,
+        title: local.title,
+        originalTitle: local.originalTitle,
+        posterPath: local.posterPath,
+        backdropPath: local.backdropPath,
+        releaseYear: local.releaseYear,
+        popularity: local.popularity,
+        voteAverage: local.voteAverage,
+        overview: (meta.overview as string) || "",
+        genres: (meta.genres as string[]) || [],
+        runtime: (meta.runtime as number | null) || null,
+      };
+    }
+
+    const apiKey = await this.resolveApiKey();
+    if (!apiKey) return null;
+
+    try {
+      const response = await fetch(
+        `${TMDB_API_BASE}/movie/${tmdbId}?api_key=${apiKey}&language=tr-TR`,
+        { next: { revalidate: 86400 } }
+      );
+      if (!response.ok) return null;
+      const raw = (await response.json()) as TMDBMovie;
+      const localized = await this.localizeMovieIfNeeded(raw, apiKey);
+      return await this.syncMovieToDatabase(localized.movie, localized);
+    } catch (e) {
+      console.error("[TMDB Client] Error in getOrFetchMovie:", e);
+      return null;
+    }
+  }
+
+  /**
    * Discovers movies using TMDB discover endpoint with custom filter criteria.
    */
   public async discoverMovies(params: Record<string, string | number>): Promise<TMDBMovie[]> {

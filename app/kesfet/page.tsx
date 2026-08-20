@@ -4,8 +4,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { Header } from "@/components/ui/Header";
 import { BottomNav } from "@/components/ui/BottomNav";
 import { Footer } from "@/components/ui/Footer";
+import { MovieDetailsModal } from "@/components/movie/MovieDetailsModal";
+import { TvDetailsModal } from "@/components/tv/TvDetailsModal";
 import { EnrichedAiMovieItem, AiRecommendationResponse } from "@/lib/ai/types";
-import Link from "next/link";
 
 const MOOD_CHIPS = [
   { id: "mind_bending", label: "Zeka & Gizem", emoji: "🧠", query: "Beyin yakan, ters köşe ve gerçekliği sorgulatan gizemli filmler" },
@@ -38,6 +39,17 @@ export default function AiDiscoveryPage() {
   const [isListening, setIsListening] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<"relevance" | "rating" | "year">("relevance");
+
+  // Rich interaction modals
+  const [selectedMovieModal, setSelectedMovieModal] = useState<{
+    id: string;
+    initialData?: any;
+  } | null>(null);
+
+  const [selectedTvModal, setSelectedTvModal] = useState<{
+    id: string;
+    initialData?: any;
+  } | null>(null);
 
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -138,13 +150,62 @@ export default function AiDiscoveryPage() {
     handleSearch(random);
   };
 
-  const handleSaveToWatchlist = (id: number) => {
+  const handleSaveToWatchlist = async (movie: EnrichedAiMovieItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const isSaved = savedIds.has(movie.id);
+
     setSavedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(movie.id)) next.delete(movie.id);
+      else next.add(movie.id);
       return next;
     });
+
+    try {
+      await fetch("/api/library", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mediaType: movie.type === "tv" ? "TV" : "FILM",
+          contentId: String(movie.id),
+          action: isSaved ? "REMOVE" : "ADD_WATCHLIST",
+        }),
+      });
+    } catch (err) {
+      console.error("[Watchlist Toggle Error]:", err);
+    }
+  };
+
+  const handleOpenDetails = (movie: EnrichedAiMovieItem) => {
+    if (movie.type === "tv") {
+      setSelectedTvModal({
+        id: String(movie.id),
+        initialData: {
+          title: movie.title,
+          posterPath: movie.poster,
+          backdropPath: movie.backdrop,
+          firstAirDate: movie.release_date,
+          genres: movie.genres,
+          matchScore: movie.ai_relevance_score,
+          headline: movie.reason,
+          reasons: movie.ai_match_tags,
+        },
+      });
+    } else {
+      setSelectedMovieModal({
+        id: String(movie.id),
+        initialData: {
+          title: movie.title,
+          posterPath: movie.poster,
+          backdropPath: movie.backdrop,
+          releaseYear: movie.release_year,
+          genres: movie.genres,
+          matchScore: movie.ai_relevance_score,
+          headline: movie.reason,
+          reasons: movie.ai_match_tags,
+        },
+      });
+    }
   };
 
   // Extract YouTube ID for embed
@@ -331,12 +392,12 @@ export default function AiDiscoveryPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                 {sortedResults.map((movie: EnrichedAiMovieItem) => {
                   const isSaved = savedIds.has(movie.id);
-                  const detailHref = movie.type === "tv" ? `/tv/show/${movie.id}` : `/movie/${movie.id}`;
 
                   return (
                     <div
                       key={`${movie.type}_${movie.id}`}
-                      className="group bg-zinc-900/80 border border-zinc-800 hover:border-purple-500/50 rounded-2xl overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl hover:shadow-purple-950/30 hover:-translate-y-1"
+                      onClick={() => handleOpenDetails(movie)}
+                      className="group cursor-pointer bg-zinc-900/80 border border-zinc-800 hover:border-purple-500/50 rounded-2xl overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl hover:shadow-purple-950/30 hover:-translate-y-1"
                     >
                       {/* Poster & Badges Container */}
                       <div className="relative aspect-[2/3] w-full bg-zinc-950 overflow-hidden">
@@ -394,11 +455,9 @@ export default function AiDiscoveryPage() {
                       <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                         <div className="space-y-1.5">
                           <div className="flex items-start justify-between gap-2">
-                            <Link href={detailHref} className="hover:text-purple-400 transition-colors">
-                              <h4 className="text-sm font-bold text-white line-clamp-1">
-                                {movie.title}
-                              </h4>
-                            </Link>
+                            <h4 className="text-sm font-bold text-white group-hover:text-purple-400 transition-colors line-clamp-1">
+                              {movie.title}
+                            </h4>
                             <div className="flex items-center gap-1 text-amber-400 text-xs font-bold flex-shrink-0">
                               <span>★</span>
                               <span>{movie.vote_average ? movie.vote_average.toFixed(1) : "—"}</span>
@@ -421,23 +480,32 @@ export default function AiDiscoveryPage() {
                         <div className="flex items-center gap-2 pt-1 border-t border-zinc-800/80">
                           {movie.trailer_url ? (
                             <button
-                              onClick={() => setActiveTrailer({ title: movie.title, url: movie.trailer_url! })}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveTrailer({ title: movie.title, url: movie.trailer_url! });
+                              }}
                               className="flex-1 py-1.5 px-2.5 rounded-lg bg-zinc-800 hover:bg-purple-600 text-zinc-200 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
                             >
                               <span>▶</span>
                               <span>Fragman</span>
                             </button>
                           ) : (
-                            <Link
-                              href={detailHref}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenDetails(movie);
+                              }}
                               className="flex-1 py-1.5 px-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-colors text-center"
                             >
-                              Detay
-                            </Link>
+                              Detay & Değerlendir
+                            </button>
                           )}
 
                           <button
-                            onClick={() => handleSaveToWatchlist(movie.id)}
+                            type="button"
+                            onClick={(e) => handleSaveToWatchlist(movie, e)}
                             title={isSaved ? "Listeden Çıkar" : "İzleme Listeme Ekle"}
                             className={`p-1.5 rounded-lg border transition-colors ${
                               isSaved
@@ -459,6 +527,24 @@ export default function AiDiscoveryPage() {
           )}
         </div>
       </main>
+
+      {/* Movie Details Modal (with Watched, Love, Like, Dislike, Watchlist) */}
+      {selectedMovieModal && (
+        <MovieDetailsModal
+          movieId={selectedMovieModal.id}
+          initialData={selectedMovieModal.initialData}
+          onClose={() => setSelectedMovieModal(null)}
+        />
+      )}
+
+      {/* TV Details Modal */}
+      {selectedTvModal && (
+        <TvDetailsModal
+          tvShowId={selectedTvModal.id}
+          initialData={selectedTvModal.initialData}
+          onClose={() => setSelectedTvModal(null)}
+        />
+      )}
 
       {/* YouTube Trailer Modal */}
       {activeTrailer && (

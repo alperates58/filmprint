@@ -26,6 +26,13 @@ export async function GET(
       },
     });
 
+    if (!movie && !isNaN(Number(movieId))) {
+      await tmdbClient.getOrFetchMovie(Number(movieId));
+      movie = await db.movie.findFirst({
+        where: { tmdbId: Number(movieId) },
+      });
+    }
+
     if (!movie) {
       return NextResponse.json({ error: "Film bulunamadı" }, { status: 404 });
     }

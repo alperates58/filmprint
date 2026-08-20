@@ -114,19 +114,6 @@ export function Footer() {
           </div>
         </div>
 
-        {/* TMDB Attribution Section */}
-        <div className="p-4 rounded-2xl bg-surface-2/60 border border-border/80 flex flex-col sm:flex-row items-center gap-4 mb-8">
-          <div className="flex items-center gap-2.5 shrink-0">
-            <span className="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-400 font-mono font-bold text-xs">
-              TMDB
-            </span>
-            <span className="text-xs font-semibold text-text-primary">Veri Kaynağı & Attribution</span>
-          </div>
-          <p className="text-[11px] text-text-muted leading-relaxed text-center sm:text-left">
-            Bu ürün film ve dizi verileri için TMDB API kullanmaktadır, ancak TMDB tarafından onaylanmamış veya sertifikalandırılmamıştır (This product uses the TMDB API but is not endorsed or certified by TMDB).
-          </p>
-        </div>
-
         {/* Bottom Bar */}
         <div className="pt-6 border-t border-border/60 flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-sans text-text-muted">
           <div>

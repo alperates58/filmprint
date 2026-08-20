@@ -1,5 +1,6 @@
 import { db } from "../db/client";
 import { calculateFilmDna } from "./calculator";
+import { FILM_DNA_ALGORITHM_VERSION } from "./constants";
 import type { FilmDnaResult, RawInteractionData } from "./types";
 import { getSystemSettings } from "../config/service";
 import { Prisma } from "@prisma/client";
@@ -88,6 +89,7 @@ export async function getOrCalculateUserProfile(userId: string): Promise<Profile
 
   const isFresh =
     existingProfile &&
+    existingProfile.version === FILM_DNA_ALGORITHM_VERSION &&
     existingProfile.sourceInteractionCount === totalInteractions &&
     existingProfile.profileJson &&
     (!latestInteractionDate || existingProfile.updatedAt >= latestInteractionDate);

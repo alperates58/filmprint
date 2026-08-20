@@ -1,6 +1,6 @@
 import { RatingStatus } from "@prisma/client";
 
-export const FILM_DNA_ALGORITHM_VERSION = 1;
+export const FILM_DNA_ALGORITHM_VERSION = 2;
 
 export const RATING_WEIGHTS: Record<RatingStatus, number> = {
   LOVE: 3.0,

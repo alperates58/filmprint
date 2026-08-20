@@ -168,14 +168,33 @@ export function ProfileHeroCard({
       )}
 
       {/* Editorial AI Narrative Synthesis */}
-      <div className="relative z-10 p-5 sm:p-6 rounded-2xl bg-surface-2/90 border border-border/70 shadow-sm space-y-2 font-sans">
-        <div className="flex items-center gap-2 text-accent text-xs font-bold uppercase tracking-wide">
-          <span>✨</span>
-          <span>Yapay Zekâ Zevk Özeti</span>
+      <div className="relative z-10 p-5 sm:p-7 rounded-2xl bg-surface-2/95 border border-border/80 shadow-md space-y-4 font-sans">
+        <div className="flex items-center justify-between border-b border-border/60 pb-3">
+          <div className="flex items-center gap-2 text-accent text-xs font-bold uppercase tracking-wider">
+            <span className="animate-pulse text-sm">✨</span>
+            <span>Yapay Zekâ Sinefil Analiz Raporu</span>
+          </div>
+          <span className="text-[10px] font-mono text-accent/90 font-bold px-2 py-0.5 rounded-md bg-accent-subtle border border-accent/30">
+            SİNEAI TASTE ENGINE V2
+          </span>
         </div>
-        <p className="text-sm sm:text-base text-text-primary leading-relaxed">
-          {summaryText.replace(/\*\*(.*?)\*\*/g, "$1")}
-        </p>
+
+        <div className="space-y-3.5">
+          {summaryText.split("\n\n").map((paragraph, pIdx) => (
+            <p key={pIdx} className="text-xs sm:text-sm text-text-primary/90 leading-relaxed font-sans">
+              {paragraph.split(/(\*\*.*?\*\*)/g).map((part, idx) => {
+                if (part.startsWith("**") && part.endsWith("**")) {
+                  return (
+                    <strong key={idx} className="text-accent font-semibold">
+                      {part.slice(2, -2)}
+                    </strong>
+                  );
+                }
+                return part;
+              })}
+            </p>
+          ))}
+        </div>
       </div>
 
       {/* CTA Button */}

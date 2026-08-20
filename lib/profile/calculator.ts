@@ -223,23 +223,18 @@ export function calculateFilmDna(interactions: RawInteractionData[]): FilmDnaRes
     traits.push("Film Tutkunu");
   }
 
-  // 7. Deterministic Natural Turkish Summary
-  const topGenreNames = genreList.slice(0, 2).map((g) => g.name);
-  let summaryText = "";
-
-  if (topGenreNames.length >= 2) {
-    summaryText = `İzleme seçimlerinde ağırlıklı olarak **${topGenreNames[0]}** ve **${topGenreNames[1]}** türlerine yüksek ilgi gösteriyorsun.`;
-  } else if (topGenreNames.length === 1) {
-    summaryText = `İzleme seçimlerinde belirgin şekilde **${topGenreNames[0]}** türündeki yapımlara yüksek ilgi gösteriyorsun.`;
-  } else {
-    summaryText = "İzleme seçimlerinde dengeli bir film zevki sergiliyorsun.";
-  }
-
-  if (topEra && topEra.ratedCount > 0) {
-    summaryText += ` **${topEra.label}** yapımlarına belirgin bir eğilimin var`;
-  }
-
-  summaryText += ` ve genel olarak **${popularity.label}** filmlerle güçlü bir bağ kuruyorsun.`;
+  // 7. Rich, Multi-Dimensional AI Cinephile Narrative Summary
+  const summaryText = generateRichFilmDnaSummary({
+    genreList,
+    topEra,
+    popularity,
+    familiarity,
+    traits,
+    sample: {
+      totalInteractions,
+      ratedMovies: ratedMoviesCount,
+    },
+  });
 
   return {
     version: FILM_DNA_ALGORITHM_VERSION,
@@ -260,4 +255,86 @@ export function calculateFilmDna(interactions: RawInteractionData[]): FilmDnaRes
     familiarity,
     traits,
   };
+}
+
+/**
+ * Generates an articulate, deeply insightful, multi-paragraph AI Cinephile Narrative.
+ */
+export function generateRichFilmDnaSummary(params: {
+  genreList: GenrePreference[];
+  topEra?: EraPreference;
+  popularity: PopularityOrientation;
+  familiarity: FamiliarityPreference;
+  traits: string[];
+  sample: { ratedMovies: number; totalInteractions: number };
+}): string {
+  const { genreList, topEra, popularity, familiarity, sample } = params;
+  const top1Genre = genreList[0]?.name;
+  const top2Genre = genreList[1]?.name;
+
+  const paragraphs: string[] = [];
+
+  // Paragraph 1: Core Persona & Narrative Philosophy
+  let p1 = "";
+  if (top1Genre === "Dram" && (top2Genre === "Gerilim" || top2Genre === "Suç")) {
+    p1 = `Senin için sinema; olayların yüzeysel aktığı bir eğlence aracı olmaktan ziyade **insan psikolojisinin karmaşık labirentlerine inen, ahlaki ikilemleri ve karakterlerin baskı altındaki çözülüşlerini** cesurca irdeleyen derin bir keşif alanı. Klişe dramatik formüller yerine yüksek atmosferik tansiyona, çok katmanlı karakter arklarına ve adım adım tırmanan psikolojik gerilime özel bir zaafın var.`;
+  } else if (top1Genre === "Dram") {
+    p1 = `İzleme seçimlerinde **karakter odaklı derin anlatıları, varoluşsal çatışmaları ve duygusal dürüstlüğü** merkeze alan rafine bir sinefil perspektifine sahipsin. Basit şablonlar yerine insan ilişkilerinin kırılganlığını ve hayatın gri alanlarını samimiyetle yansıtan prestij yapımlar senin sinema doyumunun temelini oluşturuyor.`;
+  } else if (top1Genre === "Gerilim" || top1Genre === "Gizem") {
+    p1 = `Zihnini sürekli tetikte tutan, **seyircisini pasif bırakmayan ve akıl oyunlarıyla örülü tekinsiz atmosferlere** sahip yapımlara güçlü bir bağlılığın var. Öngörülebilir kurgulardan uzak duruyor; çözülmesi zor düğümleri, ritmi ustalıkla tırmandıran gizem katmanlarını ve zekice tasarlanmış ters köşeleri ödüllendiriyorsun.`;
+  } else if (top1Genre === "Bilim Kurgu" || top1Genre === "Bilim-Kurgu") {
+    p1 = `Felsefi derinliği olan, **insanlığın geleceğini ve bilinmeyenin sınırlarını sorgulayan kavramsal yapımlara** derin bir tutkun var. Görsel ihtişamı salt gösteriş için değil; düşünsel bir vizyonu ve zengin bir evren inşasını desteklemek için kullanan zeki bilim kurgu anlatıları senin sinema dünyanda başköşede yer alıyor.`;
+  } else if (top1Genre === "Suç") {
+    p1 = `Yeraltı dünyasının karanlık dinamiklerini, **adalet ile ahlak arasındaki çatışmaları ve neo-noir atmosferi** ham bir gerçekçilikle ele alan yapımlarla güçlü bir bağ kuruyorsun. Gri karakterlerin ve stilize suç anlatılarının sunduğu sinematik ağırlık senin için vazgeçilmez.`;
+  } else if (top1Genre === "Aksiyon" || top1Genre === "Macera") {
+    p1 = `Kamera kullanımından kurgu ritmine kadar **yüksek temposunu ve sinematik enerjisini kaybetmeyen dinamik yolculukları** seviyorsun. Görsel vizyonu geniş, dünya tasarımı tutarlı ve hikayesini fiziksel bir devinimle anlatan yapımlarda en yüksek izleme doyumuna ulaşıyorsun.`;
+  } else if (top1Genre === "Komedi") {
+    p1 = `Zeki diyalog ritmine dayanan, **durum mizahını insani inceliklerle harmanlayan ve samimi karakter kimyası sunan** hikayelere yöneliyorsun. Yapmacıklıktan uzak, hayatın ironilerini nüanslarla yakalayan anlatılar senin için özel bir yere sahip.`;
+  } else if (top1Genre === "Korku") {
+    p1 = `Ucuz şok efektleri (jump-scare) yerine; **tekinsiz atmosferi, psikolojik klostrofobisi ve insan doğasının karanlık yanlarını** estetik bir dille işleyen cüretkar korku ve gerilim sinemasına derin bir saygın var.`;
+  } else {
+    p1 = `İzleme geçmişin; tür sınırlarına hapsolmayan, **anlatım kalitesini ve yönetmen vizyonunu önceleyen dengeli ve olgun bir sinefil profili** çiziyor. Farklı sinematik dilleri deneyimlemekten çekinmeyen çok yönlü bir zevk skalasına sahipsin.`;
+  }
+  paragraphs.push(p1);
+
+  // Paragraph 2: Era, Aesthetic Texture & Narrative Synergy
+  let p2 = "";
+  if (topEra && topEra.ratedCount > 0) {
+    if (topEra.key === "1990s") {
+      p2 = `Estetik açıdan özellikle **1990'lar Kült Dönemi** sinemasıyla sarsılmaz bir rezonansın bulunuyor. 90'ların analog film dokusu, bağımsız yönetmenlerin cüretkar çıkışları, dijital efektlerin henüz boğmadığı organik sinematografi ve dokulu neo-noir atmosferi zevkinde derin bir iz bırakmış.`;
+    } else if (topEra.key === "1970s" || topEra.key === "Before 1970") {
+      p2 = `Sinema algında **Klasik Dönem ve 70'ler Yeni Hollywood ekolünün** ham gerçekçiliği, tavizsiz yönetmen imzaları ve zamansız sinematografi kuralları belirleyici bir standart oluşturuyor.`;
+    } else if (topEra.key === "1980s") {
+      p2 = `**1980'ler Sinemasının** stilize renk paletleri, ikonik synth müzikleri ve döneme özgü kült anlatı dili zevkinde belirgin bir nostaljik ağırlık oluşturuyor.`;
+    } else if (topEra.key === "2000s") {
+      p2 = `Milenyum döneminin getirdiği **katmanlı kurgu yapıları, zihin büken senaryolar ve çağdaş yönetmen sinemasının olgunluk dönemi eserleri** izleme hafızanda merkezi bir konuma sahip.`;
+    } else {
+      p2 = `**Modern ve Çağdaş Sinemanın** güncel ritmine, yenilikçi görsel tekniklerine ve günümüz dünyasının sosyolojik dinamiklerini tartışan taze anlatım biçimlerine yüksek uyum gösteriyorsun.`;
+    }
+
+    if (top2Genre && top1Genre) {
+      p2 += ` **${top1Genre}** türünün getirdiği duygusal ve tematik ağırlık ile **${top2Genre}** türünün yarattığı sürükleyici dinamizm, izleme kararlarındaki ana çekim merkezini oluşturuyor.`;
+    }
+  }
+  if (p2) paragraphs.push(p2);
+
+  // Paragraph 3: Curation Behavior & Exploration Philosophy
+  let p3 = "";
+  if (popularity.orientation === "niche" || familiarity.label === "discovery_heavy") {
+    p3 = `Popüler gişe formüllerinin ve hazır tüketim şablonlarının kolaycılığına kapılmak yerine; **yönetmen vizyonunu tavizsiz yansıtan, festival ve bağımsız kulvardaki özgün yapımları keşfetmekten keyif alan seçici bir damak zevkine** sahipsin. Radara girmemiş gizli cevherleri bulmak senin için sinemanın en heyecan verici parçası.`;
+  } else if (popularity.orientation === "mainstream") {
+    p3 = `Kültürel bir fenomen haline gelmiş, **yüksek prodüksiyon kalitesine, güçlü oyuncu kadrolarına ve evrensel anlatı gücüne sahip prestijli başyapıtları** takdir eden bir gözün var. Kitleleri peşinden sürükleyen ikonik eserlerdeki sinematik ustalığı seviyorsun.`;
+  } else {
+    p3 = `Geniş kitlelerin hayran kaldığı kült başyapıtlar ile bağımsız sinemanın az bilinen özgün denemeleri arasında **sağlıklı ve önyargısız bir denge** kurmuş durumdasın. Bir eseri popülaritesine göre değil, sunduğu sinematik değer ve özgünlük üzerinden değerlendiriyorsun.`;
+  }
+  paragraphs.push(p3);
+
+  // Paragraph 4: AI Recommendation Compass & Final Synthesis
+  const countStr = sample.ratedMovies >= 50
+    ? `${sample.ratedMovies}'i aşkın değerlendirilmiş filmle kristalleşen bu DNA doğrultusunda; `
+    : "";
+  const p4 = `${countStr}SineAI motorumuz senin için; **tahmin edilebilir şablonlardan kaçınan, karakter derinliğini olay örgüsünün önüne koyan, atmosferiyle içine çeken ve bittikten sonra da zihninde yankılanmaya devam edecek** güçlü yapımları önceliklendirecektir.`;
+  paragraphs.push(p4);
+
+  return paragraphs.join("\n\n");
 }

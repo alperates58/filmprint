@@ -571,6 +571,10 @@ const FALLBACK_MOVIES: TMDBMovie[] = [
  * Server-side TMDB Client
  * Resolves API key dynamically from encrypted Admin DB IntegrationSecret or environment.
  */
+// Module-scope in-memory cursor for TMDB discovery page rotation (1..10).
+// Resetting to 0 upon server restart is intentional, stateless, and acceptable.
+let movieSeedPageCursor = 0;
+
 export class TMDBClient {
   private async resolveApiKey(): Promise<string> {
     try {
@@ -948,9 +952,8 @@ export class TMDBClient {
 
     if (apiKey) {
       try {
-        const existingCount = await db.movie.count();
-        // Dynamic page rotation: cycles across pages 1..10 to constantly bring varied quality titles
-        const basePage = ((Math.floor(existingCount / 20)) % 10) + 1;
+        // Dynamic page rotation: in-memory cursor cycles across pages 1..10 to constantly bring varied quality titles without full-table COUNT(*)
+        const basePage = (movieSeedPageCursor++ % 10) + 1;
         const nextPage = (basePage % 10) + 1;
 
         const [popA, popB, topA, topB, drama, crime, scifi, action, thriller, comedy, animation] =

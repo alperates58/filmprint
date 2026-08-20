@@ -531,12 +531,14 @@ export async function executeCatalogIngestionBatch(
     const openUntil = circuitBreaker.getOpenUntilDate();
     const consecutiveFailures = circuitBreaker.getConsecutiveFailures();
 
-    // Check if initial target reached -> transition to MAINTENANCE
-    const currentCount = mediaType === "FILM" ? await db.movie.count() : await db.tvShow.count();
+    // Check if initial target reached -> transition to MAINTENANCE (only queried during INITIAL_FILL)
     let nextMode = state.mode;
-    if (state.mode === "INITIAL_FILL" && currentCount >= state.initialTarget) {
-      nextMode = "MAINTENANCE";
-      console.info(`[CatalogIngestion] ${mediaType} reached initial target (${currentCount}/${state.initialTarget}). Transitioning to MAINTENANCE mode.`);
+    if (state.mode === "INITIAL_FILL") {
+      const currentCount = mediaType === "FILM" ? await db.movie.count() : await db.tvShow.count();
+      if (currentCount >= state.initialTarget) {
+        nextMode = "MAINTENANCE";
+        console.info(`[CatalogIngestion] ${mediaType} reached initial target (${currentCount}/${state.initialTarget}). Transitioning to MAINTENANCE mode.`);
+      }
     }
 
     await db.catalogIngestionState.update({

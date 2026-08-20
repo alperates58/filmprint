@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-filmprint}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-filmprint}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-filmprint}:${POSTGRES_PASSWORD:-filmprint_secure_password}@postgres:5432/${POSTGRES_DB:-filmprint}?schema=public
       TMDB_API_KEY: ${TMDB_API_KEY:-}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
@@ -39,7 +39,7 @@ services:
       dockerfile: Dockerfile
     entrypoint: ["node", "dist/catalog-worker.js"]
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-filmprint}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-filmprint}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-filmprint}:${POSTGRES_PASSWORD:-filmprint_secure_password}@postgres:5432/${POSTGRES_DB:-filmprint}?schema=public
       TMDB_API_KEY: ${TMDB_API_KEY:-}
       MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY:-}
       NODE_ENV: production
@@ -50,11 +50,10 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: filmprint-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-filmprint}
       POSTGRES_USER: ${POSTGRES_USER:-filmprint}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-filmprint_secure_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

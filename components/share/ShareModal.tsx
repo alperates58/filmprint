@@ -123,41 +123,41 @@ export function ShareModal({ isOpen, onClose, data }: ShareModalProps) {
         </div>
 
         {/* Format Selector Tabs */}
-        <div className="flex items-center justify-center gap-2 p-1.5 rounded-2xl bg-surface-2 border border-border">
+        <div className="flex items-center justify-center gap-1.5 p-1 rounded-2xl bg-surface-2 border border-border">
           <button
             onClick={() => setMode("STORY")}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer ${
               mode === "STORY"
                 ? "bg-accent text-white shadow-md"
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
             <span>📱</span>
-            <span>Instagram Story (9:16)</span>
+            <span><span className="hidden sm:inline">Instagram </span>Story (9:16)</span>
           </button>
 
           <button
             onClick={() => setMode("POST")}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer ${
               mode === "POST"
                 ? "bg-accent text-white shadow-md"
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
             <span>🖼️</span>
-            <span>Kare Post (1:1)</span>
+            <span><span className="hidden sm:inline">Kare </span>Post (1:1)</span>
           </button>
 
           <button
             onClick={() => setMode("PASSPORT")}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer ${
               mode === "PASSPORT"
                 ? "bg-accent text-white shadow-md"
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
             <span>🪪</span>
-            <span>Sinefil Pasaportu</span>
+            <span><span className="hidden sm:inline">Sinefil </span>Pasaport</span>
           </button>
         </div>
 

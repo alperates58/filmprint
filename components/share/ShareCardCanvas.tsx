@@ -71,7 +71,7 @@ export function ShareCardCanvas({
     <canvas
       ref={canvasRef}
       className={`w-full h-auto rounded-2xl shadow-2xl ${className}`}
-      style={{ maxHeight: mode === "STORY" ? "65vh" : "50vh", objectFit: "contain" }}
+      style={{ maxHeight: mode === "STORY" ? "45vh" : "38vh", objectFit: "contain" }}
     />
   );
 }

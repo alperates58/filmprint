@@ -76,86 +76,86 @@ export function ProfileHeroCard({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-surface-1 via-surface-1 to-surface-2 border border-border/80 p-6 sm:p-8 md:p-10 shadow-xl space-y-6 md:space-y-8 group">
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-surface-1 via-surface-1 to-surface-2 border border-border/80 p-4 sm:p-7 md:p-10 shadow-xl space-y-6 md:space-y-8 group">
       {/* Cinematic Ambient Glow Overlay */}
       <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-accent/10 blur-3xl pointer-events-none group-hover:bg-accent/15 transition-all duration-700" />
       <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
 
       {/* Top Bar: Identity & Badges */}
-      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/60 pb-6">
-        <div className="flex items-center gap-4">
+      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 border-b border-border/60 pb-6">
+        <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
           {/* Avatar with Prestige Frame */}
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             {userAvatar ? (
               <img
                 src={userAvatar}
                 alt={userName || "Kullanıcı"}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-border shadow-md"
+                className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-border shadow-md"
               />
             ) : (
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-accent-subtle to-surface-2 border-2 border-accent/30 flex items-center justify-center text-accent font-bold text-2xl sm:text-3xl shadow-inner">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-accent-subtle to-surface-2 border-2 border-accent/30 flex items-center justify-center text-accent font-bold text-xl sm:text-3xl shadow-inner">
                 {userName ? userName.charAt(0).toUpperCase() : isFilm ? "🎬" : "📺"}
               </div>
             )}
             {rankBadgeIcon && (
-              <div className="absolute -bottom-2 -right-2 w-7 h-7 rounded-xl bg-surface-1 border border-border shadow-sm flex items-center justify-center text-sm select-none">
+              <div className="absolute -bottom-1.5 -right-1.5 sm:-bottom-2 sm:-right-2 w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-surface-1 border border-border shadow-sm flex items-center justify-center text-xs sm:text-sm select-none">
                 {rankBadgeIcon}
               </div>
             )}
           </div>
 
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-subtle border border-accent/30 text-accent text-[11px] font-sans font-bold tracking-wide uppercase">
+          <div className="space-y-1 min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-subtle border border-accent/30 text-accent text-[10px] sm:text-[11px] font-sans font-bold tracking-wide uppercase">
                 <span>{isFilm ? "🧬 SİNEMA DNA KİMLİĞİ" : "📺 DİZİ DNA KİMLİĞİ"}</span>
               </span>
               {maturityLabel && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-surface-2 border border-border text-text-secondary text-[11px] font-sans font-medium">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-surface-2 border border-border text-text-secondary text-[10px] sm:text-[11px] font-sans font-medium">
                   {maturityLabel}
                 </span>
               )}
               {rankLabel && (
-                <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-sans font-bold">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] sm:text-[11px] font-sans font-bold">
                   <span>🏆</span>
                   <span>{rankLabel}</span>
                 </span>
               )}
             </div>
 
-            <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-text-primary">
+            <h1 className="font-display text-xl sm:text-3xl md:text-4xl font-bold tracking-tight text-text-primary truncate">
               {userName || "SineAI Kullanıcısı"}
             </h1>
 
             {userEmail && (
-              <p className="text-xs text-text-secondary font-sans tracking-tight">{userEmail}</p>
+              <p className="text-xs text-text-secondary font-sans tracking-tight truncate">{userEmail}</p>
             )}
           </div>
         </div>
 
         {/* Confidence & Sample Badges + Account Actions */}
-        <div className="flex flex-wrap items-center gap-3 self-start md:self-auto font-sans">
-          <div className="px-4 py-3 rounded-2xl bg-surface-2/80 backdrop-blur-md border border-border flex items-center gap-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 self-start md:self-auto font-sans w-full md:w-auto justify-between md:justify-end">
+          <div className="px-3.5 py-2.5 rounded-2xl bg-surface-2/80 backdrop-blur-md border border-border flex items-center gap-2.5 shadow-sm">
             <div className="relative flex items-center justify-center">
-              <div className="w-3 h-3 rounded-full bg-emerald-400 animate-ping absolute" />
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 relative" />
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping absolute" />
+              <div className="w-2 h-2 rounded-full bg-emerald-400 relative" />
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-text-muted tracking-wider">
+              <p className="text-[9px] sm:text-[10px] uppercase font-bold text-text-muted tracking-wider">
                 PROFİL GÜVENİ
               </p>
-              <p className="text-sm font-bold text-text-primary">
+              <p className="text-xs sm:text-sm font-bold text-text-primary">
                 %{confidencePercent}{" "}
-                <span className="text-[11px] text-text-muted font-normal">
+                <span className="text-[10px] sm:text-[11px] text-text-muted font-normal">
                   ({sampleCount} {isFilm ? "Film" : "Dizi"})
                 </span>
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => setIsShareModalOpen(true)}
-              className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-violet-500/25 active:scale-95 cursor-pointer"
+              className="flex-1 sm:flex-none px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md shadow-violet-500/25 active:scale-95 cursor-pointer min-h-[40px]"
               title="Sinematik DNA Kartını Paylaş"
             >
               <span className="animate-pulse">✨</span>
@@ -164,7 +164,7 @@ export function ProfileHeroCard({
 
             <Link
               href="/account"
-              className="px-3.5 py-2.5 rounded-2xl bg-surface-2 hover:bg-surface-3 border border-border text-text-primary text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+              className="px-3 py-2.5 rounded-2xl bg-surface-2 hover:bg-surface-3 border border-border text-text-primary text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95 min-h-[40px]"
               title="Hesap Ayarları"
             >
               <span>⚙️</span>
@@ -173,11 +173,11 @@ export function ProfileHeroCard({
 
             <a
               href="/api/auth/logout"
-              className="px-3.5 py-2.5 rounded-2xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+              className="px-3 py-2.5 rounded-2xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95 min-h-[40px]"
               title="Oturumu Kapat"
             >
               <span>🚪</span>
-              <span>Çıkış Yap</span>
+              <span>Çıkış</span>
             </a>
           </div>
         </div>

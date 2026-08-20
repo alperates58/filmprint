@@ -8,6 +8,11 @@ export function BottomNav() {
   const pathname = usePathname();
   const isTvMode = pathname.startsWith("/tv");
 
+  // Do not render BottomNav on public shared profile or immersive movie night pages
+  if (pathname.startsWith("/p/") || pathname.startsWith("/night/")) {
+    return null;
+  }
+
   // Determine active states
   const homeHref = isTvMode ? "/tv" : "/";
   const recsHref = isTvMode ? "/tv/recommendations" : "/recommendations";

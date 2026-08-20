@@ -133,6 +133,7 @@ model Movie {
 
   @@index([tmdbId])
   @@index([popularity])
+  @@index([voteAverage(sort: Desc), popularity(sort: Desc)])
 }
 
 model MovieInteraction {
@@ -321,6 +322,7 @@ model TvShow {
 
   @@index([tmdbId])
   @@index([popularity])
+  @@index([voteAverage(sort: Desc), popularity(sort: Desc)])
 }
 
 model TvInteraction {

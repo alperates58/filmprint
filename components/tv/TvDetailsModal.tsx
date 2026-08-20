@@ -2,11 +2,13 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
 import { RatingStatus } from "@prisma/client";
 import { ScoreBadge } from "@/components/ui/ScoreBadge";
 import { useScrollLock } from "@/lib/hooks/useScrollLock";
 import { useModalHistory } from "@/lib/hooks/useModalHistory";
+import { generateTvSlug } from "@/lib/growth/seo/slug";
 
 export interface FullTvDetails {
   id: string;
@@ -308,14 +310,27 @@ export function TvDetailsModal({
           <div className="w-12 h-1.5 rounded-full bg-white/25 hover:bg-white/40 transition-colors" />
         </div>
 
-        {/* Close Button Desktop & Mobile */}
-        <button
-          onClick={onClose}
-          aria-label="Kapat"
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 w-10 h-10 rounded-full bg-surface-1/90 hover:bg-surface-2 border border-border/80 flex items-center justify-center text-text-muted hover:text-text-primary text-sm transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-accent"
-        >
-          ✕
-        </button>
+        {/* Top Header Actions (TV Page Link & Close) */}
+        <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 flex items-center gap-2">
+          {(details?.tmdbId || (tvShowId && !isNaN(Number(tvShowId)))) && (
+            <Link
+              href={`/dizi/${generateTvSlug(displayName, details?.tmdbId || Number(tvShowId))}`}
+              className="px-3.5 py-2 rounded-full bg-surface-1/90 hover:bg-surface-2 border border-border/80 text-xs text-text-secondary hover:text-text-primary font-semibold flex items-center gap-1.5 shadow-md backdrop-blur-md transition-all active:scale-95"
+              title="Dizinin Özel Sayfasına Git"
+            >
+              <span>🔗 Dizi Sayfası</span>
+              <span className="text-[10px]">↗</span>
+            </Link>
+          )}
+
+          <button
+            onClick={onClose}
+            aria-label="Kapat"
+            className="w-10 h-10 rounded-full bg-surface-1/90 hover:bg-surface-2 border border-border/80 flex items-center justify-center text-text-muted hover:text-text-primary text-sm transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-accent"
+          >
+            ✕
+          </button>
+        </div>
 
         {/* Scrollable Content Container (Isolated single scroll element) */}
         <div
@@ -510,6 +525,19 @@ export function TvDetailsModal({
                 <span>{isFavorite ? "★" : "⭐"}</span>
                 <span>{isFavorite ? "★ Favorilerimde" : "Favorilere Ekle"}</span>
               </button>
+
+              {/* Dedicated Full Page Button */}
+              {(details?.tmdbId || (tvShowId && !isNaN(Number(tvShowId)))) && (
+                <Link
+                  href={`/dizi/${generateTvSlug(displayName, details?.tmdbId || Number(tvShowId))}`}
+                  className="min-h-[48px] px-4 py-2.5 rounded-xl border border-purple-500/30 hover:border-purple-500/60 bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 hover:text-white font-semibold flex items-center gap-2 active:scale-95 transition-all"
+                  title="Dizinin Özel Sayfasına Git"
+                >
+                  <span>📄</span>
+                  <span>Tüm Sayfayı Aç</span>
+                  <span className="text-[10px]">↗</span>
+                </Link>
+              )}
             </div>
 
             {/* Rating Flow Drawer */}

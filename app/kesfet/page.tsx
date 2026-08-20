@@ -7,6 +7,8 @@ import { Footer } from "@/components/ui/Footer";
 import { MovieDetailsModal } from "@/components/movie/MovieDetailsModal";
 import { TvDetailsModal } from "@/components/tv/TvDetailsModal";
 import { EnrichedAiMovieItem, AiRecommendationResponse } from "@/lib/ai/types";
+import { generateMovieSlug, generateTvSlug } from "@/lib/growth/seo/slug";
+import Link from "next/link";
 
 const MOOD_CHIPS = [
   { id: "mind_bending", label: "Zeka & Gizem", emoji: "🧠", query: "Beyin yakan, ters köşe ve gerçekliği sorgulatan gizemli filmler" },
@@ -477,37 +479,53 @@ export default function AiDiscoveryPage() {
                         </div>
 
                         {/* Card Actions */}
-                        <div className="flex items-center gap-2 pt-1 border-t border-zinc-800/80">
-                          {movie.trailer_url ? (
+                        <div className="flex items-center gap-1.5 pt-1 border-t border-zinc-800/80">
+                          {movie.trailer_url && (
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setActiveTrailer({ title: movie.title, url: movie.trailer_url! });
                               }}
-                              className="flex-1 py-1.5 px-2.5 rounded-lg bg-zinc-800 hover:bg-purple-600 text-zinc-200 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                              className="py-1.5 px-2.5 rounded-lg bg-zinc-800 hover:bg-purple-600 text-zinc-200 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-1 flex-shrink-0"
+                              title="Fragmanı Oynat"
                             >
                               <span>▶</span>
-                              <span>Fragman</span>
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenDetails(movie);
-                              }}
-                              className="flex-1 py-1.5 px-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-colors text-center"
-                            >
-                              Detay & Değerlendir
                             </button>
                           )}
 
                           <button
                             type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenDetails(movie);
+                            }}
+                            className="flex-1 py-1.5 px-2 rounded-lg bg-purple-950/60 hover:bg-purple-900/80 border border-purple-500/30 text-purple-200 hover:text-white text-xs font-medium transition-colors text-center flex items-center justify-center gap-1"
+                            title="Hızlı Değerlendir & Detaylar"
+                          >
+                            <span>⭐</span>
+                            <span>Değerlendir</span>
+                          </button>
+
+                          <Link
+                            href={
+                              movie.type === "tv"
+                                ? `/dizi/${generateTvSlug(movie.title, movie.id)}`
+                                : `/film/${generateMovieSlug(movie.title, movie.id)}`
+                            }
+                            onClick={(e) => e.stopPropagation()}
+                            className="py-1.5 px-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-1 flex-shrink-0"
+                            title="Filmin Özel Sayfasına Git"
+                          >
+                            <span>Sayfa</span>
+                            <span className="text-[10px]">↗</span>
+                          </Link>
+
+                          <button
+                            type="button"
                             onClick={(e) => handleSaveToWatchlist(movie, e)}
                             title={isSaved ? "Listeden Çıkar" : "İzleme Listeme Ekle"}
-                            className={`p-1.5 rounded-lg border transition-colors ${
+                            className={`p-1.5 rounded-lg border transition-colors flex-shrink-0 ${
                               isSaved
                                 ? "bg-purple-600 border-purple-500 text-white"
                                 : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500"

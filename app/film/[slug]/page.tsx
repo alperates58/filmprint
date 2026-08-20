@@ -25,9 +25,20 @@ async function getMovieForPublicPage(slug: string) {
   const tmdbId = parseSlugId(slug);
   if (!tmdbId) return null;
 
-  const movie = await db.movie.findUnique({
+  let movie = await db.movie.findUnique({
     where: { tmdbId },
   });
+
+  if (!movie) {
+    try {
+      const fetched = await tmdbClient.getOrFetchMovie(tmdbId);
+      if (fetched) {
+        movie = await db.movie.findUnique({ where: { tmdbId } });
+      }
+    } catch {
+      // Fallback
+    }
+  }
 
   if (!movie) return null;
 

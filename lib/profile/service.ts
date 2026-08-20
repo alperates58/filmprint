@@ -1,6 +1,7 @@
 import { db } from "../db/client";
 import { calculateFilmDna } from "./calculator";
 import { FILM_DNA_ALGORITHM_VERSION } from "./constants";
+import { generateBespokeAiNarrative } from "./ai-narrative-service";
 import type { FilmDnaResult, RawInteractionData } from "./types";
 import { getSystemSettings } from "../config/service";
 import { Prisma } from "@prisma/client";
@@ -107,6 +108,55 @@ export async function getOrCalculateUserProfile(userId: string): Promise<Profile
 
   // Calculate new Film DNA result
   const result = calculateFilmDna(formattedData);
+
+  // Extract loved, liked and disliked movies for bespoke LLM synthesis
+  const lovedMovies = formattedData
+    .filter((i) => i.status === "WATCHED" && i.rating === "LOVE")
+    .map((i) => ({
+      title: i.movie.title,
+      releaseYear: i.movie.releaseYear,
+      genres: i.movie.metadata.genres,
+    }));
+
+  const likedMovies = formattedData
+    .filter((i) => i.status === "WATCHED" && i.rating === "LIKE")
+    .map((i) => ({
+      title: i.movie.title,
+      releaseYear: i.movie.releaseYear,
+      genres: i.movie.metadata.genres,
+    }));
+
+  const dislikedMovies = formattedData
+    .filter((i) => i.status === "WATCHED" && i.rating === "DISLIKE")
+    .map((i) => ({
+      title: i.movie.title,
+      releaseYear: i.movie.releaseYear,
+      genres: i.movie.metadata.genres,
+    }));
+
+  // Generate bespoke AI Cinephile Narrative Report via DeepSeek / LLM
+  try {
+    const bespokeSummary = await generateBespokeAiNarrative({
+      lovedMovies,
+      likedMovies,
+      dislikedMovies,
+      genreList: result.genres,
+      topEra: result.eras[0],
+      popularity: result.popularity,
+      familiarity: result.familiarity,
+      traits: result.traits,
+      sample: {
+        ratedMovies: result.sample.ratedMovies,
+        totalInteractions,
+      },
+    });
+
+    if (bespokeSummary) {
+      result.summary = bespokeSummary;
+    }
+  } catch (err) {
+    console.warn("[ProfileService] LLM narrative generation fallback warning:", err);
+  }
 
   // Persist updated profile in PostgreSQL
   await db.userTasteProfile.upsert({

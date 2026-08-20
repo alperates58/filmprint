@@ -39,6 +39,32 @@ export function ProfileHeroCard({
   const isFilm = mediaType === "FILM";
   const confidencePercent = Math.round(confidenceScore * 100);
 
+  const [liveSummary, setLiveSummary] = React.useState(summaryText);
+  const [isRegenerating, setIsRegenerating] = React.useState(false);
+
+  React.useEffect(() => {
+    setLiveSummary(summaryText);
+  }, [summaryText]);
+
+  const handleRefreshAi = async () => {
+    if (isRegenerating) return;
+    setIsRegenerating(true);
+    try {
+      const endpoint = isFilm ? "/api/profile/refresh-ai" : "/api/profile/refresh-ai";
+      const res = await fetch(endpoint, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.profile?.summary) {
+          setLiveSummary(data.profile.summary);
+        }
+      }
+    } catch (e) {
+      console.error("[ProfileHeroCard] Failed to regenerate AI summary:", e);
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   return (
     <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-surface-1 via-surface-1 to-surface-2 border border-border/80 p-6 sm:p-8 md:p-10 shadow-xl space-y-6 md:space-y-8 group">
       {/* Cinematic Ambient Glow Overlay */}
@@ -169,18 +195,29 @@ export function ProfileHeroCard({
 
       {/* Editorial AI Narrative Synthesis */}
       <div className="relative z-10 p-5 sm:p-7 rounded-2xl bg-surface-2/95 border border-border/80 shadow-md space-y-4 font-sans">
-        <div className="flex items-center justify-between border-b border-border/60 pb-3">
+        <div className="flex items-center justify-between border-b border-border/60 pb-3 flex-wrap gap-2">
           <div className="flex items-center gap-2 text-accent text-xs font-bold uppercase tracking-wider">
             <span className="animate-pulse text-sm">✨</span>
             <span>Yapay Zekâ Sinefil Analiz Raporu</span>
           </div>
-          <span className="text-[10px] font-mono text-accent/90 font-bold px-2 py-0.5 rounded-md bg-accent-subtle border border-accent/30">
-            SİNEAI TASTE ENGINE V2
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefreshAi}
+              disabled={isRegenerating}
+              className="text-[11px] font-sans font-medium px-2.5 py-1 rounded-lg bg-surface-1 hover:bg-surface-3 border border-border text-text-secondary hover:text-text-primary transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+              title="Yapay zekâ analizini yeniden üret"
+            >
+              <span className={isRegenerating ? "animate-spin" : ""}>🔄</span>
+              <span>{isRegenerating ? "Analiz Ediliyor..." : "Yeniden Analiz Et"}</span>
+            </button>
+            <span className="hidden sm:inline-block text-[10px] font-mono text-accent/90 font-bold px-2 py-0.5 rounded-md bg-accent-subtle border border-accent/30">
+              SİNEAI LLM ENGINE
+            </span>
+          </div>
         </div>
 
         <div className="space-y-3.5">
-          {summaryText.split("\n\n").map((paragraph, pIdx) => (
+          {liveSummary.split("\n\n").map((paragraph, pIdx) => (
             <p key={pIdx} className="text-xs sm:text-sm text-text-primary/90 leading-relaxed font-sans">
               {paragraph.split(/(\*\*.*?\*\*)/g).map((part, idx) => {
                 if (part.startsWith("**") && part.endsWith("**")) {

@@ -291,6 +291,14 @@ export function Header({
               <span className="text-text-muted text-[10px] ml-0.5">▼</span>
             </button>
 
+            {/* Backdrop for open dropdown */}
+            {userDropdownOpen && (
+              <div
+                className="fixed inset-0 z-40 bg-black/20"
+                onClick={() => setUserDropdownOpen(false)}
+              />
+            )}
+
             {/* Dropdown Menu */}
             {userDropdownOpen && (
               <div

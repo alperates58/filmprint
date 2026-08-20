@@ -125,19 +125,29 @@ export default async function TvProfilePage() {
       />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-8 animate-fadeIn">
-        {/* Top Header Mode Switcher */}
-        <div className="flex items-center justify-between">
+        {/* Top Header Mode Switcher & Account Actions */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs font-sans font-bold tracking-wide">
             <span>📺 DİZİ DNA PROFİLİ</span>
           </div>
 
-          <Link
-            href="/profile"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-surface-2 border border-border hover:border-accent text-text-secondary hover:text-text-primary text-xs font-sans font-semibold transition-all min-h-[38px] shadow-sm"
-          >
-            <span>🎬</span>
-            <span>Film DNA&apos;ya Geç</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/profile"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-surface-2 border border-border hover:border-accent text-text-secondary hover:text-text-primary text-xs font-sans font-semibold transition-all min-h-[38px] shadow-sm"
+            >
+              <span>🎬</span>
+              <span>Film DNA&apos;ya Geç</span>
+            </Link>
+
+            <a
+              href="/api/auth/logout"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 text-rose-300 text-xs font-sans font-semibold transition-all min-h-[38px] shadow-sm"
+            >
+              <span>🚪</span>
+              <span>Çıkış Yap</span>
+            </a>
+          </div>
         </div>
 
         {isLowEvidence || !profile ? (

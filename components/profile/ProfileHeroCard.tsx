@@ -96,8 +96,8 @@ export function ProfileHeroCard({
           </div>
         </div>
 
-        {/* Confidence & Sample Badges */}
-        <div className="flex items-center gap-3 self-start md:self-auto font-sans">
+        {/* Confidence & Sample Badges + Account Actions */}
+        <div className="flex flex-wrap items-center gap-3 self-start md:self-auto font-sans">
           <div className="px-4 py-3 rounded-2xl bg-surface-2/80 backdrop-blur-md border border-border flex items-center gap-3 shadow-sm">
             <div className="relative flex items-center justify-center">
               <div className="w-3 h-3 rounded-full bg-emerald-400 animate-ping absolute" />
@@ -114,6 +114,26 @@ export function ProfileHeroCard({
                 </span>
               </p>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href="/account"
+              className="px-3.5 py-2.5 rounded-2xl bg-surface-2 hover:bg-surface-3 border border-border text-text-primary text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+              title="Hesap Ayarları"
+            >
+              <span>⚙️</span>
+              <span>Hesap</span>
+            </Link>
+
+            <a
+              href="/api/auth/logout"
+              className="px-3.5 py-2.5 rounded-2xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+              title="Oturumu Kapat"
+            >
+              <span>🚪</span>
+              <span>Çıkış Yap</span>
+            </a>
           </div>
         </div>
       </div>

@@ -5,6 +5,7 @@ import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { getAdminSession } from "@/lib/admin/auth";
 import { redirect } from "next/navigation";
 import { getAdminUserDetailData } from "@/lib/admin/data";
+import { AdminUserActions } from "@/components/admin/AdminUserActions";
 
 export const dynamic = "force-dynamic";
 
@@ -75,9 +76,21 @@ export default async function AdminUserDetailPage({
               </div>
             </div>
 
-            <div className="text-right font-sans text-xs text-text-muted space-y-1 self-stretch sm:self-auto flex sm:flex-col justify-between border-t sm:border-t-0 pt-3 sm:pt-0 border-border">
-              <div>Kayıt: <span className="text-text-primary font-medium font-mono">{new Date(user.createdAt).toLocaleDateString("tr-TR")}</span></div>
-              <div>Son Görülme: <span className="text-text-primary font-medium font-mono">{new Date(user.lastSeenAt).toLocaleString("tr-TR")}</span></div>
+            <div className="flex flex-col sm:items-end gap-3 self-stretch sm:self-auto border-t sm:border-t-0 pt-3 sm:pt-0 border-border">
+              <div className="text-right font-sans text-xs text-text-muted space-y-1">
+                <div>Kayıt: <span className="text-text-primary font-medium font-mono">{new Date(user.createdAt).toLocaleDateString("tr-TR")}</span></div>
+                <div>Son Görülme: <span className="text-text-primary font-medium font-mono">{new Date(user.lastSeenAt).toLocaleString("tr-TR")}</span></div>
+              </div>
+              <AdminUserActions
+                user={{
+                  id: user.id,
+                  name: user.name,
+                  email: user.email,
+                  accountType: user.accountType,
+                }}
+                variant="header"
+                redirectAfterDelete={true}
+              />
             </div>
           </div>
         </div>

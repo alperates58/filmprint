@@ -5,6 +5,7 @@ import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { getAdminSession } from "@/lib/admin/auth";
 import { redirect } from "next/navigation";
 import { getAdminUsersData } from "@/lib/admin/data";
+import { AdminUserActions } from "@/components/admin/AdminUserActions";
 
 export const dynamic = "force-dynamic";
 
@@ -174,12 +175,23 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                       </td>
 
                       <td className="py-3 px-4 text-right">
-                        <Link
-                          href={`/admin/users/${user.id}`}
-                          className="px-3 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-text-primary text-xs font-medium transition-colors border border-border inline-block"
-                        >
-                          Detay →
-                        </Link>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={`/admin/users/${user.id}`}
+                            className="px-2.5 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-text-primary text-xs font-medium transition-colors border border-border inline-block"
+                          >
+                            Detay →
+                          </Link>
+                          <AdminUserActions
+                            user={{
+                              id: user.id,
+                              name: user.name,
+                              email: user.email,
+                              accountType: user.accountType,
+                            }}
+                            variant="table"
+                          />
+                        </div>
                       </td>
                     </tr>
                   ))

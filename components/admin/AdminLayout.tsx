@@ -19,6 +19,7 @@ export function AdminLayout({ children, adminEmail }: AdminLayoutProps) {
       category: "OPERASYON",
       items: [
         { label: "Genel Bakış", href: "/admin", icon: "📊" },
+        { label: "İçerik Kataloğu", href: "/admin/media", icon: "🎬" },
         { label: "Kullanıcılar", href: "/admin/users", icon: "👥" },
       ],
     },
@@ -56,6 +57,7 @@ export function AdminLayout({ children, adminEmail }: AdminLayoutProps) {
 
   const getPageTitle = () => {
     if (pathname === "/admin") return "Genel Bakış";
+    if (pathname.startsWith("/admin/media")) return "Film & Dizi Katalog Yönetimi";
     if (pathname.startsWith("/admin/users")) return "Kullanıcı Yönetimi";
     if (pathname.startsWith("/admin/growth")) return "Growth & SEO Yönetim Merkezi";
     if (pathname.startsWith("/admin/catalog-ingestion")) return "Katalog İçe Aktarma Motoru";

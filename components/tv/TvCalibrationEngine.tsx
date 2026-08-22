@@ -9,37 +9,66 @@ import { TvCardSkeleton } from "@/components/tv/TvCardSkeleton";
 import { TvShowItem, TvInteractionStatusType, TvRatingStatusType } from "@/components/tv/types";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
 import { getTvProgressionForCount, RankDefinition } from "@/lib/progression/service";
+import { CANONICAL_TV_GENRES } from "@/lib/catalog/genres";
+import { ConfidenceLevelInfo } from "@/lib/calibration/confidence";
+import { CalibrationSearchResultItem } from "@/lib/calibration/search";
 
 interface TvCalibrationEngineProps {
   initialTvShows?: TvShowItem[];
-  initialAnsweredCount?: number;
+  initialTasteEvidenceCount?: number;
+  initialWatchedCount?: number;
+  initialEvaluationCount?: number;
+  initialConfidence?: ConfidenceLevelInfo;
+  initialCanGenerateDna?: boolean;
+  initialCompleted?: boolean;
+  minimumTarget?: number;
+  recommendedTarget?: number;
 }
 
 export function TvCalibrationEngine({
   initialTvShows = [],
-  initialAnsweredCount = 0,
+  initialTasteEvidenceCount = 0,
+  initialWatchedCount = 0,
+  initialEvaluationCount = 0,
+  initialConfidence,
+  initialCanGenerateDna = false,
+  initialCompleted = false,
+  minimumTarget = 5,
+  recommendedTarget = 10,
 }: TvCalibrationEngineProps) {
   const [queue, setQueue] = useState<TvShowItem[]>(initialTvShows);
-  const [answeredCount, setAnsweredCount] = useState<number>(initialAnsweredCount);
+  const [tasteEvidenceCount, setTasteEvidenceCount] = useState<number>(initialTasteEvidenceCount);
+  const [watchedCount, setWatchedCount] = useState<number>(initialWatchedCount);
+  const [evaluationCount, setEvaluationCount] = useState<number>(initialEvaluationCount);
+  const [confidence, setConfidence] = useState<ConfidenceLevelInfo | undefined>(initialConfidence);
+  const [canGenerateDna, setCanGenerateDna] = useState<boolean>(initialCanGenerateDna);
   const [showMilestoneScreen, setShowMilestoneScreen] = useState<boolean>(false);
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(initialAnsweredCount === 0);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(initialEvaluationCount === 0);
   const [userName, setUserName] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(initialTvShows.length === 0);
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Dynamic Rank Up & TV DNA Reanalysis State
+  // Calibration Modes: SMART, GENRE, SEARCH
+  const [activeMode, setActiveMode] = useState<"SMART" | "GENRE" | "SEARCH">("SMART");
+  const [selectedGenreIds, setSelectedGenreIds] = useState<number[]>([]);
+
+  // Search Mode State
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [searchResults, setSearchResults] = useState<CalibrationSearchResultItem[]>([]);
+  const [searchRatedMap, setSearchRatedMap] = useState<Record<string, { status: string; rating: string | null }>>({});
+
+  // Dynamic Rank Up State
   const [rankUpData, setRankUpData] = useState<{
     oldRank: RankDefinition;
     newRank: RankDefinition;
-    answeredCount: number;
+    watchedCount: number;
   } | null>(null);
   const [showRankUpModal, setShowRankUpModal] = useState<boolean>(false);
-  const [isRecalculatingDna, setIsRecalculatingDna] = useState<boolean>(false);
 
   const isFetchingRef = useRef<boolean>(false);
   const cardRef = useRef<HTMLDivElement>(null);
-  const milestoneTarget = 15;
 
   // Fetch authenticated user info
   useEffect(() => {
@@ -66,22 +95,39 @@ export function TvCalibrationEngine({
 
   // Fetch candidate queue from API (100% DB-first)
   const fetchQueue = useCallback(
-    async (limit: number = 5) => {
+    async (limit: number = 5, replace: boolean = false) => {
       if (isFetchingRef.current) return;
       isFetchingRef.current = true;
       setIsLoading(true);
 
       try {
-        const response = await fetch(`/api/tv/calibration?limit=${limit}`);
+        const params = new URLSearchParams({
+          limit: String(limit),
+          mode: activeMode,
+        });
+
+        if (activeMode === "GENRE" && selectedGenreIds.length > 0) {
+          params.set("genreIds", selectedGenreIds.join(","));
+        }
+
+        const response = await fetch(`/api/tv/calibration?${params.toString()}`);
         if (!response.ok) {
           throw new Error("Failed to load TV calibration queue");
         }
         const data = await response.json();
         const newShows: TvShowItem[] = data.tvShows || [];
 
-        setAnsweredCount(data.answeredCount ?? 0);
+        setTasteEvidenceCount(data.tasteEvidenceCount || 0);
+        setWatchedCount(data.watchedCount || 0);
+        setEvaluationCount(data.evaluationCount || 0);
+        if (data.confidence) setConfidence(data.confidence);
+        setCanGenerateDna(Boolean(data.canGenerateDna));
 
         setQueue((prev) => {
+          if (replace) {
+            preloadUpcomingImages(newShows);
+            return newShows;
+          }
           const existingIds = new Set(prev.map((s) => s.id));
           const filtered = newShows.filter((s) => !existingIds.has(s.id));
           const updated = [...prev, ...filtered];
@@ -98,86 +144,94 @@ export function TvCalibrationEngine({
         isFetchingRef.current = false;
       }
     },
-    [preloadUpcomingImages]
+    [activeMode, selectedGenreIds, preloadUpcomingImages]
   );
 
-  // Initial load if initialTvShows was empty
+  // Trigger search query
   useEffect(() => {
-    if (initialTvShows.length === 0) {
-      fetchQueue(5);
-    } else {
-      preloadUpcomingImages(initialTvShows);
+    if (activeMode !== "SEARCH") return;
+    const clean = searchQuery.trim();
+    if (!clean) {
+      setSearchResults([]);
+      return;
     }
-  }, [initialTvShows, fetchQueue, preloadUpcomingImages]);
 
-  // Submit interaction handler (Optimistic UI + Dynamic Rank Up)
-  const handleAnswer = async (
-    status: TvInteractionStatusType,
-    rating: TvRatingStatusType | null
-  ) => {
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/calibration/search?mediaType=TV&q=${encodeURIComponent(clean)}&limit=15`);
+        if (res.ok) {
+          const json = await res.json();
+          setSearchResults(json.results || []);
+        }
+      } catch (e) {
+        console.error("[TV Search Error]:", e);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, activeMode]);
+
+  // Handle Mode Change
+  const handleModeChange = (newMode: "SMART" | "GENRE" | "SEARCH") => {
+    setActiveMode(newMode);
+    if (newMode !== "SEARCH") {
+      fetchQueue(5, true);
+    }
+  };
+
+  // Toggle Genre in Genre Mode
+  const toggleGenre = (genreId: number) => {
+    setSelectedGenreIds((prev) => {
+      const next = prev.includes(genreId) ? prev.filter((id) => id !== genreId) : [...prev, genreId];
+      return next;
+    });
+  };
+
+  // Reload queue when selected genres change in GENRE mode
+  useEffect(() => {
+    if (activeMode === "GENRE") {
+      fetchQueue(5, true);
+    }
+  }, [selectedGenreIds, activeMode, fetchQueue]);
+
+  // Handle Main Card Action
+  const handleAction = async (status: TvInteractionStatusType, rating?: TvRatingStatusType | null) => {
     if (queue.length === 0 || isTransitioning) return;
 
-    if (showOnboarding) {
-      setShowOnboarding(false);
-    }
-
     const currentShow = queue[0];
-    const prevProgression = getTvProgressionForCount(answeredCount);
-    const newAnsweredCount = answeredCount + 1;
-    const nextProgression = getTvProgressionForCount(newAnsweredCount);
+    const prevWatchedCount = watchedCount;
 
-    // 1. Optimistic UI transition (150ms perceived latency)
+    // Optimistic UI updates
     setIsTransitioning(true);
-    setAnsweredCount(newAnsweredCount);
+    setQueue((prev) => prev.slice(1));
+    setEvaluationCount((prev) => prev + 1);
 
-    // Initial 15-shows milestone trigger
-    if (answeredCount < milestoneTarget && newAnsweredCount >= milestoneTarget) {
-      setShowMilestoneScreen(true);
-    }
+    if (status === "WATCHED") {
+      const nextWatched = watchedCount + 1;
+      const nextEvidence = tasteEvidenceCount + (rating ? 1 : 0);
+      setWatchedCount(nextWatched);
+      setTasteEvidenceCount(nextEvidence);
+      if (nextEvidence >= minimumTarget) setCanGenerateDna(true);
 
-    // Dynamic Rank-Up Milestone Check
-    if (prevProgression.currentRank.key !== nextProgression.currentRank.key) {
-      const milestoneStorageKey = `filmprint_milestone_TV_${nextProgression.currentRank.key}`;
-      const alreadySeen = typeof window !== "undefined" && localStorage.getItem(milestoneStorageKey);
-
-      if (!alreadySeen) {
-        try {
-          localStorage.setItem(milestoneStorageKey, "true");
-        } catch {}
-
-        setRankUpData({
-          oldRank: prevProgression.currentRank,
-          newRank: nextProgression.currentRank,
-          answeredCount: newAnsweredCount,
-        });
+      const oldRank = getTvProgressionForCount(prevWatchedCount).currentRank;
+      const newRank = getTvProgressionForCount(nextWatched).currentRank;
+      if (oldRank.key !== newRank.key && newRank.minimum > oldRank.minimum) {
+        setRankUpData({ oldRank, newRank, watchedCount: nextWatched });
         setShowRankUpModal(true);
-        setIsRecalculatingDna(true);
+      }
 
-        // Trigger background TV DNA recalculation
-        fetch("/api/tv/profile?forceRefresh=true")
-          .catch((e) => console.warn("[TV DNA Reanalysis Error]:", e))
-          .finally(() => setIsRecalculatingDna(false));
+      if (nextEvidence === recommendedTarget) {
+        setShowMilestoneScreen(true);
       }
     }
 
-    setTimeout(() => {
-      // 2. Advance queue
-      setQueue((prev) => {
-        const nextQueue = prev.slice(1);
-        preloadUpcomingImages(nextQueue);
+    if (queue.length <= 3) {
+      fetchQueue(5, false);
+    }
 
-        // Background refilling if queue drops below 3
-        if (nextQueue.length <= 3) {
-          fetchQueue(5);
-        }
-
-        return nextQueue;
-      });
-
-      setIsTransitioning(false);
-    }, 150);
-
-    // 3. Asynchronously persist interaction to server
     try {
       const res = await fetch("/api/tv/interactions", {
         method: "POST",
@@ -185,219 +239,382 @@ export function TvCalibrationEngine({
         body: JSON.stringify({
           tvShowId: currentShow.id,
           status,
+          rating: (status === "WATCHED" || status === "PARTIALLY_WATCHED") ? rating : null,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setTasteEvidenceCount(data.tasteEvidenceCount);
+        setWatchedCount(data.watchedCount);
+        setEvaluationCount(data.evaluationCount);
+        if (data.confidence) setConfidence(data.confidence);
+        setCanGenerateDna(Boolean(data.canGenerateDna));
+      }
+    } catch (err) {
+      console.error("[TvCalibrationEngine] Interaction save error:", err);
+    } finally {
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 150);
+    }
+  };
+
+  // Handle Search Result Rating Action
+  const handleSearchResultAction = async (
+    item: CalibrationSearchResultItem,
+    rating: "LOVE" | "LIKE" | "NEUTRAL" | "DISLIKE"
+  ) => {
+    setSearchRatedMap((prev) => ({
+      ...prev,
+      [item.id]: { status: "WATCHED", rating },
+    }));
+
+    const prevWatchedCount = watchedCount;
+    const nextWatched = watchedCount + 1;
+    const nextEvidence = tasteEvidenceCount + 1;
+    setWatchedCount(nextWatched);
+    setTasteEvidenceCount(nextEvidence);
+    setEvaluationCount((prev) => prev + 1);
+    if (nextEvidence >= minimumTarget) setCanGenerateDna(true);
+
+    const oldRank = getTvProgressionForCount(prevWatchedCount).currentRank;
+    const newRank = getTvProgressionForCount(nextWatched).currentRank;
+    if (oldRank.key !== newRank.key && newRank.minimum > oldRank.minimum) {
+      setRankUpData({ oldRank, newRank, watchedCount: nextWatched });
+      setShowRankUpModal(true);
+    }
+
+    try {
+      const res = await fetch("/api/tv/interactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tvShowId: item.id,
+          status: "WATCHED",
           rating,
         }),
       });
 
-      if (!res.ok) {
-        console.warn("[TvCalibrationEngine] Interaction save received non-200 status");
+      if (res.ok) {
+        const data = await res.json();
+        setTasteEvidenceCount(data.tasteEvidenceCount);
+        setWatchedCount(data.watchedCount);
+        if (data.confidence) setConfidence(data.confidence);
+        setCanGenerateDna(Boolean(data.canGenerateDna));
       }
-    } catch (err) {
-      console.error("[TvCalibrationEngine] Failed to save interaction:", err);
+    } catch (e) {
+      console.error("[TV Search Interaction Error]:", e);
     }
   };
 
-  const activeShow = queue[0];
+  const currentShow = queue[0];
+  const progressPercent = Math.min(100, Math.round((tasteEvidenceCount / recommendedTarget) * 100));
 
   return (
-    <div className="min-h-screen flex flex-col bg-background selection:bg-accent selection:text-white">
-      <Header
-        progressCount={answeredCount}
-        progressTarget={milestoneTarget}
-        userName={userName}
-      />
+    <div className="min-h-screen bg-surface-0 text-text-primary flex flex-col font-sans">
+      <Header />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 py-3 md:py-12 flex flex-col items-center justify-center space-y-4 md:space-y-8">
-        {/* Minimal First-Use Onboarding Hero Banner */}
-        {showOnboarding && !showMilestoneScreen && !showRankUpModal && (
-          <div className="w-full max-w-4xl mx-auto p-6 md:p-8 rounded-3xl bg-surface border border-accent/30 shadow-cinematic text-center space-y-4 animate-fadeIn relative overflow-hidden">
-            <div className="space-y-2">
-              <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold flex items-center justify-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-                İLK GİRİŞ ONAYI
-              </span>
-              <h1 className="font-display text-2xl md:text-4xl font-bold tracking-tight text-text-primary">
-                Dizi zevkini çözelim.
-              </h1>
-              <p className="text-text-secondary text-sm md:text-base max-w-xl mx-auto leading-relaxed">
-                Sana diziler göstereceğiz. İzlediklerini, kısmen izlediklerini ve ne düşündüğünü söyle. Dizi DNA&apos;n zamanla netleşsin.
-              </p>
+      <main className="flex-1 flex flex-col items-center justify-start px-4 sm:px-6 pt-6 pb-24 w-full max-w-4xl mx-auto">
+        {/* Progress & Confidence Header */}
+        <div className="w-full max-w-lg mb-6 space-y-3">
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <div className="flex items-center gap-1.5 text-text-secondary">
+              <span className="text-sm">{confidence?.badge || "🌱"}</span>
+              <span>Güven:</span>
+              <span className="text-accent font-bold">{confidence?.labelTr || "Başlangıç"}</span>
             </div>
-
-            <button
-              onClick={() => {
-                setShowOnboarding(false);
-                cardRef.current?.scrollIntoView({ behavior: "smooth" });
-              }}
-              className="px-6 py-3 rounded-xl bg-accent text-white font-medium text-xs md:text-sm hover:bg-accent-hover transition-all shadow-md"
-            >
-              Başla ↓
-            </button>
-          </div>
-        )}
-
-        {/* Dynamic Rank-Up Milestone Modal */}
-        {showRankUpModal && rankUpData && (
-          <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface-1 border border-accent/40 rounded-3xl p-8 md:p-12 shadow-2xl animate-fadeIn relative overflow-hidden">
-            <div className="w-16 h-16 rounded-2xl bg-accent-subtle border border-accent/40 text-accent flex items-center justify-center mx-auto text-3xl font-bold">
-              {rankUpData.newRank.badgeIcon}
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold">
-                YENİ RÜTBE KAZANILDI
-              </span>
-              <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
-                Tebrikler! {rankUpData.newRank.label} Oldun!
-              </h2>
-              <p className="text-text-secondary text-sm md:text-base leading-relaxed font-sans">
-                <strong className="text-text-primary">{rankUpData.answeredCount} dizi</strong> değerlendirmesine ulaştınız. Dizi DNA profiliniz çok daha keskinleşti.
-              </p>
-            </div>
-
-            {/* DNA Reanalysis Progress State */}
-            <div className="p-4 rounded-2xl bg-surface-2 border border-border flex items-center justify-center gap-3 text-xs font-sans">
-              {isRecalculatingDna ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                  <span className="text-text-secondary">Dizi DNA profiliniz arka planda yeniden analiz ediliyor...</span>
-                </>
-              ) : (
-                <>
-                  <span className="text-emerald-400 font-bold">✓</span>
-                  <span className="text-text-primary font-medium">Dizi DNA profiliniz güncellendi!</span>
-                </>
-              )}
-            </div>
-
-            <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                href="/tv/profile"
-                className="px-6 py-3.5 rounded-xl bg-accent text-white font-semibold text-sm hover:bg-accent-hover active:scale-95 transition-all shadow-sm text-center"
-              >
-                Yeni Dizi DNA&apos;mı Gör →
-              </Link>
-
-              <button
-                onClick={() => {
-                  setShowRankUpModal(false);
-                  if (queue.length <= 2) fetchQueue(5);
-                }}
-                className="px-6 py-3.5 rounded-xl bg-surface-2 border border-border text-text-primary font-medium text-sm hover:bg-surface-3 active:scale-95 transition-all shadow-sm"
-              >
-                Değerlendirmeye Devam Et
-              </button>
+            <div className="text-text-primary font-mono font-bold">
+              {tasteEvidenceCount} / {recommendedTarget} Zevk Sinyali
             </div>
           </div>
-        )}
 
-        {isLoading ? (
-          <TvCardSkeleton />
-        ) : showMilestoneScreen && !showRankUpModal ? (
-          /* Milestone Reached State View (15 Shows Milestone) */
-          <div className="w-full max-w-xl mx-auto text-center space-y-6 bg-surface-1 border border-border/80 rounded-3xl p-8 md:p-12 shadow-md animate-fadeIn">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto text-2xl font-bold">
-              ✓
-            </div>
-
-            <div className="space-y-2">
-              <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
-                İlk Dizi DNA Profilin Hazır {userName ? `, ${userName}` : ""}
-              </h2>
-              <p className="text-text-secondary text-sm md:text-base leading-relaxed font-sans">
-                Tebrikler! <strong className="text-text-primary">{answeredCount} diziyi</strong> başarıyla değerlendirdiniz.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-surface-2 border border-border text-xs font-sans text-text-secondary">
-              Kişisel Dizi DNA profiliniz hazırlandı. Profilinizi inceleyebilir veya önerilerinizi daha da keskinleştirmek için değerlendirmeye devam edebilirsiniz.
-            </div>
-
-            <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                href="/tv/profile"
-                className="px-6 py-3.5 rounded-xl bg-accent text-white font-semibold text-sm hover:bg-accent-hover active:scale-95 transition-all shadow-sm text-center"
-              >
-                Dizi DNA Profilini Gör →
-              </Link>
-
-              <button
-                onClick={() => {
-                  setShowMilestoneScreen(false);
-                  if (queue.length <= 2) fetchQueue(5);
-                }}
-                className="px-6 py-3.5 rounded-xl bg-surface-2 border border-border text-text-primary font-medium text-sm hover:bg-surface-3 active:scale-95 transition-all shadow-sm"
-              >
-                Değerlendirmeye Devam Et
-              </button>
-            </div>
-          </div>
-        ) : activeShow && !showRankUpModal ? (
-          /* Active Interactive TV Card */
-          <div ref={cardRef} className="w-full space-y-3">
-            {(() => {
-              const progression = getTvProgressionForCount(answeredCount);
-              return (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 max-w-4xl mx-auto px-1 text-xs font-sans">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-lg bg-accent-subtle border border-accent/30 text-accent font-semibold text-[11px]">
-                      {progression.currentRank.badgeIcon} {progression.currentRank.label}
-                    </span>
-                    <span className="text-text-muted">
-                      {answeredCount} Dizi Oylandı
-                    </span>
-                  </div>
-
-                  {progression.nextRank && (
-                    <span className="text-text-secondary text-[11px]">
-                      Sıradaki: <strong className="text-text-primary">{progression.nextRank.label}</strong> ({progression.remaining} dizi kaldı)
-                    </span>
-                  )}
-                </div>
-              );
-            })()}
-            <TvCard
-              tvShow={activeShow}
-              onAnswer={handleAnswer}
-              isTransitioning={isTransitioning}
+          <div className="w-full h-2.5 bg-surface-2 rounded-full overflow-hidden border border-border">
+            <div
+              className="h-full bg-gradient-to-r from-accent to-accent-hover rounded-full transition-all duration-500 shadow-sm"
+              style={{ width: `${progressPercent}%` }}
             />
           </div>
-        ) : !showRankUpModal ? (
-          /* Queue Empty / Retry Fallback State */
-          <div className="w-full max-w-lg mx-auto text-center space-y-5 bg-surface-1 border border-border/80 rounded-3xl p-8 shadow-md">
-            <div className={`w-12 h-12 rounded-2xl ${errorMessage ? "bg-rose-500/15 border border-rose-500/30 text-rose-400" : "bg-accent-subtle border border-accent/30 text-accent"} flex items-center justify-center mx-auto text-xl font-bold`}>
-              {errorMessage ? "!" : "📺"}
+
+          <div className="flex items-center justify-between text-[11px] text-text-muted">
+            <span>Minimum Kilit: 5 Dizi</span>
+            <span>İzlenen: {watchedCount} • Toplam: {evaluationCount}</span>
+          </div>
+        </div>
+
+        {/* Mode Switcher Tabs */}
+        <div className="w-full max-w-lg mb-6 p-1 bg-surface-2/80 rounded-2xl border border-border flex items-center gap-1 shadow-inner backdrop-blur-md">
+          <button
+            onClick={() => handleModeChange("SMART")}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+              activeMode === "SMART"
+                ? "bg-surface-0 text-accent shadow-sm border border-border"
+                : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            <span>✨</span>
+            <span>Akıllı</span>
+          </button>
+
+          <button
+            onClick={() => handleModeChange("GENRE")}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+              activeMode === "GENRE"
+                ? "bg-surface-0 text-accent shadow-sm border border-border"
+                : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            <span>🏷️</span>
+            <span>Tür Seç</span>
+          </button>
+
+          <button
+            onClick={() => handleModeChange("SEARCH")}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+              activeMode === "SEARCH"
+                ? "bg-surface-0 text-accent shadow-sm border border-border"
+                : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            <span>🔍</span>
+            <span>İzlediğimi Ara</span>
+          </button>
+        </div>
+
+        {/* Mode 2: Genre Pills Sub-Bar */}
+        {activeMode === "GENRE" && (
+          <div className="w-full max-w-lg mb-6 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+            {CANONICAL_TV_GENRES.map((g) => {
+              const isSelected = selectedGenreIds.includes(g.id);
+              return (
+                <button
+                  key={g.id}
+                  onClick={() => toggleGenre(g.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all border ${
+                    isSelected
+                      ? "bg-accent text-white border-accent shadow-sm"
+                      : "bg-surface-2 text-text-secondary border-border hover:border-accent hover:text-text-primary"
+                  }`}
+                >
+                  {g.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Mode 3: Local TV Search Mode */}
+        {activeMode === "SEARCH" ? (
+          <div className="w-full max-w-lg space-y-4">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="İzlediğin bir dizinin adını ara..."
+                className="w-full px-4 py-3 bg-surface-2 border border-border focus:border-accent rounded-2xl text-sm text-text-primary placeholder-text-muted focus:outline-none transition-all shadow-inner"
+              />
+              {isSearching && (
+                <div className="absolute right-4 top-3.5 text-xs text-text-muted animate-pulse">
+                  Aranıyor...
+                </div>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <h3 className="font-display text-xl font-bold text-text-primary">
-                {errorMessage ? "Dizi Sırası Yüklenemedi" : "Yeni Diziler Hazırlanıyor"}
-              </h3>
-              <p className="text-text-secondary text-sm font-sans leading-relaxed">
-                {errorMessage
-                  ? errorMessage
-                  : "Mevcut dizi sırasındaki tüm uygun yapımları değerlendirdin. Arka plan katalog senkronizasyonu devam ediyor, birazdan tekrar deneyebilirsin."}
+            <div className="space-y-3">
+              {searchResults.map((item) => {
+                const rated = searchRatedMap[item.id] || item.currentInteraction;
+                return (
+                  <div
+                    key={item.id}
+                    className="p-3.5 bg-surface-1 border border-border rounded-2xl flex items-center justify-between gap-3 hover:border-accent/40 transition-all"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {item.posterPath ? (
+                        <img
+                          src={getTmdbImageUrl(item.posterPath, "w185") || undefined}
+                          alt={item.title}
+                          className="w-12 h-16 object-cover rounded-lg border border-border flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-12 h-16 bg-surface-2 rounded-lg border border-border flex-shrink-0 flex items-center justify-center text-xs text-text-muted">
+                          📺
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <h4 className="text-xs sm:text-sm font-bold text-text-primary truncate">
+                          {item.title}
+                        </h4>
+                        <p className="text-[11px] text-text-muted truncate">
+                          {item.releaseYear || "Bilinmiyor"} • ⭐ {item.voteAverage.toFixed(1)} • {item.genres.slice(0, 2).join(", ")}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex-shrink-0">
+                      {rated ? (
+                        <div className="px-2.5 py-1 rounded-lg bg-surface-2 border border-border text-[11px] text-accent font-semibold flex items-center gap-1">
+                          <span>✓</span>
+                          <span>{rated.rating || "İzlendi"}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleSearchResultAction(item, "LOVE")}
+                            title="Çok Beğendim"
+                            className="p-1.5 rounded-lg bg-surface-2 hover:bg-rose-500/20 text-xs transition-all border border-border hover:border-rose-500"
+                          >
+                            ❤️
+                          </button>
+                          <button
+                            onClick={() => handleSearchResultAction(item, "LIKE")}
+                            title="Beğendim"
+                            className="p-1.5 rounded-lg bg-surface-2 hover:bg-emerald-500/20 text-xs transition-all border border-border hover:border-emerald-500"
+                          >
+                            👍
+                          </button>
+                          <button
+                            onClick={() => handleSearchResultAction(item, "NEUTRAL")}
+                            title="Ortalama"
+                            className="p-1.5 rounded-lg bg-surface-2 hover:bg-amber-500/20 text-xs transition-all border border-border hover:border-amber-500"
+                          >
+                            😐
+                          </button>
+                          <button
+                            onClick={() => handleSearchResultAction(item, "DISLIKE")}
+                            title="Beğenmedim"
+                            className="p-1.5 rounded-lg bg-surface-2 hover:bg-rose-900/30 text-xs transition-all border border-border hover:border-rose-800"
+                          >
+                            👎
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* Main Card View (Smart & Genre Modes) */
+          <div className="w-full max-w-lg relative">
+            {isLoading && queue.length === 0 ? (
+              <TvCardSkeleton />
+            ) : currentShow ? (
+              <div ref={cardRef} className="w-full">
+                <TvCard
+                  key={currentShow.id}
+                  tvShow={currentShow}
+                  onAnswer={handleAction}
+                  isTransitioning={isTransitioning}
+                />
+              </div>
+            ) : (
+              <div className="p-8 bg-surface-1 border border-border rounded-3xl text-center space-y-4 shadow-xl">
+                <div className="text-4xl">🎉</div>
+                <h3 className="text-lg font-bold text-text-primary">
+                  Bu Filtredeki Tüm Dizileri İnceledin!
+                </h3>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  Farklı bir tür seçebilir, Akıllı moda dönebilir veya doğrudan Dizi DNA profilini oluşturabilirsin.
+                </p>
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    onClick={() => handleModeChange("SMART")}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-surface-2 border border-border hover:border-accent text-xs font-semibold text-text-primary transition-all"
+                  >
+                    ✨ Akıllı Moda Dön
+                  </button>
+                  {canGenerateDna && (
+                    <Link
+                      href="/tv/profile"
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-accent hover:bg-accent-hover text-white text-xs font-semibold transition-all shadow-md"
+                    >
+                      Dizi DNA&apos;mı Gör →
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Prominent Fast TV DNA Trigger (When >= 5 evidence gathered) */}
+        {canGenerateDna && (
+          <div className="w-full max-w-lg mt-8 p-4 bg-gradient-to-r from-accent/15 via-purple-600/10 to-transparent border border-accent/30 rounded-2xl flex items-center justify-between gap-4 shadow-lg backdrop-blur-md animate-fadeIn">
+            <div className="space-y-0.5">
+              <h4 className="text-xs sm:text-sm font-bold text-text-primary flex items-center gap-1.5">
+                <span>🧬</span>
+                <span>Dizi DNA Kilidi Açıldı!</span>
+              </h4>
+              <p className="text-[11px] text-text-secondary">
+                {tasteEvidenceCount} dizi ile ilk profilini oluşturabilirsin.
               </p>
             </div>
+            <Link
+              href="/tv/profile"
+              className="px-4 py-2.5 rounded-xl bg-accent hover:bg-accent-hover text-white text-xs font-bold transition-all shadow-md flex-shrink-0 flex items-center gap-1.5"
+            >
+              <span>DNA&apos;mı Gör</span>
+              <span>→</span>
+            </Link>
+          </div>
+        )}
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-              {answeredCount > 0 && (
+        {/* Milestone Modal (When recommended target 10 is reached) */}
+        {showMilestoneScreen && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-surface-1 border border-border p-6 sm:p-8 rounded-3xl max-w-md w-full text-center space-y-5 shadow-2xl animate-scaleUp">
+              <div className="text-5xl">📺</div>
+              <h2 className="text-xl sm:text-2xl font-bold text-text-primary">
+                Tebrikler! Dizi Kalibrasyonu Tamamlandı
+              </h2>
+              <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
+                {tasteEvidenceCount} izlenmiş dizi sinyaliyle Dizi DNA profilin başarıyla kristalleşti. Artık sana özel nokta atışı dizi önerileri alabilirsin.
+              </p>
+              <div className="pt-2 flex flex-col gap-2.5">
                 <Link
                   href="/tv/profile"
-                  className="px-5 py-2.5 rounded-xl bg-surface-2 border border-border text-text-primary text-xs font-semibold hover:bg-surface-3 transition-all shadow-sm text-center"
+                  className="w-full py-3 rounded-xl bg-accent hover:bg-accent-hover text-white text-xs sm:text-sm font-bold transition-all shadow-lg"
                 >
-                  Dizi DNA Profilini Gör
+                  Dizi DNA Profilimi Keşfet →
                 </Link>
-              )}
+                <button
+                  onClick={() => setShowMilestoneScreen(false)}
+                  className="w-full py-2.5 rounded-xl bg-surface-2 border border-border text-xs text-text-secondary hover:text-text-primary transition-all"
+                >
+                  Kalibrasyona Devam Et
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Rank Up Notification Modal */}
+        {showRankUpModal && rankUpData && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-surface-1 border border-border p-6 rounded-3xl max-w-sm w-full text-center space-y-4 shadow-2xl animate-scaleUp">
+              <div className="text-4xl">{rankUpData.newRank.badgeIcon}</div>
+              <div className="space-y-1">
+                <div className="text-[11px] font-bold text-accent uppercase tracking-wider">
+                  RÜTBE ATLADIN!
+                </div>
+                <h3 className="text-lg font-bold text-text-primary">
+                  {rankUpData.newRank.label}
+                </h3>
+              </div>
+              <p className="text-xs text-text-secondary leading-relaxed">
+                {rankUpData.newRank.description}
+              </p>
               <button
-                onClick={() => fetchQueue(5)}
-                className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent-hover active:scale-95 transition-all shadow-sm"
+                onClick={() => setShowRankUpModal(false)}
+                className="w-full py-2.5 rounded-xl bg-accent hover:bg-accent-hover text-white text-xs font-bold transition-all shadow-md"
               >
-                Yeniden Kontrol Et
+                Harika! Devam Et
               </button>
             </div>
           </div>
-        ) : null}
+        )}
       </main>
 
       <Footer />

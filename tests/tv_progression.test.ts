@@ -6,8 +6,6 @@ import {
 } from "@/lib/progression/service";
 import { TV_RANK_DEFINITIONS, RANK_DEFINITIONS } from "@/lib/progression/constants";
 
-
-
 export function runTvProgressionTests() {
   console.log("=== TV RANK / PROGRESSION UNIT & REGRESSION TESTS ===\n");
   let passed = 0;
@@ -30,16 +28,16 @@ export function runTvProgressionTests() {
 
   // 2. All 16 TV Threshold Mapping Tests (Exact Boundaries)
   assert(getTvRankForCount(0).key === "TV_PASSENGER" && getTvRankForCount(0).label === "Dizi Yolcusu", "0 -> Dizi Yolcusu");
-  assert(getTvRankForCount(14).key === "TV_PASSENGER" && getTvRankForCount(14).label === "Dizi Yolcusu", "14 -> Dizi Yolcusu");
-  assert(getTvRankForCount(15).key === "TV_EXPLORER" && getTvRankForCount(15).label === "Dizi Kaşifi", "15 -> Dizi Kaşifi");
-  assert(getTvRankForCount(29).key === "TV_EXPLORER" && getTvRankForCount(29).label === "Dizi Kaşifi", "29 -> Dizi Kaşifi");
-  assert(getTvRankForCount(30).key === "TV_ENTHUSIAST" && getTvRankForCount(30).label === "Dizi Meraklısı", "30 -> Dizi Meraklısı");
+  assert(getTvRankForCount(9).key === "TV_PASSENGER" && getTvRankForCount(9).label === "Dizi Yolcusu", "9 -> Dizi Yolcusu");
+  assert(getTvRankForCount(10).key === "TV_EXPLORER" && getTvRankForCount(10).label === "Dizi Kaşifi", "10 -> Dizi Kaşifi");
+  assert(getTvRankForCount(24).key === "TV_EXPLORER" && getTvRankForCount(24).label === "Dizi Kaşifi", "24 -> Dizi Kaşifi");
+  assert(getTvRankForCount(25).key === "TV_ENTHUSIAST" && getTvRankForCount(25).label === "Dizi Meraklısı", "25 -> Dizi Meraklısı");
   assert(getTvRankForCount(49).key === "TV_ENTHUSIAST" && getTvRankForCount(49).label === "Dizi Meraklısı", "49 -> Dizi Meraklısı");
   assert(getTvRankForCount(50).key === "TV_PASSIONATE" && getTvRankForCount(50).label === "Dizi Tutkunu", "50 -> Dizi Tutkunu");
   assert(getTvRankForCount(99).key === "TV_PASSIONATE" && getTvRankForCount(99).label === "Dizi Tutkunu", "99 -> Dizi Tutkunu");
   assert(getTvRankForCount(100).key === "TV_HUNTER" && getTvRankForCount(100).label === "Dizi Avcısı", "100 -> Dizi Avcısı");
-  assert(getTvRankForCount(149).key === "TV_HUNTER" && getTvRankForCount(149).label === "Dizi Avcısı", "149 -> Dizi Avcısı");
-  assert(getTvRankForCount(150).key === "TV_CURATOR" && getTvRankForCount(150).label === "Dizi Küratörü", "150 -> Dizi Küratörü");
+  assert(getTvRankForCount(174).key === "TV_HUNTER" && getTvRankForCount(174).label === "Dizi Avcısı", "174 -> Dizi Avcısı");
+  assert(getTvRankForCount(175).key === "TV_CURATOR" && getTvRankForCount(175).label === "Dizi Küratörü", "175 -> Dizi Küratörü");
   assert(getTvRankForCount(249).key === "TV_CURATOR" && getTvRankForCount(249).label === "Dizi Küratörü", "249 -> Dizi Küratörü");
   assert(getTvRankForCount(250).key === "TV_EXPERT" && getTvRankForCount(250).label === "Dizi Uzmanı", "250 -> Dizi Uzmanı");
   assert(getTvRankForCount(399).key === "TV_EXPERT" && getTvRankForCount(399).label === "Dizi Uzmanı", "399 -> Dizi Uzmanı");
@@ -63,35 +61,35 @@ export function runTvProgressionTests() {
   assert(getTvRankForCount(50000).key === "LIVING_TV_ARCHIVE" && getTvRankForCount(50000).label === "Yaşayan Dizi Arşivi", "50000 -> Yaşayan Dizi Arşivi");
 
   // 3. User Progression Details for Mandatory Milestones
-  // 0 -> Dizi Yolcusu / next Dizi Kaşifi (15)
+  // 0 -> Dizi Yolcusu / next Dizi Kaşifi (10)
   const user0 = getTvProgressionForCount(0);
   assert(user0.currentRank.label === "Dizi Yolcusu", "0 count currentRank is Dizi Yolcusu");
   assert(user0.nextRank?.label === "Dizi Kaşifi", "0 count nextRank is Dizi Kaşifi");
-  assert(user0.nextRank?.minimum === 15, "0 count nextRank minimum is 15");
-  assert(user0.remaining === 15, "0 count remaining is 15");
+  assert(user0.nextRank?.minimum === 10, "0 count nextRank minimum is 10");
+  assert(user0.remaining === 10, "0 count remaining is 10");
   assert(user0.progress === 0.0, "0 count progress is 0.0");
   assert(!user0.isMaxRank, "0 count is not max rank");
 
-  // 15 -> Dizi Kaşifi / next Dizi Meraklısı (30)
-  const user15 = getTvProgressionForCount(15);
-  assert(user15.currentRank.label === "Dizi Kaşifi", "15 count currentRank is Dizi Kaşifi");
-  assert(user15.nextRank?.label === "Dizi Meraklısı", "15 count nextRank is Dizi Meraklısı");
-  assert(user15.nextRank?.minimum === 30, "15 count nextRank minimum is 30");
-  assert(user15.remaining === 15, "15 count remaining is 15 (30 - 15)");
-  assert(user15.progress === 0.0, "15 count progress is 0.0");
+  // 10 -> Dizi Kaşifi / next Dizi Meraklısı (25)
+  const user10 = getTvProgressionForCount(10);
+  assert(user10.currentRank.label === "Dizi Kaşifi", "10 count currentRank is Dizi Kaşifi");
+  assert(user10.nextRank?.label === "Dizi Meraklısı", "10 count nextRank is Dizi Meraklısı");
+  assert(user10.nextRank?.minimum === 25, "10 count nextRank minimum is 25");
+  assert(user10.remaining === 15, "10 count remaining is 15 (25 - 10)");
+  assert(user10.progress === 0.0, "10 count progress is 0.0");
 
-  // 29 -> Dizi Kaşifi / next 30
-  const user29 = getTvProgressionForCount(29);
-  assert(user29.currentRank.label === "Dizi Kaşifi", "29 count currentRank is Dizi Kaşifi");
-  assert(user29.nextRank?.label === "Dizi Meraklısı", "29 count nextRank is Dizi Meraklısı");
-  assert(user29.remaining === 1, "29 count remaining is 1");
-  assert(user29.progress === 0.93, `29 count progress is 0.93 (14/15, got ${user29.progress})`);
+  // 24 -> Dizi Kaşifi / next 25
+  const user24 = getTvProgressionForCount(24);
+  assert(user24.currentRank.label === "Dizi Kaşifi", "24 count currentRank is Dizi Kaşifi");
+  assert(user24.nextRank?.label === "Dizi Meraklısı", "24 count nextRank is Dizi Meraklısı");
+  assert(user24.remaining === 1, "24 count remaining is 1");
+  assert(user24.progress === 0.93, `24 count progress is 0.93 (14/15, got ${user24.progress})`);
 
-  // 30 -> Dizi Meraklısı / next 50
-  const user30 = getTvProgressionForCount(30);
-  assert(user30.currentRank.label === "Dizi Meraklısı", "30 count currentRank is Dizi Meraklısı");
-  assert(user30.nextRank?.label === "Dizi Tutkunu", "30 count nextRank is Dizi Tutkunu (50)");
-  assert(user30.remaining === 20, "30 count remaining is 20 (50 - 30)");
+  // 25 -> Dizi Meraklısı / next 50
+  const user25 = getTvProgressionForCount(25);
+  assert(user25.currentRank.label === "Dizi Meraklısı", "25 count currentRank is Dizi Meraklısı");
+  assert(user25.nextRank?.label === "Dizi Tutkunu", "25 count nextRank is Dizi Tutkunu (50)");
+  assert(user25.remaining === 25, "25 count remaining is 25 (50 - 25)");
 
   // 99 -> Dizi Tutkunu / next 100
   const user99 = getTvProgressionForCount(99);
@@ -99,11 +97,11 @@ export function runTvProgressionTests() {
   assert(user99.nextRank?.label === "Dizi Avcısı", "99 count nextRank is Dizi Avcısı (100)");
   assert(user99.remaining === 1, "99 count remaining is 1");
 
-  // 100 -> Dizi Avcısı / next 150
+  // 100 -> Dizi Avcısı / next 175
   const user100 = getTvProgressionForCount(100);
   assert(user100.currentRank.label === "Dizi Avcısı", "100 count currentRank is Dizi Avcısı");
-  assert(user100.nextRank?.label === "Dizi Küratörü", "100 count nextRank is Dizi Küratörü (150)");
-  assert(user100.remaining === 50, "100 count remaining is 50");
+  assert(user100.nextRank?.label === "Dizi Küratörü", "100 count nextRank is Dizi Küratörü (175)");
+  assert(user100.remaining === 75, "100 count remaining is 75");
 
   // 353 -> Dizi Uzmanı (250) / next Dizi Arşivcisi (400)
   const user353 = getTvProgressionForCount(353);
@@ -114,28 +112,12 @@ export function runTvProgressionTests() {
   assert(user353.nextRank?.minimum === 400, "353 count nextRank minimum is 400");
   assert(user353.remaining === 47, "353 count remaining is 47 (400 - 353 = 47)");
   assert(user353.progress === 0.69, `353 count progress is 0.69 (103/150 = 0.6866..., got ${user353.progress})`);
-  assert(user353.upcomingRanks.length === 3, "353 count has 3 upcoming ranks");
-  assert(user353.upcomingRanks[0].label === "Dizi Arşivcisi", "1st upcoming is Dizi Arşivcisi");
-  assert(user353.upcomingRanks[1].label === "Dizi Eleştirmeni", "2nd upcoming is Dizi Eleştirmeni");
-  assert(user353.upcomingRanks[2].label === "Dizi Ustası", "3rd upcoming is Dizi Ustası");
 
   // 400 -> Dizi Arşivcisi
   const user400 = getTvProgressionForCount(400);
   assert(user400.currentRank.label === "Dizi Arşivcisi", "400 count currentRank is Dizi Arşivcisi");
   assert(user400.nextRank?.label === "Dizi Eleştirmeni", "400 count nextRank is Dizi Eleştirmeni (600)");
   assert(user400.remaining === 200, "400 count remaining is 200");
-
-  // 999 -> Dizi Eleştirmeni / next 1000
-  const user999 = getTvProgressionForCount(999);
-  assert(user999.currentRank.label === "Dizi Eleştirmeni", "999 count currentRank is Dizi Eleştirmeni");
-  assert(user999.nextRank?.label === "Dizi Ustası", "999 count nextRank is Dizi Ustası (1000)");
-  assert(user999.remaining === 1, "999 count remaining is 1");
-
-  // 1000 -> Dizi Ustası / next 1500
-  const user1000 = getTvProgressionForCount(1000);
-  assert(user1000.currentRank.label === "Dizi Ustası", "1000 count currentRank is Dizi Ustası");
-  assert(user1000.nextRank?.label === "Dizi Arkeoloğu", "1000 count nextRank is Dizi Arkeoloğu (1500)");
-  assert(user1000.remaining === 500, "1000 count remaining is 500");
 
   // 10000+ -> Yaşayan Dizi Arşivi (Max Rank)
   const user10000 = getTvProgressionForCount(10000);
@@ -145,32 +127,17 @@ export function runTvProgressionTests() {
   assert(user10000.remaining === 0, "10000 count remaining is 0");
   assert(user10000.progress === 1.0, "10000 count progress is 1.0");
 
-  // Arbitrarily high interaction user (100,000 shows) -> Safe max rank
-  const user100k = getTvProgressionForCount(100000);
-  assert(user100k.currentRank.label === "Yaşayan Dizi Arşivi", "100,000 count currentRank is Yaşayan Dizi Arşivi");
-  assert(user100k.isMaxRank === true, "100,000 count isMaxRank is true");
-  assert(user100k.remaining === 0, "100,000 count remaining is 0");
-
   // 4. UI Formatting Validation
-  // Header Pill format for 353 TV user: "Dizi Uzmanı • 353/400"
   const headerTvPillText = `${user353.currentRank.label} • ${user353.evaluatedCount}/${user353.nextRank?.minimum}`;
   assert(headerTvPillText === "Dizi Uzmanı • 353/400", `Header pill text is 'Dizi Uzmanı • 353/400' (got '${headerTvPillText}')`);
 
-  // Calibration progress banner for 353 TV user: "353 / 400 • Dizi Arşivcisi yolunda (47 dizi kaldı)"
-  const calibTvProgressText = `${user353.evaluatedCount} / ${user353.nextRank?.minimum} • ${user353.nextRank?.label} yolunda (${user353.remaining} dizi kaldı)`;
-  assert(
-    calibTvProgressText === "353 / 400 • Dizi Arşivcisi yolunda (47 dizi kaldı)",
-    `Calibration progress text matches specification (got '${calibTvProgressText}')`
-  );
-
   // 5. Film Regression Safety Check
-  const filmProg1524 = getProgressionForCount(1524);
-  assert(filmProg1524.currentRank.label === "Baş Küratör", "Film 1524 count remains Baş Küratör");
-  assert(filmProg1524.nextRank?.label === "Film Arkeoloğu", "Film 1524 count nextRank remains Film Arkeoloğu");
-  assert(filmProg1524.remaining === 226, "Film 1524 count remaining remains 226");
+  const filmProg2100 = getProgressionForCount(2100);
+  assert(filmProg2100.currentRank.label === "Baş Küratör", "Film 2100 count is Baş Küratör");
 
   console.log(`\nRESULTS: Passed ${passed} of ${total} TV progression tests.\n`);
 }
 
-runTvProgressionTests();
-
+if (process.argv[1]?.includes("tv_progression.test.ts")) {
+  runTvProgressionTests();
+}

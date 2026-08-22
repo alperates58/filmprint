@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/service";
 import { getTvCalibrationQueue } from "@/lib/tv/calibration/service";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   try {
     const user = await getAuthenticatedUser();
@@ -11,8 +13,18 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") || "5", 10)), 15);
+    const mode = (searchParams.get("mode") || "SMART").toUpperCase() as "SMART" | "GENRE" | "SEARCH";
+    const rawGenreIds = searchParams.get("genreIds") || "";
+    const genreIds = rawGenreIds
+      .split(",")
+      .map((id) => parseInt(id.trim(), 10))
+      .filter((id) => !isNaN(id) && id > 0);
 
-    const queueResult = await getTvCalibrationQueue(user.id, limit);
+    const queueResult = await getTvCalibrationQueue(user.id, {
+      mode,
+      genreIds,
+      limit,
+    });
 
     return NextResponse.json(queueResult, {
       headers: {

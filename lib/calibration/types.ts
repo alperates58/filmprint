@@ -5,13 +5,18 @@ export interface CandidateMovie {
   tmdbId: number;
   title: string;
   originalTitle: string;
+  englishTitle?: string | null;
   releaseYear: number | null;
   popularity: number;
   voteAverage: number;
+  voteCount?: number;
   posterPath: string | null;
   backdropPath: string | null;
   genres: string[];
+  genreIds?: number[];
   overview: string;
+  adult?: boolean;
+  metadata?: any;
 }
 
 export interface RecentInteractionPattern {

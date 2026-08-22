@@ -5,11 +5,22 @@ import {
   RecentTvInteractionPattern,
   TvSelectorUserState,
 } from "./types";
-import { TV_CALIBRATION_TARGET } from "./constants";
 import { resolveTvCandidateSupply, CalibrationSupplyStatus } from "./supply";
+import {
+  TV_CALIBRATION_CANDIDATE_PAGE_SIZE,
+  TV_CALIBRATION_CANDIDATE_MAX_PAGES,
+  TV_CALIBRATION_CANDIDATE_TARGET_POOL,
+} from "./constants";
+import {
+  CALIBRATION_THRESHOLDS,
+  getTvConfidenceLevel,
+  ConfidenceLevelInfo,
+} from "@/lib/calibration/confidence";
+import { FamiliarityState } from "@/lib/calibration/scoring";
+import { resolveGenreNamesFromIds } from "@/lib/catalog/genres";
 
 export interface QueueTvShowResponseItem {
-  id: string; // Database UUID
+  id: string;
   tmdbId: number;
   name: string;
   originalName: string | null;
@@ -30,15 +41,26 @@ export interface QueueTvShowResponseItem {
   reasons?: string[];
 }
 
+export interface TvCalibrationQueueOptions {
+  mode?: "SMART" | "GENRE" | "SEARCH";
+  genreIds?: number[];
+  limit?: number;
+}
+
 export interface TvCalibrationQueueResult {
   tvShows: QueueTvShowResponseItem[];
-  answeredCount: number;
-  targetCount: number;
-  completed: boolean;
-  strategy: {
-    activeLearningEnabled: boolean;
-    selectorVersion: number;
-  };
+  evaluationCount: number;
+  watchedCount: number;
+  tasteEvidenceCount: number;
+  minimumTarget: number;
+  recommendedTarget: number;
+  confidence: ConfidenceLevelInfo;
+  canGenerateDna: boolean;
+  recommendedCalibrationComplete: boolean;
+  sessionSafetyCapReached: boolean;
+  familiarityState: FamiliarityState;
+  mode: "SMART" | "GENRE" | "SEARCH";
+  selectedGenreIds: number[];
   supply: {
     status: CalibrationSupplyStatus;
     rawScanned: number;
@@ -49,16 +71,16 @@ export interface TvCalibrationQueueResult {
 }
 
 /**
- * Resolves the next candidate TV show queue for a user using deterministic active learning heuristics.
- * Operates 100% DATABASE-FIRST with zero external TMDB network calls.
+ * Resolves the next candidate TV show queue for a user using TV Calibration V2 Intelligence.
+ * 100% Database-First with GIN & pg_trgm indexed querying, Safety V2 hard blocks, and adaptive familiarity.
  */
 export async function getTvCalibrationQueue(
   userId: string,
-  limit: number = 5
+  options: TvCalibrationQueueOptions = {}
 ): Promise<TvCalibrationQueueResult> {
-  const targetCount = TV_CALIBRATION_TARGET;
+  const { mode = "SMART", genreIds = [], limit = 5 } = options;
 
-  // 1. Fetch all answered TV interaction records for current user (single batch query)
+  // 1. Fetch all answered TV interaction records for current user
   const answeredInteractions = await db.tvInteraction.findMany({
     where: { userId },
     orderBy: { answeredAt: "desc" },
@@ -70,6 +92,8 @@ export async function getTvCalibrationQueue(
       tvShow: {
         select: {
           firstAirDate: true,
+          firstAirYear: true,
+          genreIds: true,
           metadata: true,
         },
       },
@@ -77,180 +101,268 @@ export async function getTvCalibrationQueue(
   });
 
   const answeredTvShowIds = new Set(answeredInteractions.map((i: any) => i.tvShowId));
-  const answeredCount = answeredTvShowIds.size;
+  const evaluationCount = answeredTvShowIds.size;
 
-  // 2. Build runtime adaptive state from previous interactions
+  // Separate watchedCount (distinct fully watched) and tasteEvidenceCount (watched with rating)
+  const watchedInteractions = answeredInteractions.filter((i: any) => i.status === "WATCHED");
+  const watchedTvShowIds = new Set(watchedInteractions.map((i: any) => i.tvShowId));
+  const watchedCount = watchedTvShowIds.size;
+
+  const tasteEvidenceInteractions = answeredInteractions.filter(
+    (i: any) => i.status === "WATCHED" && i.rating !== null
+  );
+  const tasteEvidenceCount = new Set(tasteEvidenceInteractions.map((i: any) => i.tvShowId)).size;
+
+  // Confidence & Milestones
+  const confidence = getTvConfidenceLevel(tasteEvidenceCount);
+  const canGenerateDna = tasteEvidenceCount >= CALIBRATION_THRESHOLDS.TV.MIN_UNLOCK;
+  const recommendedCalibrationComplete =
+    tasteEvidenceCount >= CALIBRATION_THRESHOLDS.TV.RECOMMENDED;
+  const sessionSafetyCapReached =
+    evaluationCount >= CALIBRATION_THRESHOLDS.TV.MAX_EXPOSURE_CAP;
+
+  // 2. Adaptive Familiarity: Rolling window of last 10 interactions (min 3 answers)
+  const recent10 = answeredInteractions.slice(0, 10);
+  const actualWindowSize = recent10.length;
+  let familiarityState: FamiliarityState = "BALANCED";
+
+  if (actualWindowSize >= 3) {
+    const watchedInWindow = recent10.filter((i: any) => i.status === "WATCHED").length;
+    const ratio = watchedInWindow / actualWindowSize;
+    if (ratio < 0.30) {
+      familiarityState = "FAMILIARITY_RECOVERY";
+    } else if (ratio >= 0.70) {
+      familiarityState = "DEEPENING";
+    } else {
+      familiarityState = "BALANCED";
+    }
+  }
+
+  // Build runtime adaptive state from previous interactions
   const genreFrequency: Record<string, number> = {};
   const positiveGenresSet = new Set<string>();
   const negativeGenresSet = new Set<string>();
 
   answeredInteractions.forEach((i: any) => {
     const meta = (i.tvShow?.metadata as Record<string, unknown>) || {};
-    const genres = (meta.genres as string[]) || [];
+    let genres = (meta.genres as string[]) || [];
+    if (Array.isArray(i.tvShow?.genreIds) && i.tvShow.genreIds.length > 0) {
+      genres = resolveGenreNamesFromIds(i.tvShow.genreIds, "TV");
+    }
 
     genres.forEach((g) => {
       genreFrequency[g] = (genreFrequency[g] || 0) + 1;
-
-      // Positive signal: LOVE or LIKE
       if (i.rating === "LOVE" || i.rating === "LIKE") {
         positiveGenresSet.add(g);
       }
-      // Negative signal: DISLIKE
       if (i.rating === "DISLIKE") {
         negativeGenresSet.add(g);
       }
     });
   });
 
+  const recentHistory: RecentTvInteractionPattern[] = recent10.map((i: any) => {
+    const meta = (i.tvShow?.metadata as Record<string, unknown>) || {};
+    let genres = (meta.genres as string[]) || [];
+    if (Array.isArray(i.tvShow?.genreIds) && i.tvShow.genreIds.length > 0) {
+      genres = resolveGenreNamesFromIds(i.tvShow.genreIds, "TV");
+    }
+    const year =
+      i.tvShow?.firstAirYear ||
+      (i.tvShow?.firstAirDate ? parseInt(i.tvShow.firstAirDate.substring(0, 4), 10) : null);
+
+    return {
+      tvShowId: i.tvShowId,
+      genres,
+      firstAirYear: year && !isNaN(year) ? year : null,
+    };
+  });
+
   const userState: TvSelectorUserState = {
-    totalAnsweredCount: answeredCount,
+    totalAnsweredCount: evaluationCount,
     genreFrequency,
     positiveGenres: Array.from(positiveGenresSet),
     negativeGenres: Array.from(negativeGenresSet),
   };
 
-  // Recent interaction history pattern for repetition penalty (last 8 items)
-  const recentInteractions: RecentTvInteractionPattern[] = answeredInteractions
-    .slice(0, 8)
-    .map((i: any) => {
-      const meta = (i.tvShow?.metadata as Record<string, unknown>) || {};
-      const firstAirDate = i.tvShow?.firstAirDate || "";
-      const year = firstAirDate ? parseInt(firstAirDate.substring(0, 4), 10) : null;
-      return {
-        tvShowId: i.tvShowId,
-        genres: (meta.genres as string[]) || [],
-        firstAirYear: !isNaN(year as number) ? year : null,
-      };
-    });
+  // 3. User Genre Preferences for TV
+  const userGenrePrefs = await db.userGenrePreference.findMany({
+    where: { userId, mediaType: "TV" },
+  });
 
-  // 3. Query a deterministic page of un-interacted TV shows from DB.
-  async function fetchRawCandidatePage({
+  const excludedGenreIds = new Set(
+    userGenrePrefs.filter((p: any) => p.preference === "EXCLUDE").map((p: any) => p.genreId)
+  );
+
+  // 4. Query deterministic paged un-interacted TV shows from Database
+  async function fetchRawTvCandidatePage({
     skip,
     take,
   }: {
+    page: number;
     skip: number;
     take: number;
-  }): Promise<CandidateTvShow[]> {
-    const raw = await db.tvShow.findMany({
-      where: {
-        interactions: {
-          none: { userId },
-        },
-        posterPath: { not: null },
+  }) {
+    const whereConditions: any = {
+      id: { notIn: Array.from(answeredTvShowIds) },
+      posterPath: { not: null },
+      safetyLevel: {
+        notIn: ["ADULT", "EROTIC", "SEXUAL_CONTENT"],
       },
+      OR: [
+        { normalizedMinimumAge: null },
+        { normalizedMinimumAge: { lt: 18 } },
+      ],
+    };
+
+    if (mode === "GENRE" && genreIds.length > 0) {
+      whereConditions.genreIds = {
+        hasSome: genreIds,
+      };
+    }
+
+    if (excludedGenreIds.size > 0) {
+      const excludedArr = Array.from(excludedGenreIds);
+      whereConditions.NOT = {
+        genreIds: {
+          hasSome: excludedArr,
+        },
+      };
+    }
+
+    const rows = await db.tvShow.findMany({
+      where: whereConditions,
       orderBy: [
+        { calibrationPriorityScore: "desc" },
         { popularity: "desc" },
         { voteAverage: "desc" },
         { id: "asc" },
       ],
       skip,
       take,
+      select: {
+        id: true,
+        tmdbId: true,
+        name: true,
+        originalName: true,
+        firstAirDate: true,
+        firstAirYear: true,
+        lastAirDate: true,
+        status: true,
+        originalLanguage: true,
+        posterPath: true,
+        backdropPath: true,
+        voteAverage: true,
+        voteCount: true,
+        popularity: true,
+        genreIds: true,
+        safetyLevel: true,
+        normalizedMinimumAge: true,
+        adult: true,
+        overview: true,
+        metadata: true,
+      },
     });
 
-    return raw.map((s: any) => {
+    return rows.map((s: any) => {
       const meta = (s.metadata as Record<string, unknown>) || {};
+      let genres: string[] = [];
+      if (Array.isArray(s.genreIds) && s.genreIds.length > 0) {
+        genres = resolveGenreNamesFromIds(s.genreIds, "TV");
+      } else if (Array.isArray(meta.genres)) {
+        genres = meta.genres as string[];
+      }
+
       return {
         id: s.id,
         tmdbId: s.tmdbId,
         name: s.name,
         originalName: s.originalName,
+        englishTitle: (meta.englishTitle as string) || null,
         firstAirDate: s.firstAirDate,
         lastAirDate: s.lastAirDate,
         status: s.status,
         originalLanguage: s.originalLanguage,
-        popularity: s.popularity,
-        voteAverage: s.voteAverage,
-        voteCount: s.voteCount || (meta.voteCount as number) || undefined,
         posterPath: s.posterPath,
         backdropPath: s.backdropPath,
-        genres: (meta.genres as string[]) || [],
+        voteAverage: s.voteAverage,
+        voteCount: s.voteCount || 0,
+        popularity: s.popularity,
         overview: s.overview || (meta.overview as string) || "",
+        genres,
         numberOfSeasons: (meta.numberOfSeasons as number | null) || null,
         numberOfEpisodes: (meta.numberOfEpisodes as number | null) || null,
-        adult: (meta.adult as boolean) || false,
-        metadata: meta,
-      };
+        episodeRunTime: (meta.episodeRunTime as number | null) || null,
+        originCountry: (meta.originCountry as string[]) || [],
+        adult: s.adult,
+        safetyLevel: s.safetyLevel,
+        normalizedMinimumAge: s.normalizedMinimumAge,
+        metadata: {
+          ...meta,
+          genreIds: s.genreIds,
+        },
+      } as CandidateTvShow;
     });
   }
 
-  // 4. Resolve a bounded, eligibility-aware reserve strictly from Database
-  const supply = await resolveTvCandidateSupply<CandidateTvShow>({
-    fetchPage: fetchRawCandidatePage,
+  // 5. Scan eligible TV candidate pool
+  const scanResult = await resolveTvCandidateSupply({
+    fetchPage: fetchRawTvCandidatePage,
+    pageSize: TV_CALIBRATION_CANDIDATE_PAGE_SIZE,
+    maxPages: TV_CALIBRATION_CANDIDATE_MAX_PAGES,
+    targetPool: TV_CALIBRATION_CANDIDATE_TARGET_POOL,
   });
-  const eligibleCandidates = supply.eligibleCandidates;
 
-  if (supply.status !== "AVAILABLE") {
-    console.info("[TV Calibration Supply]", {
-      userId,
-      rawScanned: supply.rawScanned,
-      pagesScanned: supply.pagesScanned,
-      eligibleFound: eligibleCandidates.length,
-      status: supply.status,
-      exhausted: supply.exhausted,
-    });
-  }
+  // 6. Rank eligible candidates
+  const rankedResults = rankCandidateTvShows(
+    scanResult.eligibleCandidates,
+    userState,
+    recentHistory
+  );
 
-  // 5. Deterministic Selection with Multi-Level Ranking on Eligible Pool
-  let selectedShows: QueueTvShowResponseItem[] = [];
-  let appliedStrategyLevel = 1;
-
-  if (eligibleCandidates.length > 0) {
-    // LEVEL 1: Full Active Learning (Uncertainty + Quality + Diversity + Recency Repetition Penalty)
-    const rankedLevel1 = rankCandidateTvShows(eligibleCandidates, userState, recentInteractions);
-    if (rankedLevel1.length > 0) {
-      selectedShows = rankedLevel1.slice(0, limit).map((r: any) => ({
-        ...r.tvShow,
-        selectionScore: r.score,
-        reasons: r.reasons,
-      }));
-      appliedStrategyLevel = 1;
-    }
-
-    // LEVEL 2: Relaxed Active Learning (ignore recency repetition penalty)
-    if (selectedShows.length === 0) {
-      const rankedLevel2 = rankCandidateTvShows(eligibleCandidates, userState, []);
-      if (rankedLevel2.length > 0) {
-        selectedShows = rankedLevel2.slice(0, limit).map((r: any) => ({
-          ...r.tvShow,
-          selectionScore: r.score,
-          reasons: [...(r.reasons || []), "relaxation_level_2_active_learning"],
-        }));
-        appliedStrategyLevel = 2;
-      }
-    }
-
-    // LEVEL 3: Deterministic Quality & Popularity Best Candidates (pure quality fallback on eligible pool)
-    if (selectedShows.length === 0) {
-      const sortedLevel3 = [...eligibleCandidates].sort((a, b) => {
-        if (b.voteAverage !== a.voteAverage) return b.voteAverage - a.voteAverage;
-        if (b.popularity !== a.popularity) return b.popularity - a.popularity;
-        return a.tmdbId - b.tmdbId;
-      });
-      selectedShows = sortedLevel3.slice(0, limit).map((show) => ({
-        ...show,
-        selectionScore: 1.0,
-        reasons: ["relaxation_level_3_quality_floor"],
-      }));
-      appliedStrategyLevel = 3;
-    }
-  }
+  // 7. Select Top N Candidates
+  const selectedQueue = rankedResults.slice(0, limit).map((r) => ({
+    id: r.tvShow.id,
+    tmdbId: r.tvShow.tmdbId,
+    name: r.tvShow.name,
+    originalName: r.tvShow.originalName,
+    firstAirDate: r.tvShow.firstAirDate,
+    lastAirDate: r.tvShow.lastAirDate,
+    status: r.tvShow.status,
+    originalLanguage: r.tvShow.originalLanguage,
+    posterPath: r.tvShow.posterPath,
+    backdropPath: r.tvShow.backdropPath,
+    voteAverage: r.tvShow.voteAverage,
+    voteCount: r.tvShow.voteCount,
+    popularity: r.tvShow.popularity,
+    overview: r.tvShow.overview,
+    genres: r.tvShow.genres,
+    numberOfSeasons: r.tvShow.numberOfSeasons,
+    numberOfEpisodes: r.tvShow.numberOfEpisodes,
+    selectionScore: r.score,
+    reasons: r.reasons,
+  }));
 
   return {
-    tvShows: selectedShows,
-    answeredCount,
-    targetCount,
-    completed: answeredCount >= targetCount,
-    strategy: {
-      activeLearningEnabled: appliedStrategyLevel <= 2,
-      selectorVersion: appliedStrategyLevel,
-    },
+    tvShows: selectedQueue,
+    evaluationCount,
+    watchedCount,
+    tasteEvidenceCount,
+    minimumTarget: CALIBRATION_THRESHOLDS.TV.MIN_UNLOCK,
+    recommendedTarget: CALIBRATION_THRESHOLDS.TV.RECOMMENDED,
+    confidence,
+    canGenerateDna,
+    recommendedCalibrationComplete,
+    sessionSafetyCapReached,
+    familiarityState,
+    mode,
+    selectedGenreIds: genreIds,
     supply: {
-      status: supply.status,
-      rawScanned: supply.rawScanned,
-      pagesScanned: supply.pagesScanned,
-      eligibleCount: eligibleCandidates.length,
-      exhausted: supply.exhausted,
+      status: scanResult.status,
+      rawScanned: scanResult.rawScanned,
+      pagesScanned: scanResult.pagesScanned,
+      eligibleCount: scanResult.eligibleCandidates.length,
+      exhausted: scanResult.exhausted,
     },
   };
 }
-

@@ -6,7 +6,9 @@ import { updateTvInteraction } from "@/lib/tv/service";
 import { evaluateTvEligibility } from "@/lib/tv/eligibility";
 import type { EligibleTvShowInput } from "@/lib/tv/types";
 import type { TvInteractionStatus, RatingStatus } from "@prisma/client";
-import { TV_CALIBRATION_TARGET } from "@/lib/tv/calibration/constants";
+import { CALIBRATION_THRESHOLDS, getTvConfidenceLevel } from "@/lib/calibration/confidence";
+
+export const dynamic = "force-dynamic";
 
 const VALID_TV_STATUSES = new Set<string>([
   "WATCHED",
@@ -49,10 +51,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Validate status & rating relationship
-    if (
-      status === "WATCHED" ||
-      status === "PARTIALLY_WATCHED"
-    ) {
+    if (status === "WATCHED" || status === "PARTIALLY_WATCHED") {
       if (rating && !VALID_RATINGS.has(rating)) {
         return NextResponse.json(
           {
@@ -63,7 +62,6 @@ export async function POST(request: Request) {
         );
       }
     } else {
-      // For NOT_WATCHED and UNSURE, rating must be null
       if (rating !== null && rating !== undefined) {
         return NextResponse.json(
           {
@@ -111,7 +109,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 5. Update or insert TvInteraction (Idempotent single-row update)
+    // 5. Update or insert TvInteraction (with library sync in updateTvInteraction)
     await updateTvInteraction(
       userId,
       show.id,
@@ -119,16 +117,39 @@ export async function POST(request: Request) {
       rating ? (rating as RatingStatus) : null
     );
 
-    // 6. Calculate user's current total answered TV show count
-    const answeredCount = await db.tvInteraction.count({
+    // 6. Calculate user's current metrics
+    const interactions = await db.tvInteraction.findMany({
       where: { userId },
+      select: { tvShowId: true, status: true, rating: true },
     });
+
+    const evaluationCount = interactions.length;
+    const watchedCount = new Set(
+      interactions.filter((i) => i.status === "WATCHED").map((i) => i.tvShowId)
+    ).size;
+    const tasteEvidenceCount = new Set(
+      interactions.filter((i) => i.status === "WATCHED" && i.rating !== null).map((i) => i.tvShowId)
+    ).size;
+
+    const confidence = getTvConfidenceLevel(tasteEvidenceCount);
+    const canGenerateDna = tasteEvidenceCount >= CALIBRATION_THRESHOLDS.TV.MIN_UNLOCK;
+    const completed = tasteEvidenceCount >= CALIBRATION_THRESHOLDS.TV.RECOMMENDED;
 
     return NextResponse.json({
       success: true,
-      answeredCount,
-      targetCount: TV_CALIBRATION_TARGET,
-      completed: answeredCount >= TV_CALIBRATION_TARGET,
+      tvShowId: show.id,
+      status,
+      rating: rating || null,
+      evaluationCount,
+      watchedCount,
+      tasteEvidenceCount,
+      minimumTarget: CALIBRATION_THRESHOLDS.TV.MIN_UNLOCK,
+      targetCount: CALIBRATION_THRESHOLDS.TV.RECOMMENDED,
+      recommendedTarget: CALIBRATION_THRESHOLDS.TV.RECOMMENDED,
+      completed,
+      canGenerateDna,
+      confidence,
+      answeredCount: evaluationCount, // Backward-compatibility
     });
   } catch (error) {
     console.error("[POST /api/tv/interactions Error]:", error);

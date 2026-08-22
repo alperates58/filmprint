@@ -74,8 +74,8 @@ export async function runHeaderModeNavigationTests(): Promise<void> {
       resolve(process.cwd(), "lib/progression/server.ts"),
       "utf8"
     );
-    if (!progressionSource.includes("db.tvInteraction.count")) {
-      throw new Error("TV progression must count TvInteraction rows, not movie rows");
+    if (!progressionSource.includes("getCanonicalWatchedCounts")) {
+      throw new Error("TV progression must resolve canonical watched counts for TV mode");
     }
     console.log("     ✓ Header requests TV and film progression counts independently.");
   }

@@ -7,9 +7,16 @@ import {
   mergeTmdbMovieLocalization,
   type LocalizedTmdbMovie,
 } from "@/lib/tmdb/movie-localization";
+import { resolveCanonicalGenreIds } from "@/lib/catalog/genres";
+import { pickTmdbCertification, evaluateContentSafety } from "@/lib/content/safety";
+import {
+  computeCalibrationPriorityScore,
+  generateSearchNormalizedTitle,
+} from "@/lib/calibration/priority";
 import { resolveLocalizedTrailer } from "@/lib/tmdb/trailer";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
+
 
 export interface TMDBMovie {
   id: number;
@@ -622,7 +629,7 @@ export class TMDBClient {
 
     try {
       const response = await fetch(
-        `${TMDB_API_BASE}/movie/${tmdbId}?api_key=${apiKey}&language=tr-TR&append_to_response=credits,videos`,
+        `${TMDB_API_BASE}/movie/${tmdbId}?api_key=${apiKey}&language=tr-TR&append_to_response=credits,videos,release_dates,keywords`,
         { next: { revalidate: 86400 } }
       );
 
@@ -633,17 +640,21 @@ export class TMDBClient {
       const data = (await response.json()) as TMDBMovie & {
         credits?: { crew?: Array<Record<string, any>>; cast?: Array<Record<string, any>> };
         videos?: { results?: Array<Record<string, any>> };
+        release_dates?: { results?: Array<Record<string, any>> };
+        keywords?: { keywords?: Array<{ id: number; name: string }> };
       };
-      let englishDetail: (TMDBMovie & { videos?: { results?: Array<Record<string, any>> } }) | null = null;
+      let englishDetail: (TMDBMovie & {
+        videos?: { results?: Array<Record<string, any>> };
+        release_dates?: { results?: Array<Record<string, any>> };
+        keywords?: { keywords?: Array<{ id: number; name: string }> };
+      }) | null = null;
       const localized = await localizeTmdbMovie(data, async () => {
         const englishResponse = await fetch(
-          `${TMDB_API_BASE}/movie/${tmdbId}?api_key=${apiKey}&language=en-US&append_to_response=videos`,
+          `${TMDB_API_BASE}/movie/${tmdbId}?api_key=${apiKey}&language=en-US&append_to_response=videos,release_dates,keywords`,
           { next: { revalidate: 86400 } }
         );
         if (!englishResponse.ok) return null;
-        englishDetail = (await englishResponse.json()) as TMDBMovie & {
-          videos?: { results?: Array<Record<string, any>> };
-        };
+        englishDetail = (await englishResponse.json()) as any;
         return englishDetail;
       });
       const runtime = data.runtime || null;
@@ -889,6 +900,45 @@ export class TMDBClient {
       englishTitle: localization.englishTitle,
     };
 
+    // Extract canonical genre IDs
+    const canonicalGenreIds = resolveCanonicalGenreIds(
+      tmdbMovie.genre_ids || tmdbMovie.genres || [],
+      "FILM"
+    );
+
+    // Extract Certification & Content Safety V2
+    const cert = pickTmdbCertification(tmdbMovie, "FILM");
+    const safetyV2 = evaluateContentSafety({
+      adult: tmdbMovie.adult,
+      contentRating: cert.contentRating,
+      normalizedMinimumAge: cert.normalizedMinimumAge,
+      title: displayTitle,
+      originalTitle: tmdbMovie.original_title,
+      englishTitle: localization.englishTitle,
+      overview: tmdbMovie.overview,
+      genres: canonicalGenreIds,
+    });
+
+    const voteCount = tmdbMovie.vote_count || 0;
+    const voteAverage = tmdbMovie.vote_average || 0.0;
+    const popularity = tmdbMovie.popularity || 0.0;
+
+    const calibrationPriorityScore = computeCalibrationPriorityScore({
+      popularity,
+      voteAverage,
+      voteCount,
+      releaseYear: releaseYear && !isNaN(releaseYear) ? releaseYear : null,
+      safetyLevel: safetyV2.safetyLevel,
+      normalizedMinimumAge: safetyV2.normalizedMinimumAge,
+      adult: tmdbMovie.adult,
+    });
+
+    const searchNormalizedTitle = generateSearchNormalizedTitle(
+      displayTitle,
+      tmdbMovie.original_title,
+      localization.englishTitle
+    );
+
     const movie = await db.movie.upsert({
       where: { tmdbId: tmdbMovie.id },
       update: {
@@ -897,8 +947,16 @@ export class TMDBClient {
         posterPath: tmdbMovie.poster_path,
         backdropPath: tmdbMovie.backdrop_path,
         releaseYear: releaseYear && !isNaN(releaseYear) ? releaseYear : null,
-        popularity: tmdbMovie.popularity || 0.0,
-        voteAverage: tmdbMovie.vote_average || 0.0,
+        popularity,
+        voteAverage,
+        voteCount,
+        genreIds: canonicalGenreIds,
+        adult: tmdbMovie.adult === true || safetyV2.safetyLevel === "ADULT",
+        contentRating: safetyV2.contentRating,
+        normalizedMinimumAge: safetyV2.normalizedMinimumAge,
+        safetyLevel: safetyV2.safetyLevel,
+        calibrationPriorityScore,
+        searchNormalizedTitle,
         metadata: localizedMetadata,
       },
       create: {
@@ -908,8 +966,16 @@ export class TMDBClient {
         posterPath: tmdbMovie.poster_path,
         backdropPath: tmdbMovie.backdrop_path,
         releaseYear: releaseYear && !isNaN(releaseYear) ? releaseYear : null,
-        popularity: tmdbMovie.popularity || 0.0,
-        voteAverage: tmdbMovie.vote_average || 0.0,
+        popularity,
+        voteAverage,
+        voteCount,
+        genreIds: canonicalGenreIds,
+        adult: tmdbMovie.adult === true || safetyV2.safetyLevel === "ADULT",
+        contentRating: safetyV2.contentRating,
+        normalizedMinimumAge: safetyV2.normalizedMinimumAge,
+        safetyLevel: safetyV2.safetyLevel,
+        calibrationPriorityScore,
+        searchNormalizedTitle,
         metadata: localizedMetadata,
       },
     });

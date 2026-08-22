@@ -74,6 +74,35 @@ enum MediaType {
   TV
 }
 
+enum ContentSafetyLevel {
+  SAFE
+  MATURE
+  SEXUAL_CONTENT
+  EROTIC
+  ADULT
+  UNKNOWN
+}
+
+enum GenrePreferenceLevel {
+  PREFER
+  NEUTRAL
+  AVOID
+  EXCLUDE
+}
+
+enum SubscriptionTier {
+  FREE
+  PREMIUM
+}
+
+enum BackfillJobStatus {
+  PENDING
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
 model User {
   id                      String                   @id @default(uuid())
   email                   String?                  @unique
@@ -98,6 +127,9 @@ model User {
   hostedMovieNights       MovieNightSession[]      @relation("HostedMovieNights")
   movieNightMemberships   MovieNightMember[]
   sessions                UserSession[]
+  genrePreferences        UserGenrePreference[]
+  entitlement             UserEntitlement?
+  dailyFeatureUsages      FeatureUsageDaily[]
 }
 
 model UserSession {
@@ -114,25 +146,36 @@ model UserSession {
 }
 
 model Movie {
-  id                      String                   @id @default(uuid())
-  tmdbId                  Int                      @unique
-  title                   String
-  originalTitle           String
-  posterPath              String?
-  backdropPath            String?
-  releaseYear             Int?
-  popularity              Float                    @default(0.0)
-  voteAverage             Float                    @default(0.0)
-  metadata                Json                     @default("{}")
-  createdAt               DateTime                 @default(now())
-  updatedAt               DateTime                 @updatedAt
-  interactions            MovieInteraction[]
+  id                       String                   @id @default(uuid())
+  tmdbId                   Int                      @unique
+  title                    String
+  originalTitle            String
+  posterPath               String?
+  backdropPath             String?
+  releaseYear              Int?
+  popularity               Float                    @default(0.0)
+  voteAverage              Float                    @default(0.0)
+  voteCount                Int                      @default(0)
+  genreIds                 Int[]                    @default([])
+  adult                    Boolean                  @default(false)
+  contentRating            String?
+  normalizedMinimumAge     Int?
+  safetyLevel              ContentSafetyLevel       @default(UNKNOWN)
+  calibrationPriorityScore Float                    @default(0.0)
+  searchNormalizedTitle    String                   @default("")
+  metadata                 Json                     @default("{}")
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  interactions             MovieInteraction[]
   recommendationFeedbacks  RecommendationFeedback[]
-  libraryEntries          UserContentLibrary[]
-  selectedInMovieNights   MovieNightSession[]      @relation("SelectedMovieNight")
+  libraryEntries           UserContentLibrary[]
+  selectedInMovieNights    MovieNightSession[]      @relation("SelectedMovieNight")
 
   @@index([popularity])
   @@index([voteAverage(sort: Desc), popularity(sort: Desc)])
+  @@index([calibrationPriorityScore(sort: Desc)])
+  @@index([safetyLevel, calibrationPriorityScore(sort: Desc)])
+  @@index([releaseYear, calibrationPriorityScore(sort: Desc)])
 }
 
 model MovieInteraction {
@@ -297,30 +340,41 @@ model AdminAuditLog {
 }
 
 model TvShow {
-  id                      String                   @id @default(uuid())
-  tmdbId                  Int                      @unique
-  name                    String
-  originalName            String?
-  overview                String                   @default("")
-  posterPath              String?
-  backdropPath            String?
-  firstAirDate            String?
-  lastAirDate             String?
-  status                  String?
-  originalLanguage        String?
-  popularity              Float                    @default(0.0)
-  voteAverage             Float                    @default(0.0)
-  voteCount               Int?
-  metadata                Json                     @default("{}")
-  createdAt               DateTime                 @default(now())
-  updatedAt               DateTime                 @updatedAt
-  interactions            TvInteraction[]
-  recommendationFeedbacks TvRecommendationFeedback[]
+  id                       String                   @id @default(uuid())
+  tmdbId                   Int                      @unique
+  name                     String
+  originalName             String?
+  overview                 String                   @default("")
+  posterPath               String?
+  backdropPath             String?
+  firstAirDate             String?
+  firstAirYear             Int?
+  lastAirDate              String?
+  status                   String?
+  originalLanguage         String?
+  popularity               Float                    @default(0.0)
+  voteAverage              Float                    @default(0.0)
+  voteCount                Int?
+  genreIds                 Int[]                    @default([])
+  adult                    Boolean                  @default(false)
+  contentRating            String?
+  normalizedMinimumAge     Int?
+  safetyLevel              ContentSafetyLevel       @default(UNKNOWN)
+  calibrationPriorityScore Float                    @default(0.0)
+  searchNormalizedTitle    String                   @default("")
+  metadata                 Json                     @default("{}")
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  interactions             TvInteraction[]
+  recommendationFeedbacks  TvRecommendationFeedback[]
   recommendationExplanations TvRecommendationExplanation[]
   libraryEntries          UserContentLibrary[]
 
   @@index([popularity])
   @@index([voteAverage(sort: Desc), popularity(sort: Desc)])
+  @@index([calibrationPriorityScore(sort: Desc)])
+  @@index([safetyLevel, calibrationPriorityScore(sort: Desc)])
+  @@index([firstAirYear, calibrationPriorityScore(sort: Desc)])
 }
 
 model TvInteraction {
@@ -632,4 +686,74 @@ model MonetizationSetting {
   adsTxtCustom         String?  @db.Text
   updatedAt            DateTime @updatedAt
 }
+
+model UserGenrePreference {
+  id          String               @id @default(uuid())
+  userId      String
+  mediaType   MediaType            @default(FILM)
+  genreId     Int
+  preference  GenrePreferenceLevel @default(NEUTRAL)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mediaType, genreId])
+  @@index([userId, mediaType])
+}
+
+model UserEntitlement {
+  id           String           @id @default(uuid())
+  userId       String           @unique
+  tier         SubscriptionTier @default(FREE)
+  validUntil   DateTime?
+  customLimits Json             @default("{}")
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tier])
+}
+
+model FeatureUsageDaily {
+  id          String    @id @default(uuid())
+  userId      String
+  featureKey  String
+  usageDate   String
+  count       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, featureKey, usageDate])
+  @@index([userId, usageDate])
+}
+
+model CatalogBackfillJob {
+  id             String            @id @default(uuid())
+  jobType        String
+  mediaType      MediaType
+  status         BackfillJobStatus @default(PENDING)
+  lastCursor     Int               @default(0)
+  processedCount Int               @default(0)
+  updatedCount   Int               @default(0)
+  safeCount      Int               @default(0)
+  matureCount    Int               @default(0)
+  blockedCount   Int               @default(0)
+  unknownCount   Int               @default(0)
+  errorCount     Int               @default(0)
+  lastError      String?
+  startedAt      DateTime?
+  lastRunAt      DateTime?
+  completedAt    DateTime?
+  metadata       Json              @default("{}")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([jobType, mediaType])
+  @@index([status])
+}
+
 

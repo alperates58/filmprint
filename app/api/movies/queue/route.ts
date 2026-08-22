@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getOrCreateSession } from "@/lib/session";
 import { getIntelligentCalibrationQueue } from "@/lib/calibration/service";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   try {
     const session = await getOrCreateSession();
@@ -11,18 +13,21 @@ export async function GET(request: Request) {
     const { userId } = session;
 
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "5", 10), 1), 10);
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "5", 10), 1), 15);
+    const mode = (searchParams.get("mode") || "SMART").toUpperCase() as "SMART" | "GENRE" | "SEARCH";
+    const rawGenreIds = searchParams.get("genreIds") || "";
+    const genreIds = rawGenreIds
+      .split(",")
+      .map((id) => parseInt(id.trim(), 10))
+      .filter((id) => !isNaN(id) && id > 0);
 
-    const result = await getIntelligentCalibrationQueue(userId, limit);
+    const result = await getIntelligentCalibrationQueue(userId, {
+      mode,
+      genreIds,
+      limit,
+    });
 
-    return NextResponse.json({
-      movies: result.movies,
-      answeredCount: result.answeredCount,
-      targetCount: result.targetCount,
-      completed: result.completed,
-      strategy: result.strategy,
-      supply: result.supply,
-    }, {
+    return NextResponse.json(result, {
       headers: {
         "Cache-Control": "no-store, max-age=0",
       },

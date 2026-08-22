@@ -1,9 +1,25 @@
 import { db } from "@/lib/db/client";
 import { getSystemSettings } from "@/lib/config/service";
 import { rankCandidateMovies } from "./selector";
-import { CandidateMovie, RecentInteractionPattern, UserTasteProfileInput } from "./types";
+import {
+  CandidateMovie,
+  RecentInteractionPattern,
+  UserTasteProfileInput,
+} from "./types";
 import { FilmDnaResult } from "@/lib/profile/types";
 import { resolveMovieCandidateSupply, CalibrationSupplyStatus } from "./supply";
+import {
+  MOVIE_CALIBRATION_PAGE_SIZE,
+  MOVIE_CALIBRATION_MAX_PAGES,
+  MOVIE_CALIBRATION_TARGET_POOL,
+} from "./constants";
+import {
+  CALIBRATION_THRESHOLDS,
+  getMovieConfidenceLevel,
+  ConfidenceLevelInfo,
+} from "./confidence";
+import { FamiliarityState, GenrePreferenceScoreMap } from "./scoring";
+import { resolveGenreNamesFromIds } from "@/lib/catalog/genres";
 
 export interface QueueMovieResponseItem {
   id: string;
@@ -20,15 +36,26 @@ export interface QueueMovieResponseItem {
   reasons?: string[];
 }
 
+export interface CalibrationQueueOptions {
+  mode?: "SMART" | "GENRE" | "SEARCH";
+  genreIds?: number[];
+  limit?: number;
+}
+
 export interface CalibrationQueueResult {
   movies: QueueMovieResponseItem[];
-  answeredCount: number;
-  targetCount: number;
-  completed: boolean;
-  strategy: {
-    activeLearningEnabled: boolean;
-    selectorVersion: number;
-  };
+  evaluationCount: number;
+  watchedCount: number;
+  tasteEvidenceCount: number;
+  minimumTarget: number;
+  recommendedTarget: number;
+  confidence: ConfidenceLevelInfo;
+  canGenerateDna: boolean;
+  recommendedCalibrationComplete: boolean;
+  sessionSafetyCapReached: boolean;
+  familiarityState: FamiliarityState;
+  mode: "SMART" | "GENRE" | "SEARCH";
+  selectedGenreIds: number[];
   supply: {
     status: CalibrationSupplyStatus;
     rawScanned: number;
@@ -39,15 +66,14 @@ export interface CalibrationQueueResult {
 }
 
 /**
- * Resolves the next candidate movie queue for a user using Active Learning / Intelligent Calibration.
- * Operates 100% DATABASE-FIRST with bounded paged DB retrieval and zero external TMDB network calls.
+ * Resolves the next candidate movie queue for a user using Calibration V2 Intelligence.
+ * 100% Database-First, with pg_trgm & GIN indexed safety/priority filtering, adaptive familiarity, and mode support.
  */
 export async function getIntelligentCalibrationQueue(
   userId: string,
-  limit: number = 5
+  options: CalibrationQueueOptions = {}
 ): Promise<CalibrationQueueResult> {
-  const settings = await getSystemSettings();
-  const targetCount = settings.calibrationTarget;
+  const { mode = "SMART", genreIds = [], limit = 5 } = options;
 
   // 1. Fetch answered interactions for current user
   const answeredInteractions = await db.movieInteraction.findMany({
@@ -55,10 +81,13 @@ export async function getIntelligentCalibrationQueue(
     orderBy: { answeredAt: "desc" },
     select: {
       movieId: true,
+      status: true,
+      rating: true,
       answeredAt: true,
       movie: {
         select: {
           releaseYear: true,
+          genreIds: true,
           metadata: true,
         },
       },
@@ -66,22 +95,75 @@ export async function getIntelligentCalibrationQueue(
   });
 
   const answeredMovieIds = new Set(answeredInteractions.map((i: any) => i.movieId));
-  const answeredCount = answeredMovieIds.size;
+  const evaluationCount = answeredMovieIds.size;
+
+  // Separate watchedCount (distinct watched) and tasteEvidenceCount (watched with valid rating)
+  const watchedInteractions = answeredInteractions.filter((i: any) => i.status === "WATCHED");
+  const watchedMovieIds = new Set(watchedInteractions.map((i: any) => i.movieId));
+  const watchedCount = watchedMovieIds.size;
+
+  const tasteEvidenceInteractions = answeredInteractions.filter(
+    (i: any) => i.status === "WATCHED" && i.rating !== null
+  );
+  const tasteEvidenceCount = new Set(tasteEvidenceInteractions.map((i: any) => i.movieId)).size;
+
+  // Confidence & Milestones
+  const confidence = getMovieConfidenceLevel(tasteEvidenceCount);
+  const canGenerateDna = tasteEvidenceCount >= CALIBRATION_THRESHOLDS.FILM.MIN_UNLOCK;
+  const recommendedCalibrationComplete =
+    tasteEvidenceCount >= CALIBRATION_THRESHOLDS.FILM.RECOMMENDED;
+  const sessionSafetyCapReached =
+    evaluationCount >= CALIBRATION_THRESHOLDS.FILM.MAX_EXPOSURE_CAP;
+
+  // 2. Adaptive Familiarity: Rolling window of last 10 interactions (min 3 answers)
+  const recent10 = answeredInteractions.slice(0, 10);
+  const actualWindowSize = recent10.length;
+  let familiarityState: FamiliarityState = "BALANCED";
+
+  if (actualWindowSize >= 3) {
+    const watchedInWindow = recent10.filter((i: any) => i.status === "WATCHED").length;
+    const ratio = watchedInWindow / actualWindowSize;
+    if (ratio < 0.30) {
+      familiarityState = "FAMILIARITY_RECOVERY";
+    } else if (ratio >= 0.70) {
+      familiarityState = "DEEPENING";
+    } else {
+      familiarityState = "BALANCED";
+    }
+  }
 
   // Recent history pattern for repetition penalty
-  const recentWindow = settings.recentHistoryWindow || 10;
-  const recentInteractions: RecentInteractionPattern[] = answeredInteractions
-    .slice(0, recentWindow)
-    .map((i: any) => {
-      const meta = (i.movie?.metadata as Record<string, unknown>) || {};
-      return {
-        movieId: i.movieId,
-        genres: (meta.genres as string[]) || [],
-        releaseYear: i.movie?.releaseYear || null,
-      };
-    });
+  const recentInteractions: RecentInteractionPattern[] = recent10.map((i: any) => {
+    const meta = (i.movie?.metadata as Record<string, unknown>) || {};
+    let genres = (meta.genres as string[]) || [];
+    if (Array.isArray(i.movie?.genreIds) && i.movie.genreIds.length > 0) {
+      genres = resolveGenreNamesFromIds(i.movie.genreIds, "FILM");
+    }
+    return {
+      movieId: i.movieId,
+      genres,
+      releaseYear: i.movie?.releaseYear || null,
+    };
+  });
 
-  // 2. Fetch User Taste Profile if available
+  // 3. User Genre Preferences
+  const userGenrePrefs = await db.userGenrePreference.findMany({
+    where: { userId, mediaType: "FILM" },
+  });
+
+  const preferenceMap: GenrePreferenceScoreMap = {
+    preferredGenreIds: new Set(
+      userGenrePrefs.filter((p: any) => p.preference === "PREFER").map((p: any) => p.genreId)
+    ),
+    avoidedGenreIds: new Set(
+      userGenrePrefs.filter((p: any) => p.preference === "AVOID").map((p: any) => p.genreId)
+    ),
+    excludedGenreIds: new Set(
+      userGenrePrefs.filter((p: any) => p.preference === "EXCLUDE").map((p: any) => p.genreId)
+    ),
+  };
+
+  // 4. Fetch User Taste Profile if available
   const existingProfileRecord = await db.userTasteProfile.findUnique({
     where: { userId },
   });
@@ -96,115 +178,160 @@ export async function getIntelligentCalibrationQueue(
     };
   }
 
-  // 3. Query deterministic paged un-interacted movies from Database
+  // 5. Query deterministic paged un-interacted movies from Database
   async function fetchRawCandidatePage({
     skip,
     take,
   }: {
+    page: number;
     skip: number;
     take: number;
-  }): Promise<CandidateMovie[]> {
-    const raw = await db.movie.findMany({
-      where: {
-        interactions: {
-          none: { userId },
-        },
-        posterPath: { not: null },
+  }) {
+    const whereConditions: any = {
+      id: { notIn: Array.from(answeredMovieIds) },
+      posterPath: { not: null },
+      safetyLevel: {
+        notIn: ["ADULT", "EROTIC", "SEXUAL_CONTENT"],
       },
+      OR: [
+        { normalizedMinimumAge: null },
+        { normalizedMinimumAge: { lt: 18 } },
+      ],
+    };
+
+    // Genre mode filtering
+    if (mode === "GENRE" && genreIds.length > 0) {
+      whereConditions.genreIds = {
+        hasSome: genreIds,
+      };
+    }
+
+    // Excluded genres filtering
+    if (preferenceMap.excludedGenreIds.size > 0) {
+      const excludedArr = Array.from(preferenceMap.excludedGenreIds);
+      whereConditions.NOT = {
+        genreIds: {
+          hasSome: excludedArr,
+        },
+      };
+    }
+
+    const rows = await db.movie.findMany({
+      where: whereConditions,
       orderBy: [
+        { calibrationPriorityScore: "desc" },
         { popularity: "desc" },
         { voteAverage: "desc" },
         { id: "asc" },
       ],
       skip,
       take,
+      select: {
+        id: true,
+        tmdbId: true,
+        title: true,
+        originalTitle: true,
+        releaseYear: true,
+        posterPath: true,
+        backdropPath: true,
+        voteAverage: true,
+        popularity: true,
+        voteCount: true,
+        genreIds: true,
+        safetyLevel: true,
+        normalizedMinimumAge: true,
+        adult: true,
+        metadata: true,
+      },
     });
 
-    return raw.map((m: any) => {
+    return rows.map((m: any) => {
       const meta = (m.metadata as Record<string, unknown>) || {};
+      let genres: string[] = [];
+      if (Array.isArray(m.genreIds) && m.genreIds.length > 0) {
+        genres = resolveGenreNamesFromIds(m.genreIds, "FILM");
+      } else if (Array.isArray(meta.genres)) {
+        genres = meta.genres as string[];
+      }
+
       return {
         id: m.id,
         tmdbId: m.tmdbId,
         title: m.title,
         originalTitle: m.originalTitle,
+        englishTitle: (meta.englishTitle as string) || null,
         releaseYear: m.releaseYear,
-        popularity: m.popularity,
-        voteAverage: m.voteAverage,
         posterPath: m.posterPath,
         backdropPath: m.backdropPath,
-        genres: (meta.genres as string[]) || [],
+        voteAverage: m.voteAverage,
+        popularity: m.popularity,
+        voteCount: m.voteCount,
         overview: (meta.overview as string) || "",
-        adult: (meta.adult as boolean) || false,
-        voteCount: (meta.voteCount as number) || undefined,
-        metadata: meta,
-      };
+        genres,
+        adult: m.adult,
+        safetyLevel: m.safetyLevel,
+        normalizedMinimumAge: m.normalizedMinimumAge,
+        metadata: {
+          ...meta,
+          genreIds: m.genreIds,
+        },
+      } as CandidateMovie;
     });
   }
 
-  // 4. Resolve candidate supply strictly from Database pages
-  const supply = await resolveMovieCandidateSupply<CandidateMovie>({
+  // 6. Scan eligible candidate pool
+  const scanResult = await resolveMovieCandidateSupply({
     fetchPage: fetchRawCandidatePage,
+    pageSize: MOVIE_CALIBRATION_PAGE_SIZE,
+    maxPages: MOVIE_CALIBRATION_MAX_PAGES,
+    targetPool: MOVIE_CALIBRATION_TARGET_POOL,
   });
-  const eligibleCandidates = supply.eligibleCandidates;
 
-  if (supply.status !== "AVAILABLE") {
-    console.info("[Movie Calibration Supply]", {
-      userId,
-      rawScanned: supply.rawScanned,
-      pagesScanned: supply.pagesScanned,
-      eligibleFound: eligibleCandidates.length,
-      status: supply.status,
-      exhausted: supply.exhausted,
-    });
-  }
+  // 7. Active Learning Selector: Rank eligible candidates
+  const rankedResults = rankCandidateMovies(
+    scanResult.eligibleCandidates,
+    profileInput,
+    recentInteractions,
+    familiarityState,
+    preferenceMap
+  );
 
-  // 5. Rank candidates using Active Learning or Fallback
-  let selectedMovies: QueueMovieResponseItem[] = [];
-
-  if (eligibleCandidates.length > 0) {
-    if (settings.aiEnabled && settings.activeLearningEnabled !== false) {
-      const rankedResults = rankCandidateMovies(eligibleCandidates, profileInput, recentInteractions);
-      if (rankedResults.length > 0) {
-        selectedMovies = rankedResults.slice(0, limit).map((r: any) => ({
-          ...r.movie,
-          selectionScore: r.score,
-          reasons: r.reasons,
-        }));
-      } else {
-        // Fallback: If repetition penalty was too strict, rank without recent history penalty
-        const fallbackRanked = rankCandidateMovies(eligibleCandidates, profileInput, []);
-        selectedMovies = fallbackRanked.slice(0, limit).map((r: any) => ({
-          ...r.movie,
-          selectionScore: r.score,
-          reasons: [...(r.reasons || []), "relaxed_repetition_penalty"],
-        }));
-      }
-    } else {
-      // Standard balanced selection on eligible pool
-      selectedMovies = eligibleCandidates.slice(0, limit).map((m: any) => ({
-        ...m,
-        selectionScore: 1.0,
-        reasons: ["standard_selection"],
-      }));
-    }
-  }
+  // 8. Select Top N Candidates
+  const selectedQueue = rankedResults.slice(0, limit).map((r) => ({
+    id: r.movie.id,
+    tmdbId: r.movie.tmdbId,
+    title: r.movie.title,
+    originalTitle: r.movie.originalTitle,
+    releaseYear: r.movie.releaseYear,
+    posterPath: r.movie.posterPath,
+    backdropPath: r.movie.backdropPath,
+    voteAverage: r.movie.voteAverage,
+    overview: r.movie.overview,
+    genres: r.movie.genres,
+    selectionScore: r.score,
+    reasons: r.reasons,
+  }));
 
   return {
-    movies: selectedMovies,
-    answeredCount,
-    targetCount,
-    completed: answeredCount >= targetCount,
-    strategy: {
-      activeLearningEnabled: settings.aiEnabled && settings.activeLearningEnabled !== false,
-      selectorVersion: 1,
-    },
+    movies: selectedQueue,
+    evaluationCount,
+    watchedCount,
+    tasteEvidenceCount,
+    minimumTarget: CALIBRATION_THRESHOLDS.FILM.MIN_UNLOCK,
+    recommendedTarget: CALIBRATION_THRESHOLDS.FILM.RECOMMENDED,
+    confidence,
+    canGenerateDna,
+    recommendedCalibrationComplete,
+    sessionSafetyCapReached,
+    familiarityState,
+    mode,
+    selectedGenreIds: genreIds,
     supply: {
-      status: supply.status,
-      rawScanned: supply.rawScanned,
-      pagesScanned: supply.pagesScanned,
-      eligibleCount: eligibleCandidates.length,
-      exhausted: supply.exhausted,
+      status: scanResult.status,
+      rawScanned: scanResult.rawScanned,
+      pagesScanned: scanResult.pagesScanned,
+      eligibleCount: scanResult.eligibleCandidates.length,
+      exhausted: scanResult.exhausted,
     },
   };
 }
-

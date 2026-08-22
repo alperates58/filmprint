@@ -9,6 +9,7 @@ import { filterEligibleMovies } from "@/lib/movies/eligibility";
 import { CandidateMovie } from "@/lib/calibration/types";
 import { FilmDnaResult } from "@/lib/profile/types";
 import { MovieNightStatus } from "@prisma/client";
+import { getUserEntitlement } from "@/lib/entitlements/service";
 import {
   MovieNightSessionInfo,
   MovieNightMemberInfo,
@@ -16,6 +17,7 @@ import {
   GroupMovieMatchResult,
 } from "./types";
 import { MAX_MEMBERS, SESSION_EXPIRATION_HOURS } from "./constants";
+
 
 /**
  * Generates a cryptographically secure random short invite code (e.g. "AB7KQ2").
@@ -309,12 +311,24 @@ export async function getMovieNightRecommendations(
     }
   }
 
-  // 3. Query DB movie candidate pool (300 candidates)
+  // 3. Query DB movie candidate pool (300 candidates) with Safety V2 filtering
   let rawCandidates = await db.movie.findMany({
     where: {
       id: { notIn: Array.from(excludedMovieIds) },
+      posterPath: { not: null },
+      safetyLevel: {
+        notIn: ["ADULT", "EROTIC", "SEXUAL_CONTENT"],
+      },
+      OR: [
+        { normalizedMinimumAge: null },
+        { normalizedMinimumAge: { lt: 18 } },
+      ],
     },
-    orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
+    orderBy: [
+      { calibrationPriorityScore: "desc" },
+      { popularity: "desc" },
+      { voteAverage: "desc" },
+    ],
     take: 300,
   });
 
@@ -323,8 +337,20 @@ export async function getMovieNightRecommendations(
     rawCandidates = await db.movie.findMany({
       where: {
         id: { notIn: Array.from(excludedMovieIds) },
+        posterPath: { not: null },
+        safetyLevel: {
+          notIn: ["ADULT", "EROTIC", "SEXUAL_CONTENT"],
+        },
+        OR: [
+          { normalizedMinimumAge: null },
+          { normalizedMinimumAge: { lt: 18 } },
+        ],
       },
-      orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
+      orderBy: [
+        { calibrationPriorityScore: "desc" },
+        { popularity: "desc" },
+        { voteAverage: "desc" },
+      ],
       take: 300,
     });
   }
@@ -351,6 +377,10 @@ export async function getMovieNightRecommendations(
 
   const candidates: CandidateMovie[] = filterEligibleMovies(rawCandidatePool, "MOVIE_NIGHT");
 
+  // Check Host Entitlement for Premium Session Capabilities
+  const hostEntitlement = await getUserEntitlement(sessionInfo.hostUserId);
+  const isPremiumSession = hostEntitlement.isPremium;
+
   // 4. In-Memory Group Match Calculation for candidates (<50ms)
   const groupResults: GroupMovieMatchResult[] = candidates.map((movie: any) => {
     const memberInputs: MemberMatchInput[] = memberData.map((d: any) => {
@@ -372,8 +402,12 @@ export async function getMovieNightRecommendations(
     .slice(0, Math.min(limit, 10));
 
   return {
-    session: sessionInfo,
+    session: {
+      ...sessionInfo,
+      isPremiumSession,
+    },
     recommendations: topRecommendations,
+    isPremiumSession,
   };
 }
 

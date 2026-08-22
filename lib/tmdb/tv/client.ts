@@ -9,8 +9,14 @@ import {
   TMDBTvDetails,
   TV_GENRE_MAP,
 } from "./types";
-import { COMPREHENSIVE_FALLBACK_TV_SHOWS } from "./fallback-catalog";
+import { resolveCanonicalGenreIds } from "@/lib/catalog/genres";
+import { pickTmdbCertification, evaluateContentSafety } from "@/lib/content/safety";
+import {
+  computeCalibrationPriorityScore,
+  generateSearchNormalizedTitle,
+} from "@/lib/calibration/priority";
 import { isValidTmdbImagePath } from "@/lib/tmdb/image";
+
 import {
   fetchTmdbTvJson,
   normalizeTmdbTvCursor,
@@ -27,6 +33,7 @@ import {
   type LocalizedTmdbTvShow,
 } from "./localization";
 import { resolveLocalizedTrailer } from "@/lib/tmdb/trailer";
+import { COMPREHENSIVE_FALLBACK_TV_SHOWS } from "./fallback-catalog";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 const TMDB_TV_CURSOR_SETTING_KEY = "tmdb_tv_calibration_cursor_v1";
@@ -73,17 +80,25 @@ export class TMDBTvClient {
     try {
       let englishDetail: (TMDBTvShow & { videos?: { results?: Array<Record<string, any>> } }) | null = null;
       const localized = await fetchLocalizedTmdbTvShow(async (language) => {
-        const detail = await fetchTmdbTvJson<TMDBTvShow & { videos?: { results?: Array<Record<string, any>> } }>(
+        const detail = await fetchTmdbTvJson<TMDBTvShow & {
+          videos?: { results?: Array<Record<string, any>> };
+          content_ratings?: { results?: Array<Record<string, any>> };
+          keywords?: { results?: Array<{ id: number; name: string }> };
+        }>(
           `${TMDB_API_BASE}/tv/${tmdbId}?api_key=${apiKey}&language=${language}${
-            language === "tr-TR" ? "&append_to_response=credits,videos" : "&append_to_response=videos"
+            language === "tr-TR"
+              ? "&append_to_response=credits,videos,content_ratings,keywords"
+              : "&append_to_response=videos,content_ratings,keywords"
           }`
         );
-        if (language === "en-US") englishDetail = detail;
+        if (language === "en-US") englishDetail = detail as any;
         return detail;
       });
       const data = localized.show as TMDBTvShow & {
         credits?: { cast?: Array<Record<string, any>> };
         videos?: { results?: Array<Record<string, any>> };
+        content_ratings?: { results?: Array<Record<string, any>> };
+        keywords?: { results?: Array<{ id: number; name: string }> };
       };
       const numberOfSeasons = data.number_of_seasons || null;
       const numberOfEpisodes = data.number_of_episodes || null;
@@ -117,10 +132,10 @@ export class TMDBTvClient {
         async () => {
           if (!englishDetail) {
             englishDetail = await fetchTmdbTvJson<TMDBTvShow & { videos?: { results?: Array<Record<string, any>> } }>(
-              `${TMDB_API_BASE}/tv/${tmdbId}?api_key=${apiKey}&language=en-US&append_to_response=videos`
+              `${TMDB_API_BASE}/tv/${tmdbId}?api_key=${apiKey}&language=en-US&append_to_response=videos,content_ratings,keywords`
             );
           }
-          return englishDetail.videos?.results || [];
+          return englishDetail?.videos?.results || [];
         }
       );
       const trailer = trailerResolution.trailer
@@ -346,6 +361,49 @@ export class TMDBTvClient {
       englishTitle: localization.englishTitle,
     };
 
+    // Extract canonical TV genre IDs
+    const canonicalGenreIds = resolveCanonicalGenreIds(
+      tmdbShow.genre_ids || tmdbShow.genres || [],
+      "TV"
+    );
+
+    // Extract Certification & Content Safety V2
+    const cert = pickTmdbCertification(tmdbShow, "TV");
+    const safetyV2 = evaluateContentSafety({
+      adult: tmdbShow.adult,
+      contentRating: cert.contentRating,
+      normalizedMinimumAge: cert.normalizedMinimumAge,
+      title: displayTitle,
+      originalTitle: tmdbShow.original_name,
+      englishTitle: localization.englishTitle,
+      overview: tmdbShow.overview,
+      genres: canonicalGenreIds,
+    });
+
+    const firstAirYear = tmdbShow.first_air_date
+      ? parseInt(tmdbShow.first_air_date.substring(0, 4), 10)
+      : null;
+
+    const voteCount = tmdbShow.vote_count || 0;
+    const voteAverage = tmdbShow.vote_average || 0.0;
+    const popularity = tmdbShow.popularity || 0.0;
+
+    const calibrationPriorityScore = computeCalibrationPriorityScore({
+      popularity,
+      voteAverage,
+      voteCount,
+      releaseYear: firstAirYear && !isNaN(firstAirYear) ? firstAirYear : null,
+      safetyLevel: safetyV2.safetyLevel,
+      normalizedMinimumAge: safetyV2.normalizedMinimumAge,
+      adult: tmdbShow.adult,
+    });
+
+    const searchNormalizedTitle = generateSearchNormalizedTitle(
+      displayTitle,
+      tmdbShow.original_name,
+      localization.englishTitle
+    );
+
     const show = await db.tvShow.upsert({
       where: { tmdbId: tmdbShow.id },
       update: {
@@ -354,12 +412,20 @@ export class TMDBTvClient {
         posterPath: tmdbShow.poster_path,
         backdropPath: tmdbShow.backdrop_path,
         firstAirDate: tmdbShow.first_air_date || null,
+        firstAirYear: firstAirYear && !isNaN(firstAirYear) ? firstAirYear : null,
         lastAirDate: tmdbShow.last_air_date || null,
         status: tmdbShow.status || null,
         originalLanguage: tmdbShow.original_language || null,
-        popularity: tmdbShow.popularity || 0.0,
-        voteAverage: tmdbShow.vote_average || 0.0,
-        voteCount: tmdbShow.vote_count || null,
+        popularity,
+        voteAverage,
+        voteCount,
+        genreIds: canonicalGenreIds,
+        adult: tmdbShow.adult === true || safetyV2.safetyLevel === "ADULT",
+        contentRating: safetyV2.contentRating,
+        normalizedMinimumAge: safetyV2.normalizedMinimumAge,
+        safetyLevel: safetyV2.safetyLevel,
+        calibrationPriorityScore,
+        searchNormalizedTitle,
         overview: overviewText,
         metadata: localizedMetadata,
       },
@@ -370,12 +436,20 @@ export class TMDBTvClient {
         posterPath: tmdbShow.poster_path,
         backdropPath: tmdbShow.backdrop_path,
         firstAirDate: tmdbShow.first_air_date || null,
+        firstAirYear: firstAirYear && !isNaN(firstAirYear) ? firstAirYear : null,
         lastAirDate: tmdbShow.last_air_date || null,
         status: tmdbShow.status || null,
         originalLanguage: tmdbShow.original_language || null,
-        popularity: tmdbShow.popularity || 0.0,
-        voteAverage: tmdbShow.vote_average || 0.0,
-        voteCount: tmdbShow.vote_count || null,
+        popularity,
+        voteAverage,
+        voteCount,
+        genreIds: canonicalGenreIds,
+        adult: tmdbShow.adult === true || safetyV2.safetyLevel === "ADULT",
+        contentRating: safetyV2.contentRating,
+        normalizedMinimumAge: safetyV2.normalizedMinimumAge,
+        safetyLevel: safetyV2.safetyLevel,
+        calibrationPriorityScore,
+        searchNormalizedTitle,
         overview: overviewText,
         metadata: localizedMetadata,
       },

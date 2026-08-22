@@ -39,6 +39,7 @@ export interface MovieNightSessionInfo {
   isHost: boolean;
   isMember: boolean;
   isExpired: boolean;
+  isPremiumSession?: boolean;
   selectedMovie?: CandidateMovie | null;
   members: MovieNightMemberInfo[];
   createdAt: Date;
@@ -48,4 +49,6 @@ export interface MovieNightSessionInfo {
 export interface MovieNightRecommendationsResponse {
   session: MovieNightSessionInfo;
   recommendations: GroupMovieMatchResult[];
+  isPremiumSession?: boolean;
 }
+

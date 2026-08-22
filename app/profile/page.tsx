@@ -26,7 +26,7 @@ export default async function ProfilePage() {
     redirect("/auth?returnTo=/profile");
   }
 
-  const [data, counts, tasteProfileRecord] = await Promise.all([
+  const [data, counts, tasteProfileRecord, watchedStats] = await Promise.all([
     getOrCalculateUserProfile(currentUser.id),
     Promise.all([
       db.movieInteraction.count({ where: { userId: currentUser.id, status: InteractionStatus.WATCHED } }),
@@ -39,10 +39,11 @@ export default async function ProfilePage() {
       where: { userId: currentUser.id },
       select: { profileJson: true },
     }),
+    (await import("@/lib/progression/watched-service")).getCanonicalWatchedCounts(currentUser.id),
   ]);
 
   const [watchedCount, notWatchedCount, unsureCount, watchLaterCount, favoriteCount] = counts;
-  const progression = getProgressionForCount(data.current);
+  const progression = getProgressionForCount(watchedStats.movieWatchedCount);
 
   const profileJson = (tasteProfileRecord?.profileJson as Record<string, any>) || {};
   const showEmail = profileJson.settings?.showEmail !== false;

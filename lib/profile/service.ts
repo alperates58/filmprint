@@ -41,13 +41,18 @@ export async function getOrCalculateUserProfile(userId: string): Promise<Profile
     },
   });
 
+  const tasteEvidenceInteractions = interactions.filter(
+    (i: any) => i.status === "WATCHED" && i.rating !== null
+  );
+  const tasteEvidenceCount = new Set(tasteEvidenceInteractions.map((i: any) => i.movieId)).size;
   const totalInteractions = interactions.length;
+  const minRequiredEvidence = 8;
 
-  if (totalInteractions < requiredCount) {
+  if (tasteEvidenceCount < minRequiredEvidence) {
     return {
       ready: false,
-      required: requiredCount,
-      current: totalInteractions,
+      required: minRequiredEvidence,
+      current: tasteEvidenceCount,
     };
   }
 

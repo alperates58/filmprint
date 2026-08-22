@@ -41,6 +41,17 @@ export default function AiDiscoveryPage() {
   const [isListening, setIsListening] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<"relevance" | "rating" | "year">("relevance");
+  const [quota, setQuota] = useState<{ remaining: number; limit: number; tier: string } | null>(null);
+
+  // Fetch initial quota on mount
+  useEffect(() => {
+    fetch("/api/ai/recommend?action=quota")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.quota) setQuota(d.quota);
+      })
+      .catch(() => {});
+  }, []);
 
   // Rich interaction modals
   const [selectedMovieModal, setSelectedMovieModal] = useState<{
@@ -76,11 +87,13 @@ export default function AiDiscoveryPage() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
+        if (errData.quota) setQuota(errData.quota);
         throw new Error(errData.error || "Öneriler alınırken bir sorun oluştu.");
       }
 
-      const json: AiRecommendationResponse = await res.json();
+      const json: AiRecommendationResponse & { quota?: any } = await res.json();
       setData(json);
+      if (json.quota) setQuota(json.quota);
 
       // Scroll to results on mobile/desktop smoothly
       setTimeout(() => {
@@ -311,15 +324,29 @@ export default function AiDiscoveryPage() {
             </div>
           </form>
 
-          {/* Quick Actions (Random Pick) */}
-          <div className="flex items-center justify-center gap-3">
+          {/* Quota & Quick Actions */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
             <button
               onClick={handleRandomPick}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-300 hover:text-purple-200 bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/20 rounded-lg transition-all"
             >
               <span>🎲</span>
-              <span>Şanslı Hissediyorum (Rastgele Öneri)</span>
+              <span>Şanslı Hissediyorum</span>
             </button>
+
+            {quota && (
+              <div className="text-xs text-zinc-400 font-sans">
+                {quota.tier === "PREMIUM" ? (
+                  <span className="text-purple-300 font-medium flex items-center gap-1">
+                    ✨ Premium Sınırsız AI Keşif
+                  </span>
+                ) : (
+                  <span>
+                    Günlük Kalan Arama: <strong className="text-purple-400 font-semibold">{quota.remaining}</strong> / {quota.limit}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

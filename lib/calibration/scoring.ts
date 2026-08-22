@@ -7,6 +7,14 @@ import {
   UserTasteProfileInput,
 } from "./types";
 
+export type FamiliarityState = "FAMILIARITY_RECOVERY" | "BALANCED" | "DEEPENING";
+
+export interface GenrePreferenceScoreMap {
+  preferredGenreIds: Set<number>;
+  avoidedGenreIds: Set<number>;
+  excludedGenreIds: Set<number>;
+}
+
 export function calculateGenreUncertainty(
   candidateGenres: string[],
   profile: UserTasteProfileInput | null
@@ -111,7 +119,6 @@ export function calculateRepetitionPenalty(
 }
 
 export function calculateQualityFloor(candidate: CandidateMovie): number {
-  // Give equal 50/50 weight to high rating (voteAverage 8.0+) & popularity so classic masterpieces rank alongside recent hits
   const popularityScore = Math.min((candidate.popularity || 0) / 100, 1.0);
   const voteScore = Math.min((candidate.voteAverage || 5.0) / 10, 1.0);
   const quality = popularityScore * 0.4 + voteScore * 0.6;
@@ -121,7 +128,9 @@ export function calculateQualityFloor(candidate: CandidateMovie): number {
 export function scoreCandidateMovie(
   candidate: CandidateMovie,
   profile: UserTasteProfileInput | null,
-  recentHistory: RecentInteractionPattern[]
+  recentHistory: RecentInteractionPattern[],
+  familiarityState: FamiliarityState = "BALANCED",
+  genrePreferences?: GenrePreferenceScoreMap
 ): CandidateScoringResult {
   const genreRes = calculateGenreUncertainty(candidate.genres, profile);
   const eraRes = calculateEraUncertainty(candidate.releaseYear, profile);
@@ -139,17 +148,42 @@ export function scoreCandidateMovie(
   let qualityWeight = ACTIVE_LEARNING_WEIGHTS.QUALITY_FLOOR;
 
   if (totalRated < 10) {
-    // Cold start exploration: prioritize catalog quality & familiarity across diverse eras
     qualityWeight *= 1.8;
   } else if (totalRated >= 30) {
-    // Refinement stage: heavily weight uncertainty
     genreWeight *= 1.3;
+  }
+
+  // Adaptive Familiarity Feedback Adjustment
+  if (familiarityState === "FAMILIARITY_RECOVERY") {
+    // User has low watched hit rate -> boost popularity and high awareness
+    qualityWeight *= 1.4;
+    genreWeight *= 0.7;
+    reasons.push("familiarity_recovery_boost");
+  } else if (familiarityState === "DEEPENING") {
+    // User knows many movies -> explore deeper quality gems
+    genreWeight *= 1.25;
+    qualityWeight *= 0.9;
+    reasons.push("deepening_exploration_boost");
+  }
+
+  let preferenceBonus = 0;
+  if (genrePreferences && candidate.metadata && Array.isArray((candidate.metadata as any).genreIds)) {
+    const ids = (candidate.metadata as any).genreIds as number[];
+    if (ids.some((id) => genrePreferences.preferredGenreIds.has(id))) {
+      preferenceBonus += 0.8;
+      reasons.push("preferred_genre_boost");
+    }
+    if (ids.some((id) => genrePreferences.avoidedGenreIds.has(id))) {
+      preferenceBonus -= 1.5;
+      reasons.push("avoided_genre_penalty");
+    }
   }
 
   const finalScore =
     genreRes.score * genreWeight +
     eraRes.score * ACTIVE_LEARNING_WEIGHTS.ERA_UNCERTAINTY +
-    qualityBonus * qualityWeight -
+    qualityBonus * qualityWeight +
+    preferenceBonus -
     repetitionRes.penalty * ACTIVE_LEARNING_WEIGHTS.REPETITION_PENALTY;
 
   return {

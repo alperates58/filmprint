@@ -305,7 +305,7 @@ export async function runTvCalibrationTests() {
     // -------------------------------------------------------------
     // 3. Calibration Queue Exclusion (All 4 statuses excluded)
     // -------------------------------------------------------------
-    const queueResult = await getTvCalibrationQueue(testUser.id, 10);
+    const queueResult = await getTvCalibrationQueue(testUser.id, { limit: 10 });
     const queueIds = new Set(queueResult.tvShows.map((s) => s.id));
 
     assert(

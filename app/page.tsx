@@ -6,7 +6,7 @@ import { CalibrationEngine } from "@/components/movie/CalibrationEngine";
 import { DiscoveryHome } from "@/components/home/DiscoveryHome";
 import { MovieItem } from "@/components/movie/MovieCard";
 
-const TARGET_CALIBRATION_COUNT = 30;
+export const dynamic = "force-dynamic";
 
 export default async function Home({
   searchParams,
@@ -19,14 +19,10 @@ export default async function Home({
   }
   const userId = user.id;
 
-  const answeredCount = await db.movieInteraction.count({
-    where: { userId },
-  });
+  const queueResult = await getIntelligentCalibrationQueue(userId, { limit: 5 });
 
-  // Uncalibrated user flow (< 30 answered movies)
-  if (answeredCount < TARGET_CALIBRATION_COUNT) {
-    const queueResult = await getIntelligentCalibrationQueue(userId, 5);
-
+  // Uncalibrated user flow (if recommended calibration is not completed)
+  if (!queueResult.recommendedCalibrationComplete) {
     const initialMovies: MovieItem[] = queueResult.movies.map((movie) => ({
       id: movie.id,
       tmdbId: movie.tmdbId,
@@ -43,22 +39,27 @@ export default async function Home({
     return (
       <CalibrationEngine
         initialMovies={initialMovies}
-        initialAnsweredCount={queueResult.answeredCount}
-        initialCompleted={false}
+        initialTasteEvidenceCount={queueResult.tasteEvidenceCount}
+        initialWatchedCount={queueResult.watchedCount}
+        initialEvaluationCount={queueResult.evaluationCount}
+        initialConfidence={queueResult.confidence}
+        initialCanGenerateDna={queueResult.canGenerateDna}
+        initialCompleted={queueResult.recommendedCalibrationComplete}
+        minimumTarget={queueResult.minimumTarget}
+        recommendedTarget={queueResult.recommendedTarget}
       />
     );
   }
 
-  // Calibrated user flow (>= 30 answered movies) -> Real Discovery Home Page!
+  // Calibrated user flow -> Real Discovery Home Page!
   const params = await searchParams;
   const showMilestone = params?.milestone === "1" || params?.milestone === "true";
 
   return (
     <DiscoveryHome
       userName={user.name || user.email?.split("@")[0] || ""}
-      answeredCount={answeredCount}
+      answeredCount={queueResult.watchedCount}
       initialShowMilestone={showMilestone}
     />
   );
 }
-

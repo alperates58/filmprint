@@ -83,6 +83,14 @@ function normalizeTvInput(show: EligibleTvShowInput) {
     (meta.adult as boolean) === true ||
     false;
 
+  const safetyLevel = (show as any).safetyLevel || meta.safetyLevel || null;
+  const normalizedMinimumAge = typeof (show as any).normalizedMinimumAge === "number"
+    ? (show as any).normalizedMinimumAge
+    : typeof meta.normalizedMinimumAge === "number"
+    ? meta.normalizedMinimumAge
+    : null;
+  const contentRating = (show as any).contentRating || (meta.contentRating as string) || null;
+
   return {
     name,
     originalName,
@@ -95,6 +103,9 @@ function normalizeTvInput(show: EligibleTvShowInput) {
     voteCount,
     genres,
     adult,
+    safetyLevel,
+    normalizedMinimumAge,
+    contentRating,
   };
 }
 
@@ -116,10 +127,21 @@ export function evaluateTvEligibility(
     reasons.push("ADULT_FLAG");
   }
 
-  // 2. HARD BLOCK: Explicit Pornographic / Erotic Signals Denylist
+  // 2. HARD BLOCK: Explicit Pornographic / Erotic Signals Denylist & 18+ Age Restriction
   const combinedTextToAudit = `${norm.name} ${norm.englishTitle} ${norm.originalName} ${norm.overview} ${norm.genres.join(" ")}`;
   if (isExplicitAdultContent(combinedTextToAudit)) {
     reasons.push("EXPLICIT_ADULT_KEYWORD");
+  }
+
+  if (
+    norm.safetyLevel === "ADULT" ||
+    norm.safetyLevel === "EROTIC" ||
+    norm.safetyLevel === "SEXUAL_CONTENT" ||
+    (norm.normalizedMinimumAge !== null && norm.normalizedMinimumAge >= 18)
+  ) {
+    if (!reasons.includes("ADULT_FLAG") && !reasons.includes("EXPLICIT_ADULT_KEYWORD")) {
+      reasons.push("ADULT_FLAG");
+    }
   }
 
   // 3. Display Name Check (the user-facing localized field, not original language)

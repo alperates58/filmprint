@@ -142,9 +142,9 @@ export async function getOrRecalculateTvTasteProfile(
 
       if (isFresh) {
         return {
-          ready: totalInteractions >= 5,
+          ready: parsed.evidenceCount >= 5,
           required: requiredCount,
-          current: totalInteractions,
+          current: parsed.evidenceCount,
           evaluatedCount: totalInteractions,
           evidenceCount: parsed.evidenceCount,
           confidence: parsed.confidence,
@@ -182,9 +182,9 @@ export async function getOrRecalculateTvTasteProfile(
   });
 
   return {
-    ready: totalInteractions >= 5,
+    ready: result.evidenceCount >= 5,
     required: requiredCount,
-    current: totalInteractions,
+    current: result.evidenceCount,
     evaluatedCount: totalInteractions,
     evidenceCount: result.evidenceCount,
     confidence: result.confidence,

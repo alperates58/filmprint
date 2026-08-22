@@ -1,19 +1,20 @@
-import { db } from "@/lib/db/client";
 import { getProgressionForCount, getTvProgressionForCount } from "./service";
 import { UserProgression } from "./types";
+import { getCanonicalWatchedCounts } from "./watched-service";
 
 /**
- * Fetches the evaluated count for the requested media mode and calculates progression.
+ * Fetches the canonical watched count for the requested media mode and calculates Rank V2 progression.
+ * Progression is strictly calculated from distinct watched titles (status === "WATCHED").
  */
 export async function getUserProgression(
   userId: string,
   mediaType: "FILM" | "TV" = "FILM"
 ): Promise<UserProgression> {
+  const stats = await getCanonicalWatchedCounts(userId);
+
   if (mediaType === "TV") {
-    const count = await db.tvInteraction.count({ where: { userId } });
-    return getTvProgressionForCount(count);
+    return getTvProgressionForCount(stats.tvWatchedCount);
   }
 
-  const count = await db.movieInteraction.count({ where: { userId } });
-  return getProgressionForCount(count);
+  return getProgressionForCount(stats.movieWatchedCount);
 }

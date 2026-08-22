@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { getOrCreateSession } from "@/lib/session";
-import { InteractionStatus, RatingStatus } from "@prisma/client";
+import { InteractionStatus, RatingStatus, MediaType } from "@prisma/client";
+import { CALIBRATION_THRESHOLDS } from "@/lib/calibration/confidence";
+import { getMovieConfidenceLevel } from "@/lib/calibration/confidence";
 
-const TARGET_CALIBRATION_COUNT = 30;
+export const dynamic = "force-dynamic";
 
 const VALID_STATUSES = new Set<string>([
   InteractionStatus.WATCHED,
@@ -75,42 +77,90 @@ export async function POST(request: Request) {
       );
     }
 
-    // Upsert interaction (idempotent for duplicate user + movie submissions)
-    await db.movieInteraction.upsert({
-      where: {
-        userId_movieId: {
+    // Upsert interaction in database transaction
+    await db.$transaction(async (tx) => {
+      await tx.movieInteraction.upsert({
+        where: {
+          userId_movieId: {
+            userId,
+            movieId,
+          },
+        },
+        update: {
+          status: status as InteractionStatus,
+          rating: status === InteractionStatus.WATCHED ? (rating as RatingStatus) : null,
+          answeredAt: new Date(),
+        },
+        create: {
           userId,
           movieId,
+          status: status as InteractionStatus,
+          rating: status === InteractionStatus.WATCHED ? (rating as RatingStatus) : null,
         },
-      },
-      update: {
-        status: status as InteractionStatus,
-        rating: status === InteractionStatus.WATCHED ? (rating as RatingStatus) : null,
-        answeredAt: new Date(),
-      },
-      create: {
-        userId,
-        movieId,
-        status: status as InteractionStatus,
-        rating: status === InteractionStatus.WATCHED ? (rating as RatingStatus) : null,
-      },
+      });
+
+      // Synchronize with UserContentLibrary
+      if (status === InteractionStatus.WATCHED) {
+        await tx.userContentLibrary.upsert({
+          where: {
+            userId_movieId: {
+              userId,
+              movieId,
+            },
+          },
+          update: {
+            state: "WATCHED",
+            watchedAt: new Date(),
+          },
+          create: {
+            userId,
+            mediaType: MediaType.FILM,
+            movieId,
+            state: "WATCHED",
+            watchedAt: new Date(),
+          },
+        });
+      }
     });
 
-    // Calculate current total progress for user
-    const answeredCount = await db.movieInteraction.count({
+    // Calculate current progress metrics
+    const interactions = await db.movieInteraction.findMany({
       where: { userId },
+      select: { movieId: true, status: true, rating: true },
     });
+
+    const evaluationCount = interactions.length;
+    const watchedCount = new Set(
+      interactions.filter((i) => i.status === "WATCHED").map((i) => i.movieId)
+    ).size;
+    const tasteEvidenceCount = new Set(
+      interactions.filter((i) => i.status === "WATCHED" && i.rating !== null).map((i) => i.movieId)
+    ).size;
+
+    const confidence = getMovieConfidenceLevel(tasteEvidenceCount);
+    const canGenerateDna = tasteEvidenceCount >= CALIBRATION_THRESHOLDS.FILM.MIN_UNLOCK;
+    const completed = tasteEvidenceCount >= CALIBRATION_THRESHOLDS.FILM.RECOMMENDED;
 
     return NextResponse.json({
       success: true,
-      answeredCount,
-      targetCount: TARGET_CALIBRATION_COUNT,
-      completed: answeredCount >= TARGET_CALIBRATION_COUNT,
+      movieId,
+      status,
+      rating: status === InteractionStatus.WATCHED ? rating : null,
+      evaluationCount,
+      watchedCount,
+      tasteEvidenceCount,
+      minimumTarget: CALIBRATION_THRESHOLDS.FILM.MIN_UNLOCK,
+      targetCount: CALIBRATION_THRESHOLDS.FILM.RECOMMENDED,
+      recommendedTarget: CALIBRATION_THRESHOLDS.FILM.RECOMMENDED,
+      completed,
+      canGenerateDna,
+      confidence,
+      answeredCount: evaluationCount, // Backward-compatibility
     });
   } catch (error) {
-    console.error("[Interaction API Error]:", error);
+    console.error("[POST /api/interactions Error]:", error);
     return NextResponse.json(
-      { error: "Failed to record interaction" },
+      { error: "Failed to record movie interaction" },
       { status: 500 }
     );
   }

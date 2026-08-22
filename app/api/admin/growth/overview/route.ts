@@ -10,6 +10,8 @@ import { getGoogleGrowthConfig } from "@/lib/growth/google/oauth";
 import { getBingGrowthConfig } from "@/lib/growth/bing/oauth";
 import { getYandexGrowthConfig } from "@/lib/growth/yandex/oauth";
 import { getAdSenseSettings } from "@/lib/growth/credentials";
+import { getMonetizationReadinessGate, getOrCreateMonetizationSetting } from "@/lib/monetization/service";
+import { evaluateAdsTxtHealth } from "@/lib/monetization/ads-txt";
 
 export async function GET() {
   try {
@@ -69,15 +71,25 @@ export async function GET() {
       ? "READY"
       : "SETUP_REQUIRED";
 
+    const [monetizationGate, monetizationSetting] = await Promise.all([
+      getMonetizationReadinessGate(),
+      getOrCreateMonetizationSetting(),
+    ]);
+
+    const adsTxtHealth = evaluateAdsTxtHealth(monetizationSetting?.publisherId, monetizationSetting?.adsTxtCustom);
+
     const monetizationReadiness = {
-      adsenseConnected: isGoogleConnected && Boolean(googleMeta.adsenseConnected || adsenseSettings.publisherId),
-      adsenseSiteStatus: googleMeta.adsenseSite?.state || (adsenseSettings.publisherId ? "READY" : "NOT_DETECTED"),
-      adsTxtStatus: adsenseSettings.adsTxt ? "CONFIGURED" : "PHASE_ID_PENDING",
-      cmpStatus: "PHASE_ID_PENDING",
-      consentModeReady: true,
-      tmdbCommercialLicenseVerified: Boolean(seoConfig.tmdbCommercialLicenseVerified),
-      privacyPageReady: true,
-      adsMasterEnabled: false, // Strictly false in Phase I-A/I-B
+      adsenseConnected: monetizationGate.gates.adsenseAccountConnected,
+      adsenseSiteStatus: googleMeta.adsenseSite?.state || (monetizationGate.gates.adsenseSiteReady ? "READY" : "NOT_DETECTED"),
+      adsTxtStatus: adsTxtHealth.status,
+      cmpStatus: monetizationGate.gates.cmpConfigured ? "CONFIGURED" : "PENDING_SETUP",
+      consentModeReady: monetizationGate.gates.consentModeReady,
+      tmdbCommercialLicenseVerified: monetizationGate.gates.tmdbCommercialLicenseVerified,
+      privacyPageReady: monetizationGate.gates.privacyPageReady,
+      policyCriticalIssuesZero: monetizationGate.gates.policyCriticalIssuesZero,
+      adsMasterEnabled: monetizationGate.masterEnabled,
+      isFullyReady: monetizationGate.isReady,
+      blockedReasons: monetizationGate.blockedReasons,
     };
 
     return NextResponse.json({

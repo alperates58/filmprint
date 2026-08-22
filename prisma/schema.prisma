@@ -552,3 +552,84 @@ model IndexNowSubmission {
   @@index([createdAt])
 }
 
+enum AdSurface {
+  MOVIE
+  TV
+  GENRE
+  EDITORIAL
+  GLOBAL
+}
+
+enum AdDeviceTarget {
+  ALL
+  MOBILE
+  DESKTOP
+}
+
+enum AdAudienceTarget {
+  ALL
+  ANONYMOUS_ONLY
+  AUTHENTICATED_ONLY
+}
+
+enum AdSenseUnitState {
+  ACTIVE
+  ARCHIVED
+  UNSPECIFIED
+}
+
+model AdPlacement {
+  id               String            @id @default(uuid())
+  key              String            @unique
+  name             String
+  description      String?
+  surface          AdSurface         @default(GLOBAL)
+  position         Int               @default(0)
+  enabled          Boolean           @default(false)
+  adUnitId         String?
+  deviceTarget     AdDeviceTarget    @default(ALL)
+  audience         AdAudienceTarget  @default(ANONYMOUS_ONLY)
+  minViewportWidth Int?
+  maxViewportWidth Int?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  adUnit           AdSenseInventoryUnit? @relation(fields: [adUnitId], references: [id], onDelete: SetNull)
+
+  @@index([surface, enabled])
+  @@index([key])
+}
+
+model AdSenseInventoryUnit {
+  id                   String           @id @default(uuid())
+  providerResourceName String           @unique
+  reportingDimensionId String?
+  displayName          String
+  state                AdSenseUnitState @default(ACTIVE)
+  type                 String?
+  size                 String?
+  adClientId           String?
+  lastSyncedAt         DateTime         @default(now())
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  placements           AdPlacement[]
+
+  @@index([state])
+  @@index([reportingDimensionId])
+}
+
+model MonetizationSetting {
+  id                   String   @id @default("default")
+  adsMasterEnabled     Boolean  @default(false)
+  publisherId          String?
+  adClientId           String?
+  adminPreviewMode     Boolean  @default(false)
+  anonymousOnlyDefault Boolean  @default(true)
+  maxAdsPerPage        Int      @default(2)
+  cmpConfigured        Boolean  @default(false)
+  cmpProvider          String   @default("google")
+  adsTxtCustom         String?  @db.Text
+  updatedAt            DateTime @updatedAt
+}
+

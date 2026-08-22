@@ -3,6 +3,7 @@ import "./globals.css";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
 import { BottomNav } from "@/components/ui/BottomNav";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
+import { AdSenseScriptLoader } from "@/components/monetization/AdSenseScriptLoader";
 import { getSeoSystemConfig } from "@/lib/growth/settings";
 
 export const viewport: Viewport = {
@@ -80,6 +81,7 @@ export default async function RootLayout({
           measurementId={seoConfig?.gaMeasurementId}
           enabled={seoConfig?.gaTrackingEnabled}
         />
+        <AdSenseScriptLoader />
         <PwaRegister />
         <div className="min-h-screen flex flex-col pb-20 md:pb-0">
           {children}

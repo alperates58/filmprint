@@ -72,7 +72,7 @@ export function normalizeDeepSeekModel(rawModel?: string | null): string {
 export async function getDeepSeekConfig(): Promise<DeepSeekConfig> {
   const secretRecord = await db.integrationSecret.findUnique({
     where: { provider: "deepseek" },
-  });
+  }).catch(() => null);
 
   const defaultBaseUrl = CANONICAL_DEEPSEEK_BASE_URL;
   const defaultModelId = CANONICAL_DEEPSEEK_MODEL;
@@ -119,7 +119,7 @@ export async function getDeepSeekConfig(): Promise<DeepSeekConfig> {
 export async function getIntegrationStatus(provider: string): Promise<IntegrationStatusInfo> {
   const record = await db.integrationSecret.findUnique({
     where: { provider },
-  });
+  }).catch(() => null);
 
   if (record && record.encryptedValue) {
     const meta = (record.metadata as Record<string, unknown>) || {};

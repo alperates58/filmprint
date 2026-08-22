@@ -17,6 +17,7 @@ import { ScrollToTop } from "@/components/ui/ScrollToTop";
 import { getCurrentUser } from "@/lib/auth/service";
 import { MediaPageActions } from "@/components/media/MediaPageActions";
 import { getRelatedTvShowsForShow } from "@/lib/tv/related";
+import { AdPlacement } from "@/components/monetization/AdPlacement";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -380,6 +381,9 @@ export default async function PublicTvPage({ params }: PageProps) {
           </div>
         </section>
 
+        {/* Ad Placement: TV After Overview */}
+        <AdPlacement slot="tv_after_overview" />
+
         {/* Cast Section */}
         {show.cast && show.cast.length > 0 && (
           <section className="space-y-4">
@@ -441,6 +445,9 @@ export default async function PublicTvPage({ params }: PageProps) {
             </div>
           </section>
         )}
+
+        {/* Ad Placement: TV Before Related */}
+        <AdPlacement slot="tv_before_related" />
 
         {/* Related TV Discovery */}
         {relatedShows.length > 0 && (

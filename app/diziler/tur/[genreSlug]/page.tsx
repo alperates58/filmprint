@@ -12,6 +12,7 @@ import { getTmdbImageUrl } from "@/lib/tmdb/image";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
 import { ScoreBadge } from "@/components/ui/ScoreBadge";
+import { AdPlacement } from "@/components/monetization/AdPlacement";
 
 interface PageProps {
   params: Promise<{ genreSlug: string }>;
@@ -152,49 +153,149 @@ export default async function TvGenreHubPage({ params, searchParams }: PageProps
           </div>
         </div>
 
-        {/* TV Grid */}
+        {/* TV Grid with Placement Slots */}
         {pagedShows.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-            {pagedShows.map((show) => {
-              const posterUrl = getTmdbImageUrl(show.posterPath, "w300");
-              const slug = generateTvSlug(show.name, show.tmdbId);
-              return (
-                <Link
-                  key={show.id}
-                  href={`/dizi/${slug}`}
-                  className="group block rounded-2xl overflow-hidden border border-border/80 bg-surface-1 hover:border-accent/50 transition-all hover:scale-[1.02] shadow-sm"
-                >
-                  <div className="aspect-[2/3] relative bg-surface-2">
-                    {posterUrl ? (
-                      <Image
-                        src={posterUrl}
-                        alt={show.name}
-                        fill
-                        sizes="(max-width: 768px) 160px, 200px"
-                        className="object-cover group-hover:opacity-90 transition-opacity"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs text-text-muted font-mono">
-                        Görsel Yok
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+              {pagedShows.slice(0, 8).map((show) => {
+                const posterUrl = getTmdbImageUrl(show.posterPath, "w300");
+                const slug = generateTvSlug(show.name, show.tmdbId);
+                return (
+                  <Link
+                    key={show.id}
+                    href={`/dizi/${slug}`}
+                    className="group block rounded-2xl overflow-hidden border border-border/80 bg-surface-1 hover:border-accent/50 transition-all hover:scale-[1.02] shadow-sm"
+                  >
+                    <div className="aspect-[2/3] relative bg-surface-2">
+                      {posterUrl ? (
+                        <Image
+                          src={posterUrl}
+                          alt={show.name}
+                          fill
+                          sizes="(max-width: 768px) 160px, 200px"
+                          className="object-cover group-hover:opacity-90 transition-opacity"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-text-muted font-mono">
+                          Görsel Yok
+                        </div>
+                      )}
+                      {show.voteAverage > 0 && (
+                        <div className="absolute top-2 right-2">
+                          <ScoreBadge score={Math.round(show.voteAverage * 10)} size="sm" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3 space-y-1">
+                      <p className="text-xs font-bold text-text-primary group-hover:text-accent transition-colors truncate font-sans">
+                        {show.name}
+                      </p>
+                      <p className="text-[11px] font-mono text-text-muted">
+                        {show.firstAirDate ? show.firstAirDate.substring(0, 4) : ""}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Ad Placement: Genre After 8 */}
+            <AdPlacement slot="genre_after_8" />
+
+            {pagedShows.length > 8 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+                {pagedShows.slice(8, 16).map((show) => {
+                  const posterUrl = getTmdbImageUrl(show.posterPath, "w300");
+                  const slug = generateTvSlug(show.name, show.tmdbId);
+                  return (
+                    <Link
+                      key={show.id}
+                      href={`/dizi/${slug}`}
+                      className="group block rounded-2xl overflow-hidden border border-border/80 bg-surface-1 hover:border-accent/50 transition-all hover:scale-[1.02] shadow-sm"
+                    >
+                      <div className="aspect-[2/3] relative bg-surface-2">
+                        {posterUrl ? (
+                          <Image
+                            src={posterUrl}
+                            alt={show.name}
+                            fill
+                            sizes="(max-width: 768px) 160px, 200px"
+                            className="object-cover group-hover:opacity-90 transition-opacity"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs text-text-muted font-mono">
+                            Görsel Yok
+                          </div>
+                        )}
+                        {show.voteAverage > 0 && (
+                          <div className="absolute top-2 right-2">
+                            <ScoreBadge score={Math.round(show.voteAverage * 10)} size="sm" />
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {show.voteAverage > 0 && (
-                      <div className="absolute top-2 right-2">
-                        <ScoreBadge score={Math.round(show.voteAverage * 10)} size="sm" />
+                      <div className="p-3 space-y-1">
+                        <p className="text-xs font-bold text-text-primary group-hover:text-accent transition-colors truncate font-sans">
+                          {show.name}
+                        </p>
+                        <p className="text-[11px] font-mono text-text-muted">
+                          {show.firstAirDate ? show.firstAirDate.substring(0, 4) : ""}
+                        </p>
                       </div>
-                    )}
-                  </div>
-                  <div className="p-3 space-y-1">
-                    <p className="text-xs font-bold text-text-primary group-hover:text-accent transition-colors truncate font-sans">
-                      {show.name}
-                    </p>
-                    <p className="text-[11px] font-mono text-text-muted">
-                      {show.firstAirDate ? show.firstAirDate.substring(0, 4) : ""}
-                    </p>
-                  </div>
-                </Link>
-              );
-            })}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+
+            {pagedShows.length > 16 && (
+              <>
+                {/* Ad Placement: Genre After 16 */}
+                <AdPlacement slot="genre_after_16" />
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+                  {pagedShows.slice(16).map((show) => {
+                    const posterUrl = getTmdbImageUrl(show.posterPath, "w300");
+                    const slug = generateTvSlug(show.name, show.tmdbId);
+                    return (
+                      <Link
+                        key={show.id}
+                        href={`/dizi/${slug}`}
+                        className="group block rounded-2xl overflow-hidden border border-border/80 bg-surface-1 hover:border-accent/50 transition-all hover:scale-[1.02] shadow-sm"
+                      >
+                        <div className="aspect-[2/3] relative bg-surface-2">
+                          {posterUrl ? (
+                            <Image
+                              src={posterUrl}
+                              alt={show.name}
+                              fill
+                              sizes="(max-width: 768px) 160px, 200px"
+                              className="object-cover group-hover:opacity-90 transition-opacity"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xs text-text-muted font-mono">
+                              Görsel Yok
+                            </div>
+                          )}
+                          {show.voteAverage > 0 && (
+                            <div className="absolute top-2 right-2">
+                              <ScoreBadge score={Math.round(show.voteAverage * 10)} size="sm" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3 space-y-1">
+                          <p className="text-xs font-bold text-text-primary group-hover:text-accent transition-colors truncate font-sans">
+                            {show.name}
+                          </p>
+                          <p className="text-[11px] font-mono text-text-muted">
+                            {show.firstAirDate ? show.firstAirDate.substring(0, 4) : ""}
+                          </p>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="p-12 text-center rounded-3xl bg-surface-1 border border-border/80 space-y-3">

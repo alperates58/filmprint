@@ -39,6 +39,91 @@ export async function runTvCalibrationTests() {
     }
   }
 
+  const { isDbAvailable } = await import("./test_helpers");
+  if (!(await isDbAvailable())) {
+    console.log("  ⚠️ Running in-memory TV Calibration ranking & scoring tests (PostgreSQL offline in test environment)");
+
+    const mockCandidates: CandidateTvShow[] = [
+      {
+        id: "c-1",
+        tmdbId: 101,
+        name: "Mock Drama 1",
+        originalName: "Mock Drama 1",
+        firstAirDate: "2015-01-01",
+        lastAirDate: "2020-01-01",
+        status: "Ended",
+        originalLanguage: "en",
+        popularity: 140.0,
+        voteAverage: 8.8,
+        voteCount: 5000,
+        posterPath: "/poster1.jpg",
+        backdropPath: null,
+        genres: ["Dram"],
+        overview: "Overview of mock drama.",
+        numberOfSeasons: 5,
+        numberOfEpisodes: 50,
+      },
+      {
+        id: "c-2",
+        tmdbId: 102,
+        name: "Mock SciFi 2",
+        originalName: "Mock SciFi 2",
+        firstAirDate: "2019-01-01",
+        lastAirDate: "2022-01-01",
+        status: "Ended",
+        originalLanguage: "de",
+        popularity: 120.0,
+        voteAverage: 8.6,
+        voteCount: 4000,
+        posterPath: "/poster2.jpg",
+        backdropPath: null,
+        genres: ["Bilim Kurgu & Fantezi", "Gizem"],
+        overview: "Overview of mock scifi.",
+        numberOfSeasons: 3,
+        numberOfEpisodes: 24,
+      },
+    ];
+
+    const mockUserState: TvSelectorUserState = {
+      totalAnsweredCount: 5,
+      genreFrequency: { Dram: 4, "Suç": 2 },
+      positiveGenres: ["Dram"],
+      negativeGenres: [],
+    };
+
+    const mockHistory: RecentTvInteractionPattern[] = [
+      { tvShowId: "h-1", genres: ["Dram"], firstAirYear: 2015 },
+      { tvShowId: "h-2", genres: ["Dram"], firstAirYear: 2018 },
+    ];
+
+    const run1 = rankCandidateTvShows(mockCandidates, mockUserState, mockHistory);
+    const run2 = rankCandidateTvShows(mockCandidates, mockUserState, mockHistory);
+    assert(
+      run1.length === run2.length &&
+        run1[0].tvShow.id === run2[0].tvShow.id &&
+        run1[0].score === run2[0].score,
+      "Candidate selector is 100% deterministic"
+    );
+
+    const dramaScore = scoreCandidateTvShow(mockCandidates[0], mockUserState, mockHistory);
+    const sciFiScore = scoreCandidateTvShow(mockCandidates[1], mockUserState, mockHistory);
+    assert(
+      dramaScore.breakdown.repetitionPenalty > 0,
+      "Repetition penalty applies to Drama candidate following consecutive recent Drama history"
+    );
+    assert(
+      sciFiScore.breakdown.genreUncertainty > dramaScore.breakdown.genreUncertainty,
+      "Under-sampled SciFi genre receives higher uncertainty score than over-sampled Drama"
+    );
+
+    const adultShow = { name: "Explicit Adult Show", overview: "Porno ve sansürsüz erotik video içeriği.", posterPath: "/poster.jpg", firstAirDate: "2020-01-01", voteAverage: 6.0, voteCount: 100, adult: true };
+    const resAdult = evaluateTvEligibility(adultShow, "CALIBRATION");
+    assert(resAdult.isEligible === false, "Adult TV show is rejected from calibration");
+
+    console.log(`\nRESULTS: All ${passed} of ${total} TV calibration in-memory unit tests passed.`);
+    return;
+  }
+
   // Setup test user
   const testUser = await db.user.create({
     data: {

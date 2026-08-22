@@ -40,6 +40,7 @@ import { runTvPersonalMatcherAndShortcutsTests } from "./tv_personal_matcher_and
 import { runDeepSeekAiTasteThinkingTests } from "./deepseek_ai_taste_thinking.test";
 import { runModalBottomSheetPhaseGTests } from "./modal_bottom_sheet_phase_g.test";
 import { runGrowthAndSeoTests } from "./growth_and_seo.test";
+import { runMonetizationAndAdSenseTests } from "./monetization_and_adsense.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -90,6 +91,7 @@ async function runAllUnitAndRegressionTests() {
     { name: "DeepSeek AI Taste Thinking & Structured Output Tests", fn: runDeepSeekAiTasteThinkingTests },
     { name: "Phase G Detail Modals & Mobile Bottom Sheets Tests", fn: runModalBottomSheetPhaseGTests },
     { name: "Phase I-A & I-B Growth and SEO Foundation Tests", fn: runGrowthAndSeoTests },
+    { name: "Phase I-C & I-D Monetization & AdSense Control Plane Tests", fn: runMonetizationAndAdSenseTests },
   ];
 
   let passedSuites = 0;

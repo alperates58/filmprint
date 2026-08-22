@@ -151,6 +151,17 @@ export async function requireAdminSession(): Promise<AdminUserSessionData> {
 }
 
 /**
+ * Strict Super Admin authorization guard.
+ */
+export async function requireSuperAdminSession(): Promise<AdminUserSessionData> {
+  const session = await requireAdminSession();
+  if (session.role !== AdminRole.SUPER_ADMIN) {
+    throw new Error("FORBIDDEN_SUPER_ADMIN_REQUIRED");
+  }
+  return session;
+}
+
+/**
  * Logs an administrative action to AdminAuditLog.
  */
 export async function logAdminAudit(

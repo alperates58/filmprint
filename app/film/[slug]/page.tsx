@@ -17,6 +17,7 @@ import { ScrollToTop } from "@/components/ui/ScrollToTop";
 import { getCurrentUser } from "@/lib/auth/service";
 import { MediaPageActions } from "@/components/media/MediaPageActions";
 import { getRelatedMoviesForMovie } from "@/lib/movies/related";
+import { AdPlacement } from "@/components/monetization/AdPlacement";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -368,6 +369,9 @@ export default async function PublicMoviePage({ params }: PageProps) {
           </div>
         </section>
 
+        {/* Ad Placement: Movie After Overview */}
+        <AdPlacement slot="movie_after_overview" />
+
         {/* Cast Section */}
         {movie.cast && movie.cast.length > 0 && (
           <section className="space-y-4">
@@ -429,6 +433,9 @@ export default async function PublicMoviePage({ params }: PageProps) {
             </div>
           </section>
         )}
+
+        {/* Ad Placement: Movie Before Related */}
+        <AdPlacement slot="movie_before_related" />
 
         {/* Related Discovery */}
         {relatedMovies.length > 0 && (

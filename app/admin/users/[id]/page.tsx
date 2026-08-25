@@ -171,7 +171,7 @@ export default async function AdminUserDetailPage({
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                 <div className="p-3 rounded-xl bg-surface-2 border border-border">
-                  <span className="text-text-muted block text-[10px] uppercase">DEĞERLENDİRİLEN</span>
+                  <span className="text-text-muted block text-[10px] uppercase">İZLENEN FİLM</span>
                   <span className="font-bold text-text-primary font-mono">{user.progression.evaluatedCount} Film</span>
                 </div>
                 <div className="p-3 rounded-xl bg-surface-2 border border-border">
@@ -211,7 +211,7 @@ export default async function AdminUserDetailPage({
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                 <div className="p-3 rounded-xl bg-surface-2 border border-border">
-                  <span className="text-text-muted block text-[10px] uppercase">DEĞERLENDİRİLEN</span>
+                  <span className="text-text-muted block text-[10px] uppercase">İZLENEN DİZİ</span>
                   <span className="font-bold text-text-primary font-mono">{user.tvProgression.evaluatedCount} Dizi</span>
                 </div>
                 <div className="p-3 rounded-xl bg-surface-2 border border-border">

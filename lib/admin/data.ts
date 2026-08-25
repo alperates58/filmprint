@@ -207,12 +207,27 @@ export async function getAdminOverviewData() {
   const totalTvPositiveWatched = tvMatchBucketOutcomes.reduce((acc, b) => acc + b.positive, 0);
   const tvPositiveOutcomeRate = totalTvWatchedFromRec > 0 ? Math.round((totalTvPositiveWatched / totalTvWatchedFromRec) * 100) : 0;
 
-  const allUsersWithCounts = await db.user.findMany({
-    select: {
-      id: true,
-      _count: { select: { interactions: true, tvInteractions: true } },
-    },
-  });
+  const [allUsersWithCounts, allWatchedMovieGroups, allWatchedTvGroups] = await Promise.all([
+    db.user.findMany({
+      select: {
+        id: true,
+        _count: { select: { interactions: true, tvInteractions: true } },
+      },
+    }),
+    db.movieInteraction.groupBy({
+      by: ["userId"],
+      where: { status: "WATCHED" },
+      _count: { movieId: true },
+    }),
+    db.tvInteraction.groupBy({
+      by: ["userId"],
+      where: { status: "WATCHED" },
+      _count: { tvShowId: true },
+    }),
+  ]);
+
+  const watchedMovieMap = new Map(allWatchedMovieGroups.map((g: any) => [g.userId, Number(g._count.movieId) || 0]));
+  const watchedTvMap = new Map(allWatchedTvGroups.map((g: any) => [g.userId, Number(g._count.tvShowId) || 0]));
 
   const rankDistributionMap: Record<string, number> = {};
   RANK_DEFINITIONS.forEach((r) => {
@@ -225,10 +240,12 @@ export async function getAdminOverviewData() {
   });
 
   for (const u of allUsersWithCounts) {
-    const r = getRankForCount(u._count.interactions);
+    const movieWatchedCount = watchedMovieMap.get(u.id) || 0;
+    const r = getRankForCount(movieWatchedCount);
     rankDistributionMap[r.key] = (rankDistributionMap[r.key] || 0) + 1;
 
-    const tvr = getTvRankForCount(u._count.tvInteractions);
+    const tvWatchedCount = watchedTvMap.get(u.id) || 0;
+    const tvr = getTvRankForCount(tvWatchedCount);
     tvRankDistributionMap[tvr.key] = (tvRankDistributionMap[tvr.key] || 0) + 1;
   }
 
@@ -399,26 +416,49 @@ export async function getAdminUsersData(search?: string, page: number = 1, pageS
     db.user.count({ where: whereCondition }),
   ]);
 
+  const userIds = users.map((u: any) => u.id);
+  const [movieWatchedCounts, tvWatchedCounts] = await Promise.all([
+    db.movieInteraction.groupBy({
+      by: ["userId"],
+      where: { userId: { in: userIds }, status: "WATCHED" },
+      _count: { movieId: true },
+    }),
+    db.tvInteraction.groupBy({
+      by: ["userId"],
+      where: { userId: { in: userIds }, status: "WATCHED" },
+      _count: { tvShowId: true },
+    }),
+  ]);
+
+  const movieWatchedMap = new Map(movieWatchedCounts.map((w: any) => [w.userId, Number(w._count.movieId) || 0]));
+  const tvWatchedMap = new Map(tvWatchedCounts.map((w: any) => [w.userId, Number(w._count.tvShowId) || 0]));
+
   return {
-    users: users.map((u: any) => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      image: u.image,
-      accountType: u.accountType,
-      provider: u.provider,
-      createdAt: u.createdAt,
-      lastSeenAt: u.lastSeenAt,
-      movieInteractionCount: u._count.interactions,
-      tvInteractionCount: u._count.tvInteractions,
-      interactionCount: u._count.interactions + u._count.tvInteractions,
-      hasTasteProfile: !!u.tasteProfile,
-      confidence: u.tasteProfile?.confidence || 0.0,
-      hasTvTasteProfile: !!u.tvTasteProfile,
-      tvConfidence: u.tvTasteProfile?.confidence || 0.0,
-      rank: getRankForCount(u._count.interactions),
-      tvRank: getTvRankForCount(u._count.tvInteractions),
-    })),
+    users: users.map((u: any) => {
+      const movieWatched = movieWatchedMap.get(u.id) || 0;
+      const tvWatched = tvWatchedMap.get(u.id) || 0;
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        image: u.image,
+        accountType: u.accountType,
+        provider: u.provider,
+        createdAt: u.createdAt,
+        lastSeenAt: u.lastSeenAt,
+        movieInteractionCount: u._count.interactions,
+        tvInteractionCount: u._count.tvInteractions,
+        interactionCount: u._count.interactions + u._count.tvInteractions,
+        movieWatchedCount: movieWatched,
+        tvWatchedCount: tvWatched,
+        hasTasteProfile: !!u.tasteProfile,
+        confidence: u.tasteProfile?.confidence || 0.0,
+        hasTvTasteProfile: !!u.tvTasteProfile,
+        tvConfidence: u.tvTasteProfile?.confidence || 0.0,
+        rank: getRankForCount(movieWatched),
+        tvRank: getTvRankForCount(tvWatched),
+      };
+    }),
     totalCount,
     totalPages: Math.ceil(totalCount / pageSize) || 1,
     currentPage: page,
@@ -498,8 +538,7 @@ export async function getAdminUserDetailData(id: string) {
   const notWatched = movieStatusMap.get("NOT_WATCHED") || 0;
   const unsure = movieStatusMap.get("UNSURE") || 0;
   const totalMovieInteractionCount = watched + notWatched + unsure;
-
-  const progression = getProgressionForCount(totalMovieInteractionCount);
+  const progression = getProgressionForCount(watched);
 
   // TV interaction breakdown from DB
   const tvStatusMap = new Map<string, number>(tvCountsByStatus.map((g: any) => [g.status, Number(g._count.status) || 0]));
@@ -508,7 +547,7 @@ export async function getAdminUserDetailData(id: string) {
   const tvNotWatched = tvStatusMap.get("NOT_WATCHED") || 0;
   const tvUnsure = tvStatusMap.get("UNSURE") || 0;
   const totalTvInteractionCount = tvWatched + tvPartiallyWatched + tvNotWatched + tvUnsure;
-  const tvProgression = getTvProgressionForCount(totalTvInteractionCount);
+  const tvProgression = getTvProgressionForCount(tvWatched);
 
   // Movie feedback breakdown from DB
   const movieFeedbackMap = new Map<string, number>(movieFeedbackCounts.map((g: any) => [g.action, Number(g._count.action) || 0]));

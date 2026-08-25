@@ -144,12 +144,18 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
 
                       {/* Movie count */}
                       <td className="py-3 px-2 text-center font-mono font-semibold text-text-primary">
-                        {user.movieInteractionCount}
+                        <span title={`İzlenen: ${user.movieWatchedCount} / Toplam Değerlendirilen: ${user.movieInteractionCount}`}>
+                          {user.movieWatchedCount}{" "}
+                          <span className="text-[10px] text-text-muted font-normal">/ {user.movieInteractionCount}</span>
+                        </span>
                       </td>
 
                       {/* TV count */}
                       <td className="py-3 px-2 text-center font-mono font-semibold text-accent">
-                        {user.tvInteractionCount}
+                        <span title={`İzlenen: ${user.tvWatchedCount} / Toplam Değerlendirilen: ${user.tvInteractionCount}`}>
+                          {user.tvWatchedCount}{" "}
+                          <span className="text-[10px] text-text-muted font-normal">/ {user.tvInteractionCount}</span>
+                        </span>
                       </td>
 
                       {/* Film DNA Status */}
@@ -159,7 +165,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                             %{Math.round(user.confidence * 100)}
                           </span>
                         ) : (
-                          <span className="text-text-muted">-</span>
+                          <span className="text-text-muted">—</span>
                         )}
                       </td>
 
@@ -170,17 +176,18 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                             %{Math.round(user.tvConfidence * 100)}
                           </span>
                         ) : (
-                          <span className="text-text-muted">-</span>
+                          <span className="text-text-muted">—</span>
                         )}
                       </td>
 
+                      {/* Actions */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Link
                             href={`/admin/users/${user.id}`}
-                            className="px-2.5 py-1.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-text-primary text-xs font-medium transition-colors border border-border inline-block"
+                            className="px-2.5 py-1 rounded-lg bg-surface-2 border border-border hover:border-accent text-[11px] font-medium text-text-primary hover:text-accent transition-colors"
                           >
-                            Detay →
+                            İncele
                           </Link>
                           <AdminUserActions
                             user={{
@@ -241,13 +248,13 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                     <div className="p-2 rounded-lg bg-surface-2 border border-border space-y-0.5">
                       <span className="text-text-muted text-[10px] block">FİLM RÜTBESİ</span>
                       <span className="font-semibold text-accent truncate block">
-                        {user.rank?.badgeIcon || "🎬"} {user.rank?.label || "Sinema Çırağı"} ({user.movieInteractionCount})
+                        {user.rank?.badgeIcon || "🎬"} {user.rank?.label || "Başlangıç"} ({user.movieWatchedCount})
                       </span>
                     </div>
                     <div className="p-2 rounded-lg bg-surface-2 border border-border space-y-0.5">
                       <span className="text-text-muted text-[10px] block">DİZİ RÜTBESİ</span>
                       <span className="font-semibold text-emerald-400 truncate block">
-                        {user.tvRank?.badgeIcon || "📺"} {user.tvRank?.label || "Dizi Meraklısı"} ({user.tvInteractionCount})
+                        {user.tvRank?.badgeIcon || "📺"} {user.tvRank?.label || "Dizi Yolcusu"} ({user.tvWatchedCount})
                       </span>
                     </div>
                   </div>

@@ -178,6 +178,63 @@ export function runPhaseHTests() {
   assert(COVERAGE_THRESHOLDS.MIN_GENRE_COVERAGE === 0.85, "Minimum genre coverage is exactly 85%");
   assert(COVERAGE_THRESHOLDS.MAX_FAILED_RATIO === 0.01, "Maximum failed ratio is exactly 1%");
 
+  // Legacy Adult Signal Resolution Tests
+  const { resolveLegacyAdultSignal } = require("@/scripts/backfill-phase-h");
+  
+  // A. Legacy Movie: physical adult=false, metadata adult=true -> resolved adult=true
+  const legacyMovieAdult = resolveLegacyAdultSignal(false, { adult: true });
+  assert(legacyMovieAdult === true, "Legacy Movie with metadata adult=true resolves to adult=true");
+  const movieSafety = evaluateContentSafety({
+    adult: legacyMovieAdult,
+    contentRating: null,
+    title: "Legacy Adult Movie",
+  });
+  assert(movieSafety.safetyLevel === "ADULT", "Safety evaluation receives resolved adult=true and returns ADULT");
+
+  // B. Legacy TV: physical adult=false, raw_tmdb adult=true -> resolved adult=true
+  const legacyTvAdult = resolveLegacyAdultSignal(false, { raw_tmdb: { adult: true } });
+  assert(legacyTvAdult === true, "Legacy TV with raw_tmdb adult=true resolves to adult=true");
+
+  // C. Existing physical adult=true is NEVER downgraded
+  const preservedAdult = resolveLegacyAdultSignal(true, { adult: false });
+  assert(preservedAdult === true, "Existing physical adult=true is preserved and never downgraded to false");
+
+  // Clean record without adult signals resolves to false
+  const cleanAdult = resolveLegacyAdultSignal(false, { adult: false, overview: "Family friendly film" });
+  assert(cleanAdult === false, "Clean record without adult signals resolves to false");
+
+  // Exhaustive Safety Classification Counters Invariant
+  function classifySafetyLevelForStats(level: ContentSafetyLevel, stats: { safe: number; mature: number; blocked: number; unknown: number }) {
+    if (level === ContentSafetyLevel.SAFE) stats.safe++;
+    else if (level === ContentSafetyLevel.MATURE) stats.mature++;
+    else if (level === ContentSafetyLevel.UNKNOWN) stats.unknown++;
+    else if (
+      level === ContentSafetyLevel.SEXUAL_CONTENT ||
+      level === ContentSafetyLevel.EROTIC ||
+      level === ContentSafetyLevel.ADULT
+    ) {
+      stats.blocked++;
+    }
+  }
+
+  const testStats = { safe: 0, mature: 0, blocked: 0, unknown: 0 };
+  classifySafetyLevelForStats(ContentSafetyLevel.SAFE, testStats);
+  classifySafetyLevelForStats(ContentSafetyLevel.MATURE, testStats);
+  classifySafetyLevelForStats(ContentSafetyLevel.UNKNOWN, testStats);
+  classifySafetyLevelForStats(ContentSafetyLevel.SEXUAL_CONTENT, testStats);
+  classifySafetyLevelForStats(ContentSafetyLevel.EROTIC, testStats);
+  classifySafetyLevelForStats(ContentSafetyLevel.ADULT, testStats);
+
+  // D. UNKNOWN safety increments unknownCount
+  assert(testStats.unknown === 1, "UNKNOWN safety increments unknownCount");
+
+  // E. SEXUAL_CONTENT / EROTIC / ADULT increment blockedCount
+  assert(testStats.blocked === 3, "SEXUAL_CONTENT, EROTIC, and ADULT increment blockedCount");
+
+  // F. SAFE and MATURE remain separate
+  assert(testStats.safe === 1, "SAFE increments safe count separately");
+  assert(testStats.mature === 1, "MATURE increments mature count separately");
+
   console.log(`\nPhase H Tests completed: ${passed}/${total} passed.\n`);
 }
 

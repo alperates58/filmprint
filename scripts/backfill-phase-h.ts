@@ -10,7 +10,7 @@ import { MediaType, BackfillJobStatus, ContentSafetyLevel } from "@prisma/client
 const BATCH_SIZE = 500;
 const JOB_TYPE = "SAFETY_PRIORITY_GENRE_V1";
 
-interface BackfillStats {
+export interface BackfillStats {
   processed: number;
   updated: number;
   safe: number;
@@ -18,6 +18,38 @@ interface BackfillStats {
   blocked: number;
   unknown: number;
   errors: number;
+}
+
+/**
+ * Resolves whether a legacy catalog record has an explicit adult signal.
+ *
+ * Invariants:
+ * 1. Physical adult=true is preserved and never downgraded to false.
+ * 2. If legacy metadata contains explicit adult=true (meta.adult, meta.raw_tmdb.adult, etc.), resolves true.
+ * 3. Never infers adult=true from missing or unknown data.
+ */
+export function resolveLegacyAdultSignal(
+  physicalAdult: boolean | null | undefined,
+  metadata: Record<string, unknown> | null | undefined
+): boolean {
+  if (physicalAdult === true) {
+    return true;
+  }
+
+  if (!metadata || typeof metadata !== "object") {
+    return false;
+  }
+
+  if (metadata.adult === true) {
+    return true;
+  }
+
+  const rawTmdb = (metadata.raw_tmdb || metadata.rawTmdb || metadata.tmdb) as Record<string, unknown> | undefined;
+  if (rawTmdb && typeof rawTmdb === "object" && rawTmdb.adult === true) {
+    return true;
+  }
+
+  return false;
 }
 
 async function getOrCreateJob(mediaType: MediaType) {
@@ -93,10 +125,11 @@ async function backfillMovies() {
         // 1. Resolve canonical genre IDs
         const canonicalGenreIds = resolveCanonicalGenreIds(rawGenres, "FILM");
 
-        // 2. Resolve certification & content safety
+        // 2. Resolve adult signal & certification & content safety
+        const resolvedAdult = resolveLegacyAdultSignal(m.adult, meta);
         const cert = pickTmdbCertification(meta, "FILM");
         const safetyResult = evaluateContentSafety({
-          adult: m.adult,
+          adult: resolvedAdult,
           contentRating: cert.contentRating,
           normalizedMinimumAge: cert.normalizedMinimumAge,
           title: m.title,
@@ -115,7 +148,7 @@ async function backfillMovies() {
           releaseYear: m.releaseYear,
           safetyLevel: safetyResult.safetyLevel,
           normalizedMinimumAge: safetyResult.normalizedMinimumAge,
-          adult: m.adult,
+          adult: resolvedAdult,
         });
 
         const searchNormalizedTitle = generateSearchNormalizedTitle(
@@ -124,12 +157,13 @@ async function backfillMovies() {
           (meta.englishTitle as string) || null
         );
 
-        // 4. Update movie record
+        // 4. Update movie record (persisting resolved adult)
         await db.movie.update({
           where: { id: m.id },
           data: {
             genreIds: canonicalGenreIds,
             voteCount,
+            adult: resolvedAdult,
             contentRating: safetyResult.contentRating,
             normalizedMinimumAge: safetyResult.normalizedMinimumAge,
             safetyLevel: safetyResult.safetyLevel,
@@ -139,9 +173,19 @@ async function backfillMovies() {
         });
 
         stats.updated++;
-        if (safetyResult.safetyLevel === ContentSafetyLevel.SAFE) stats.safe++;
-        else if (safetyResult.safetyLevel === ContentSafetyLevel.MATURE) stats.mature++;
-        else stats.blocked++;
+        if (safetyResult.safetyLevel === ContentSafetyLevel.SAFE) {
+          stats.safe++;
+        } else if (safetyResult.safetyLevel === ContentSafetyLevel.MATURE) {
+          stats.mature++;
+        } else if (safetyResult.safetyLevel === ContentSafetyLevel.UNKNOWN) {
+          stats.unknown++;
+        } else if (
+          safetyResult.safetyLevel === ContentSafetyLevel.SEXUAL_CONTENT ||
+          safetyResult.safetyLevel === ContentSafetyLevel.EROTIC ||
+          safetyResult.safetyLevel === ContentSafetyLevel.ADULT
+        ) {
+          stats.blocked++;
+        }
       } catch (err: any) {
         stats.errors++;
         console.error(`Error updating movie ${m.id}:`, err?.message);
@@ -251,10 +295,11 @@ async function backfillTvShows() {
         // 1. Resolve canonical genre IDs
         const canonicalGenreIds = resolveCanonicalGenreIds(rawGenres, "TV");
 
-        // 2. Resolve certification & content safety
+        // 2. Resolve adult signal & certification & content safety
+        const resolvedAdult = resolveLegacyAdultSignal(s.adult, meta);
         const cert = pickTmdbCertification(meta, "TV");
         const safetyResult = evaluateContentSafety({
-          adult: s.adult,
+          adult: resolvedAdult,
           contentRating: cert.contentRating,
           normalizedMinimumAge: cert.normalizedMinimumAge,
           title: s.name,
@@ -276,7 +321,7 @@ async function backfillTvShows() {
           releaseYear: firstAirYear && !isNaN(firstAirYear) ? firstAirYear : null,
           safetyLevel: safetyResult.safetyLevel,
           normalizedMinimumAge: safetyResult.normalizedMinimumAge,
-          adult: s.adult,
+          adult: resolvedAdult,
         });
 
         const searchNormalizedTitle = generateSearchNormalizedTitle(
@@ -285,12 +330,13 @@ async function backfillTvShows() {
           (meta.englishTitle as string) || null
         );
 
-        // 3. Update TV show record
+        // 3. Update TV show record (persisting resolved adult)
         await db.tvShow.update({
           where: { id: s.id },
           data: {
             genreIds: canonicalGenreIds,
             voteCount,
+            adult: resolvedAdult,
             firstAirYear: firstAirYear && !isNaN(firstAirYear) ? firstAirYear : null,
             contentRating: safetyResult.contentRating,
             normalizedMinimumAge: safetyResult.normalizedMinimumAge,
@@ -301,9 +347,19 @@ async function backfillTvShows() {
         });
 
         stats.updated++;
-        if (safetyResult.safetyLevel === ContentSafetyLevel.SAFE) stats.safe++;
-        else if (safetyResult.safetyLevel === ContentSafetyLevel.MATURE) stats.mature++;
-        else stats.blocked++;
+        if (safetyResult.safetyLevel === ContentSafetyLevel.SAFE) {
+          stats.safe++;
+        } else if (safetyResult.safetyLevel === ContentSafetyLevel.MATURE) {
+          stats.mature++;
+        } else if (safetyResult.safetyLevel === ContentSafetyLevel.UNKNOWN) {
+          stats.unknown++;
+        } else if (
+          safetyResult.safetyLevel === ContentSafetyLevel.SEXUAL_CONTENT ||
+          safetyResult.safetyLevel === ContentSafetyLevel.EROTIC ||
+          safetyResult.safetyLevel === ContentSafetyLevel.ADULT
+        ) {
+          stats.blocked++;
+        }
       } catch (err: any) {
         stats.errors++;
         console.error(`Error updating TV show ${s.id}:`, err?.message);

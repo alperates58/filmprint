@@ -14,8 +14,21 @@ export interface LibraryFilterOptions {
   state?: "WATCHLIST" | "WATCHED" | "NOT_WATCHED" | "DROPPED" | "ALL";
   isFavorite?: boolean;
   search?: string;
+  genre?: string;
+  era?: string;
   rating?: string;
-  sort?: "newest" | "oldest" | "title" | "rating" | "year";
+  sort?:
+    | "newest"
+    | "oldest"
+    | "title"
+    | "rating"
+    | "rating_desc"
+    | "rating_asc"
+    | "year"
+    | "year_desc"
+    | "year_asc"
+    | "title_asc"
+    | "user_rating";
   page?: number;
   limit?: number;
 }
@@ -51,6 +64,7 @@ export interface UserLibraryResponse {
   totalCount: number;
   totalPages: number;
   currentPage: number;
+  availableGenres: string[];
   counts: {
     total: number;
     watchlist: number;
@@ -90,6 +104,8 @@ export async function getUserLibraryData(
     state = "ALL",
     isFavorite,
     search = "",
+    genre = "ALL",
+    era = "ALL",
     rating = "ALL",
     sort = "newest",
     page = 1,
@@ -99,6 +115,69 @@ export async function getUserLibraryData(
   const safeLimit = Math.min(Math.max(1, limit), 50);
   const skip = Math.max(0, (page - 1) * safeLimit);
   const searchTrim = search.trim();
+
+  // Helper for sorting
+  const applySorting = (list: LibraryItemDto[], sortMode: string) => {
+    return [...list].sort((a, b) => {
+      if (sortMode === "oldest") {
+        return (new Date(a.addedAt).getTime() || 0) - (new Date(b.addedAt).getTime() || 0);
+      }
+      if (sortMode === "rating" || sortMode === "rating_desc") {
+        return (b.voteAverage || 0) - (a.voteAverage || 0);
+      }
+      if (sortMode === "rating_asc") {
+        return (a.voteAverage || 0) - (b.voteAverage || 0);
+      }
+      if (sortMode === "year" || sortMode === "year_desc") {
+        return (b.releaseYear ?? -1) - (a.releaseYear ?? -1);
+      }
+      if (sortMode === "year_asc") {
+        return (a.releaseYear ?? 9999) - (b.releaseYear ?? 9999);
+      }
+      if (sortMode === "title" || sortMode === "title_asc") {
+        return a.title.localeCompare(b.title, "tr");
+      }
+      if (sortMode === "user_rating") {
+        const ratingWeight: Record<string, number> = { LOVE: 4, LIKE: 3, NEUTRAL: 2, DISLIKE: 1 };
+        const weightA = a.userRating ? ratingWeight[a.userRating] || 0 : 0;
+        const weightB = b.userRating ? ratingWeight[b.userRating] || 0 : 0;
+        if (weightB !== weightA) return weightB - weightA;
+      }
+      // Default: newest by updatedAt / addedAt
+      const timeA = new Date(a.updatedAt || a.addedAt).getTime() || 0;
+      const timeB = new Date(b.updatedAt || b.addedAt).getTime() || 0;
+      return timeB - timeA;
+    });
+  };
+
+  // Helper for era & genre & rating filter
+  const applyFilters = (list: LibraryItemDto[]) => {
+    return list.filter((item) => {
+      // Genre filter
+      if (genre && genre !== "ALL" && !item.genres.includes(genre)) {
+        return false;
+      }
+      // Era filter
+      if (era && era !== "ALL") {
+        const y = item.releaseYear;
+        if (y === null || y === undefined) return false;
+        if (era === "2020s" && y < 2020) return false;
+        if (era === "2010s" && (y < 2010 || y > 2019)) return false;
+        if (era === "2000s" && (y < 2000 || y > 2009)) return false;
+        if (era === "1990s" && (y < 1990 || y > 1999)) return false;
+        if (era === "classic" && y >= 1990) return false;
+      }
+      // Rating filter
+      if (rating && rating !== "ALL") {
+        if (rating === "UNRATED") {
+          if (item.userRating) return false;
+        } else if (item.userRating !== rating) {
+          return false;
+        }
+      }
+      return true;
+    });
+  };
 
   // 1. Fetch existing library entries, interactions, and feedbacks in parallel
   const [
@@ -333,7 +412,6 @@ export async function getUserLibraryData(
               : {}),
           },
           include: { movie: true },
-          orderBy: sort === "oldest" ? { updatedAt: "asc" } : { updatedAt: "desc" },
         })
       : [];
 
@@ -354,7 +432,6 @@ export async function getUserLibraryData(
               : {}),
           },
           include: { tvShow: true },
-          orderBy: sort === "oldest" ? { updatedAt: "asc" } : { updatedAt: "desc" },
         })
       : [];
 
@@ -412,14 +489,23 @@ export async function getUserLibraryData(
       }),
     ];
 
-    const totalNotWatched = allNotWatched.length;
-    const paginatedNotWatched = allNotWatched.slice(skip, skip + safeLimit);
+    // Compute distinct genres
+    const genreSet = new Set<string>();
+    allNotWatched.forEach((i) => i.genres.forEach((g) => { if (g) genreSet.add(g); }));
+    const availableGenres = Array.from(genreSet).sort((a, b) => a.localeCompare(b, "tr"));
+
+    // Filter and sort
+    const filtered = applyFilters(allNotWatched);
+    const sorted = applySorting(filtered, sort);
+    const totalNotWatched = sorted.length;
+    const paginatedNotWatched = sorted.slice(skip, skip + safeLimit);
 
     return {
       items: paginatedNotWatched,
       totalCount: totalNotWatched,
       totalPages: Math.ceil(totalNotWatched / safeLimit) || 1,
       currentPage: page,
+      availableGenres,
       counts: {
         total: totalCount + notWatchedCount,
         watchlist: watchlistCount,
@@ -463,27 +549,16 @@ export async function getUserLibraryData(
     ];
   }
 
-  // Ordering
-  let orderBy: any = { addedAt: "desc" };
-  if (sort === "oldest") orderBy = { addedAt: "asc" };
-  else if (sort === "newest") orderBy = { updatedAt: "desc" };
-
-  const [matchedEntries, filteredTotalCount] = await Promise.all([
-    db.userContentLibrary.findMany({
-      where: whereClause,
-      skip,
-      take: safeLimit,
-      orderBy,
-      include: {
-        movie: true,
-        tvShow: true,
-      },
-    }),
-    db.userContentLibrary.count({ where: whereClause }),
-  ]);
+  const matchedEntries = await db.userContentLibrary.findMany({
+    where: whereClause,
+    include: {
+      movie: true,
+      tvShow: true,
+    },
+  });
 
   // Format DTOs
-  const items: LibraryItemDto[] = matchedEntries.map((e) => {
+  const allItems: LibraryItemDto[] = matchedEntries.map((e) => {
     if (e.mediaType === "FILM" && e.movie) {
       const meta = (e.movie.metadata as Record<string, unknown>) || {};
       const userRating = movieRatingMap.get(e.movie.id) || null;
@@ -562,17 +637,24 @@ export async function getUserLibraryData(
     }
   });
 
-  // Optional rating filter in memory if specified
-  let finalItems = items;
-  if (rating !== "ALL") {
-    finalItems = items.filter((item) => item.userRating === rating);
-  }
+  // Calculate distinct available genres for current state/tab
+  const genreSet = new Set<string>();
+  allItems.forEach((i) => i.genres.forEach((g) => { if (g) genreSet.add(g); }));
+  const availableGenres = Array.from(genreSet).sort((a, b) => a.localeCompare(b, "tr"));
+
+  // Apply in-memory filters and multi-criteria sorting
+  const filteredItems = applyFilters(allItems);
+  const sortedItems = applySorting(filteredItems, sort);
+
+  const totalFilteredCount = sortedItems.length;
+  const paginatedItems = sortedItems.slice(skip, skip + safeLimit);
 
   return {
-    items: finalItems,
-    totalCount: filteredTotalCount,
-    totalPages: Math.ceil(filteredTotalCount / safeLimit) || 1,
+    items: paginatedItems,
+    totalCount: totalFilteredCount,
+    totalPages: Math.ceil(totalFilteredCount / safeLimit) || 1,
     currentPage: page,
+    availableGenres,
     counts: {
       total: totalCount + notWatchedCount,
       watchlist: watchlistCount,

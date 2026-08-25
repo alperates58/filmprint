@@ -28,6 +28,8 @@ export async function GET(request: Request) {
     const isFavorite = rawFavorite === "true" ? true : rawFavorite === "false" ? false : undefined;
 
     const search = searchParams.get("search") || searchParams.get("q") || "";
+    const genre = searchParams.get("genre") || "ALL";
+    const era = searchParams.get("era") || "ALL";
     const rating = (searchParams.get("rating") || "ALL").toUpperCase();
     const sort = (searchParams.get("sort") || "newest") as LibraryFilterOptions["sort"];
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
@@ -38,6 +40,8 @@ export async function GET(request: Request) {
       state,
       isFavorite,
       search,
+      genre,
+      era,
       rating,
       sort,
       page,

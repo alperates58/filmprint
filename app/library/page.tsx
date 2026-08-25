@@ -18,6 +18,26 @@ const RATING_LABELS: Record<string, { label: string; emoji: string }> = {
   DISLIKE: { label: "Sevmedim", emoji: "👎" },
 };
 
+const ERA_OPTIONS = [
+  { key: "ALL", label: "Tüm Yıllar" },
+  { key: "2020s", label: "2020'ler" },
+  { key: "2010s", label: "2010'lar" },
+  { key: "2000s", label: "2000'ler" },
+  { key: "1990s", label: "90'lar" },
+  { key: "classic", label: "Klasikler (<1990)" },
+];
+
+const SORT_OPTIONS = [
+  { key: "newest", label: "🕒 En Yeni Eklenenler" },
+  { key: "oldest", label: "⏳ En Eski Eklenenler" },
+  { key: "rating_desc", label: "⭐ En Yüksek Puan (IMDb)" },
+  { key: "rating_asc", label: "📉 En Düşük Puan" },
+  { key: "year_desc", label: "📅 En Yeni Çıkış Yılı" },
+  { key: "year_asc", label: "📜 En Eski Çıkış Yılı" },
+  { key: "title_asc", label: "🔤 Başlık (A-Z)" },
+  { key: "user_rating", label: "💖 Önce Çok Sevdiklerim" },
+];
+
 function LibraryContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -41,12 +61,19 @@ function LibraryContent() {
     films: { total: 0, watchlist: 0, watched: 0, notWatched: 0, dropped: 0, favorites: 0 },
     tv: { total: 0, watchlist: 0, watched: 0, notWatched: 0, dropped: 0, favorites: 0 },
   });
+  const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(24);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sort, setSort] = useState<string>("newest");
+  const [genre, setGenre] = useState<string>("ALL");
+  const [era, setEra] = useState<string>("ALL");
+  const [rating, setRating] = useState<string>("ALL");
+  const [availableGenres, setAvailableGenres] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
 
   // Tonight smart picker modal
   const [isTonightLoading, setIsTonightLoading] = useState(false);
@@ -86,9 +113,12 @@ function LibraryContent() {
         mediaType,
         state: stateFilter,
         search: debouncedSearch,
+        genre: genre !== "ALL" ? genre : "",
+        era: era !== "ALL" ? era : "",
+        rating: rating !== "ALL" ? rating : "",
         sort,
         page: String(page),
-        limit: "24",
+        limit: String(limit),
       });
 
       if (isFav) {
@@ -98,16 +128,20 @@ function LibraryContent() {
       const res = await fetch(`/api/library?${params.toString()}`);
       if (res.ok) {
         const data: UserLibraryResponse = await res.json();
-        setItems(data.items);
+        setItems(data.items || []);
         setCounts(data.counts);
-        setTotalPages(data.totalPages);
+        setTotalCount(data.totalCount || 0);
+        setTotalPages(data.totalPages || 1);
+        if (data.availableGenres) {
+          setAvailableGenres(data.availableGenres);
+        }
       }
     } catch (e) {
       console.error("[Library Fetch Error]:", e);
     } finally {
       setIsLoading(false);
     }
-  }, [currentTab, mediaType, debouncedSearch, sort, page]);
+  }, [currentTab, mediaType, debouncedSearch, genre, era, rating, sort, page, limit]);
 
   useEffect(() => {
     fetchLibrary();
@@ -116,6 +150,9 @@ function LibraryContent() {
   const handleTabChange = (newTab: string) => {
     setCurrentTab(newTab);
     setPage(1);
+    setGenre("ALL");
+    setEra("ALL");
+    setRating("ALL");
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", newTab.toLowerCase());
     router.push(`/library?${params.toString()}`, { scroll: false });
@@ -124,6 +161,8 @@ function LibraryContent() {
   const handleMediaTypeChange = (newMediaType: "ALL" | "FILM" | "TV") => {
     setMediaType(newMediaType);
     setPage(1);
+    setGenre("ALL");
+    setEra("ALL");
     const params = new URLSearchParams(searchParams.toString());
     if (newMediaType === "ALL") {
       params.delete("mediaType");
@@ -133,11 +172,30 @@ function LibraryContent() {
     router.push(`/library?${params.toString()}`, { scroll: false });
   };
 
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === page) return;
+    setPage(newPage);
+    window.scrollTo({ top: 300, behavior: "smooth" });
+  };
+
+  const clearAllFilters = () => {
+    setSearch("");
+    setDebouncedSearch("");
+    setGenre("ALL");
+    setEra("ALL");
+    setRating("ALL");
+    setSort("newest");
+    setPage(1);
+  };
+
+  const hasActiveFilters =
+    genre !== "ALL" || era !== "ALL" || rating !== "ALL" || sort !== "newest" || search.trim() !== "";
+
   const handleAction = async (
     targetMediaType: "FILM" | "TV",
     contentId: string,
     action: "ADD_WATCHLIST" | "REMOVE_WATCHLIST" | "MARK_WATCHED" | "MARK_DROPPED" | "ADD_FAVORITE" | "REMOVE_FAVORITE" | "CLEAR_STATE",
-    rating?: string
+    actionRating?: string
   ) => {
     try {
       // Optimistic update
@@ -155,7 +213,7 @@ function LibraryContent() {
           mediaType: targetMediaType,
           contentId,
           action,
-          rating,
+          rating: actionRating,
         }),
       });
 
@@ -195,6 +253,23 @@ function LibraryContent() {
           dropped: counts.dropped,
           total: counts.total,
         };
+
+  // Generate pagination page numbers
+  const getPaginationItems = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (page > 3) pages.push("...");
+      const start = Math.max(2, page - 1);
+      const end = Math.min(totalPages - 1, page + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (page < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   return (
     <div className="min-h-screen bg-bg-base text-text-primary flex flex-col font-sans selection:bg-accent/20">
@@ -319,7 +394,7 @@ function LibraryContent() {
             })}
           </div>
 
-          {/* Sub-Filters: Media Type, Search, and Sorting */}
+          {/* Sub-Filters: Media Type, Search, Filter Toggle, and Sorting */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
             {/* Media Type Switcher */}
             <div className="flex items-center p-1 rounded-xl bg-surface-1 border border-border text-xs font-sans font-medium self-start">
@@ -342,9 +417,9 @@ function LibraryContent() {
               ))}
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto font-sans text-xs">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto font-sans text-xs">
               {/* Search input */}
-              <div className="relative flex-1 sm:w-60">
+              <div className="relative flex-1 sm:w-56">
                 <input
                   type="text"
                   value={search}
@@ -365,6 +440,22 @@ function LibraryContent() {
                 )}
               </div>
 
+              {/* Filter Toggle Button */}
+              <button
+                onClick={() => setShowFilterPanel(!showFilterPanel)}
+                className={`px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 min-h-[40px] transition-all ${
+                  showFilterPanel || hasActiveFilters
+                    ? "bg-accent-subtle border-accent/40 text-accent"
+                    : "bg-surface-1 border border-border text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                <span>⚙️</span>
+                <span>Filtrele</span>
+                {hasActiveFilters && (
+                  <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                )}
+              </button>
+
               {/* Sort Selector */}
               <select
                 value={sort}
@@ -374,13 +465,141 @@ function LibraryContent() {
                 }}
                 className="px-3 py-2 rounded-xl bg-surface-1 border border-border text-xs text-text-primary focus:outline-none focus:border-accent min-h-[40px]"
               >
-                <option value="newest">En Yeni Eklenenler</option>
-                <option value="oldest">En Eski Eklenenler</option>
-                <option value="title">Başlık (A-Z)</option>
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.key} value={opt.key}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
+
+          {/* Detailed Filtering Panel */}
+          {showFilterPanel && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-surface-1 border border-border/80 shadow-sm space-y-4 animate-fadeIn">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                {/* Genre Selector */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-text-secondary">
+                    Tür Filtresi
+                  </label>
+                  <select
+                    value={genre}
+                    onChange={(e) => {
+                      setGenre(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary focus:outline-none focus:border-accent"
+                  >
+                    <option value="ALL">Tüm Türler ({availableGenres.length})</option>
+                    {availableGenres.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Era Selector */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-text-secondary">
+                    Çıkış Yılı / Dönem
+                  </label>
+                  <select
+                    value={era}
+                    onChange={(e) => {
+                      setEra(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary focus:outline-none focus:border-accent"
+                  >
+                    {ERA_OPTIONS.map((e) => (
+                      <option key={e.key} value={e.key}>
+                        {e.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Rating Filter (Only for Watched or All) */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-text-secondary">
+                    Sizin Değerlendirmeniz
+                  </label>
+                  <select
+                    value={rating}
+                    onChange={(e) => {
+                      setRating(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary focus:outline-none focus:border-accent"
+                  >
+                    <option value="ALL">Tüm Puanlar</option>
+                    <option value="LOVE">❤️ Çok Sevdim</option>
+                    <option value="LIKE">👍 Beğendim</option>
+                    <option value="NEUTRAL">😐 Ortalama</option>
+                    <option value="DISLIKE">👎 Sevmedim</option>
+                    <option value="UNRATED">Değerlendirilmemiş</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Active Filter Badges & Reset Button */}
+              {hasActiveFilters && (
+                <div className="pt-2 flex flex-wrap items-center gap-2 border-t border-border/40">
+                  <span className="text-[11px] text-text-muted">Aktif Filtreler:</span>
+                  {genre !== "ALL" && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-2 border border-border text-[11px] text-accent font-medium">
+                      <span>Tür: {genre}</span>
+                      <button onClick={() => setGenre("ALL")} className="hover:text-white">✕</button>
+                    </span>
+                  )}
+                  {era !== "ALL" && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-2 border border-border text-[11px] text-accent font-medium">
+                      <span>Dönem: {ERA_OPTIONS.find((e) => e.key === era)?.label}</span>
+                      <button onClick={() => setEra("ALL")} className="hover:text-white">✕</button>
+                    </span>
+                  )}
+                  {rating !== "ALL" && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-2 border border-border text-[11px] text-accent font-medium">
+                      <span>Puan: {RATING_LABELS[rating]?.label || rating}</span>
+                      <button onClick={() => setRating("ALL")} className="hover:text-white">✕</button>
+                    </span>
+                  )}
+                  {search.trim() !== "" && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-2 border border-border text-[11px] text-accent font-medium">
+                      <span>Arama: &quot;{search}&quot;</span>
+                      <button onClick={() => setSearch("")} className="hover:text-white">✕</button>
+                    </span>
+                  )}
+                  <button
+                    onClick={clearAllFilters}
+                    className="ml-auto text-[11px] text-text-muted hover:text-accent underline cursor-pointer"
+                  >
+                    Tüm Filtreleri Sıfırla
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Content Info Bar */}
+        {!isLoading && totalCount > 0 && (
+          <div className="flex items-center justify-between text-xs text-text-muted px-1">
+            <span>
+              Toplam <strong className="text-text-primary font-mono">{totalCount}</strong> içerikten{" "}
+              <strong className="text-text-primary font-mono">
+                {(page - 1) * limit + 1} - {Math.min(page * limit, totalCount)}
+              </strong>{" "}
+              arası gösteriliyor
+            </span>
+            <span>
+              Sayfa <strong className="text-text-primary font-mono">{page}</strong> /{" "}
+              <strong className="text-text-primary font-mono">{totalPages}</strong>
+            </span>
+          </div>
+        )}
 
         {/* Content Grid */}
         {isLoading ? (
@@ -396,19 +615,30 @@ function LibraryContent() {
             </div>
             <div className="space-y-1.5">
               <h3 className="font-display text-lg font-bold text-text-primary">
-                Bu sekmede henüz içerik yok
+                {hasActiveFilters ? "Filtrelere uygun içerik bulunamadı" : "Bu sekmede henüz içerik yok"}
               </h3>
               <p className="text-xs text-text-secondary leading-relaxed">
-                Öneriler veya arama sayfalarından beğendiğiniz filmleri ve dizileri listenize ekleyebilirsiniz.
+                {hasActiveFilters
+                  ? "Seçtiğiniz filtre kriterlerini değiştirerek veya sıfırlayarak tekrar deneyebilirsiniz."
+                  : "Öneriler veya arama sayfalarından beğendiğiniz filmleri ve dizileri listenize ekleyebilirsiniz."}
               </p>
             </div>
             <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
-              <Link
-                href="/recommendations"
-                className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-all min-h-[44px] flex items-center justify-center"
-              >
-                Önerileri Keşfet →
-              </Link>
+              {hasActiveFilters ? (
+                <button
+                  onClick={clearAllFilters}
+                  className="px-5 py-2.5 rounded-xl bg-surface-2 border border-border text-text-primary text-xs font-semibold hover:border-accent transition-all min-h-[44px] flex items-center justify-center"
+                >
+                  Filtreleri Temizle
+                </button>
+              ) : (
+                <Link
+                  href="/recommendations"
+                  className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-all min-h-[44px] flex items-center justify-center"
+                >
+                  Önerileri Keşfet →
+                </Link>
+              )}
             </div>
           </div>
         ) : (
@@ -448,12 +678,12 @@ function LibraryContent() {
                       </div>
                     )}
 
-                    {/* Media Type Tag */}
-                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-surface-1/90 backdrop-blur-md border border-border text-[10px] font-sans font-semibold text-text-primary">
-                      {item.mediaType === "FILM" ? "FİLM" : "DİZİ"}
-                    </span>
+                    {/* Top-Left Media Type Badge */}
+                    <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-mono font-bold text-white uppercase tracking-wider">
+                      {item.mediaType === "FILM" ? "Film" : "Dizi"}
+                    </div>
 
-                    {/* Favorite Button */}
+                    {/* Top-Right Favorite Toggle */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -463,39 +693,57 @@ function LibraryContent() {
                           isFav ? "REMOVE_FAVORITE" : "ADD_FAVORITE"
                         );
                       }}
-                      className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md border transition-all ${
+                      className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${
                         isFav
-                          ? "bg-amber-500/20 border-amber-500/50 text-amber-400"
-                          : "bg-surface-1/80 border-border text-text-muted hover:text-amber-400"
+                          ? "bg-amber-500 text-white shadow-md"
+                          : "bg-black/60 text-white/70 hover:text-amber-400 hover:bg-black/80"
                       }`}
+                      title={isFav ? "Favorilerden Çıkar" : "Favorilere Ekle"}
                     >
-                      ★
+                      <span className="text-xs">{isFav ? "★" : "☆"}</span>
                     </button>
+
+                    {/* Rating Badge Overlay if Watched */}
+                    {item.userRating && (
+                      <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/80 backdrop-blur-md border border-white/10 text-[10px] font-sans font-semibold text-emerald-400 flex items-center gap-1">
+                        <span>{RATING_LABELS[item.userRating]?.emoji}</span>
+                        <span>{RATING_LABELS[item.userRating]?.label}</span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Info & Actions */}
+                  {/* Info Card Content */}
                   <div className="p-3 flex-1 flex flex-col justify-between space-y-2.5">
-                    <div
-                      className="cursor-pointer"
-                      onClick={() => {
-                        if (item.mediaType === "FILM") {
-                          setSelectedMovieModal({ movieId: item.contentId, initialData: item });
-                        } else {
-                          setSelectedTvModal({ tvShowId: item.contentId, initialData: item });
-                        }
-                      }}
-                    >
-                      <h4 className="font-sans font-bold text-xs text-text-primary line-clamp-1 group-hover:text-accent transition-colors">
+                    <div className="space-y-1">
+                      <h4
+                        className="font-display font-bold text-xs sm:text-sm text-text-primary line-clamp-1 hover:text-accent transition-colors cursor-pointer"
+                        onClick={() => {
+                          if (item.mediaType === "FILM") {
+                            setSelectedMovieModal({ movieId: item.contentId, initialData: item });
+                          } else {
+                            setSelectedTvModal({ tvShowId: item.contentId, initialData: item });
+                          }
+                        }}
+                      >
                         {item.title}
                       </h4>
-                      <p className="text-[11px] text-text-muted font-sans mt-0.5">
-                        {item.releaseYear || ""} {item.genres && item.genres.length > 0 ? `• ${item.genres[0]}` : ""}
-                      </p>
+
+                      <div className="flex items-center justify-between text-[11px] text-text-muted">
+                        <span>
+                          {item.releaseYear || "—"}{" "}
+                          {item.genres && item.genres.length > 0 && `• ${item.genres[0]}`}
+                        </span>
+                        {item.voteAverage > 0 && (
+                          <span className="flex items-center gap-0.5 text-amber-400 font-mono font-semibold">
+                            ★ {item.voteAverage.toFixed(1)}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Quick State Actions Strip */}
-                    <div className="flex items-center justify-between gap-1 pt-1 border-t border-border/60">
-                      {/* Rating or Watched button */}
+                    {/* Action Bar */}
+                    <div className="pt-2 border-t border-border/50 flex items-center justify-between gap-1 text-xs">
+                      {/* State Button */}
                       {isWatched ? (
                         <button
                           onClick={() =>
@@ -533,6 +781,65 @@ function LibraryContent() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Pagination Bar */}
+        {!isLoading && totalPages > 1 && (
+          <div className="pt-6 pb-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-border/60">
+            <div className="text-xs text-text-muted font-sans">
+              Toplam <span className="text-text-primary font-bold">{totalCount}</span> içerik (Sayfa{" "}
+              <span className="text-text-primary font-bold">{page}</span> / {totalPages})
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs font-sans">
+              {/* Previous Page Button */}
+              <button
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page === 1}
+                className="px-3 py-2 rounded-xl bg-surface-1 border border-border text-text-secondary hover:text-text-primary hover:border-border-strong disabled:opacity-40 disabled:cursor-not-allowed transition-all min-h-[38px] flex items-center gap-1"
+              >
+                <span>‹</span>
+                <span>Önceki</span>
+              </button>
+
+              {/* Page Number Buttons */}
+              <div className="flex items-center gap-1">
+                {getPaginationItems().map((p, idx) => {
+                  if (typeof p === "string") {
+                    return (
+                      <span key={`dots-${idx}`} className="px-2 text-text-muted select-none">
+                        ...
+                      </span>
+                    );
+                  }
+                  const isCurrent = p === page;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => handlePageChange(p)}
+                      className={`w-9 h-9 rounded-xl font-mono text-xs font-semibold flex items-center justify-center transition-all ${
+                        isCurrent
+                          ? "bg-accent text-white shadow-sm"
+                          : "bg-surface-1 border border-border text-text-secondary hover:text-text-primary hover:border-border-strong"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Next Page Button */}
+              <button
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page === totalPages}
+                className="px-3 py-2 rounded-xl bg-surface-1 border border-border text-text-secondary hover:text-text-primary hover:border-border-strong disabled:opacity-40 disabled:cursor-not-allowed transition-all min-h-[38px] flex items-center gap-1"
+              >
+                <span>Sonraki</span>
+                <span>›</span>
+              </button>
+            </div>
           </div>
         )}
 

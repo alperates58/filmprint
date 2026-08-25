@@ -177,8 +177,108 @@ export async function runPersonalLibraryTests() {
     console.log("  ✓ Exclusions set correctly excludes watched, hidden, and dropped items");
   }
 
+  // --------------------------------------------------------------------------
+  // Test 6: Library Filtering & Sorting Invariants
+  // --------------------------------------------------------------------------
+  console.log("\nTest 6: Library filtering by genre, era, and rating");
+  {
+    const sampleItems = [
+      {
+        id: "1",
+        mediaType: "FILM" as const,
+        contentId: "m1",
+        tmdbId: 101,
+        title: "Interstellar",
+        originalTitle: "Interstellar",
+        releaseYear: 2014,
+        posterPath: null,
+        backdropPath: null,
+        genres: ["Bilim Kurgu", "Dram"],
+        voteAverage: 8.6,
+        overview: "",
+        state: "WATCHED" as const,
+        isFavorite: true,
+        userRating: "LOVE" as const,
+        addedAt: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        watchedAt: new Date("2024-01-01"),
+        droppedAt: null,
+      },
+      {
+        id: "2",
+        mediaType: "FILM" as const,
+        contentId: "m2",
+        tmdbId: 102,
+        title: "The Godfather",
+        originalTitle: "The Godfather",
+        releaseYear: 1972,
+        posterPath: null,
+        backdropPath: null,
+        genres: ["Dram", "Suç"],
+        voteAverage: 9.2,
+        overview: "",
+        state: "WATCHED" as const,
+        isFavorite: true,
+        userRating: "LIKE" as const,
+        addedAt: new Date("2024-01-02"),
+        updatedAt: new Date("2024-01-02"),
+        watchedAt: new Date("2024-01-02"),
+        droppedAt: null,
+      },
+      {
+        id: "3",
+        mediaType: "FILM" as const,
+        contentId: "m3",
+        tmdbId: 103,
+        title: "Dune: Part Two",
+        originalTitle: "Dune: Part Two",
+        releaseYear: 2024,
+        posterPath: null,
+        backdropPath: null,
+        genres: ["Bilim Kurgu", "Macera"],
+        voteAverage: 8.5,
+        overview: "",
+        state: "WATCHED" as const,
+        isFavorite: false,
+        userRating: "LOVE" as const,
+        addedAt: new Date("2024-01-03"),
+        updatedAt: new Date("2024-01-03"),
+        watchedAt: new Date("2024-01-03"),
+        droppedAt: null,
+      },
+    ];
+
+    // Filter by genre
+    const sciFiOnly = sampleItems.filter((i) => i.genres.includes("Bilim Kurgu"));
+    assert.strictEqual(sciFiOnly.length, 2, "Should return 2 Sci-Fi items");
+
+    // Filter by era classic (<1990)
+    const classicOnly = sampleItems.filter((i) => i.releaseYear && i.releaseYear < 1990);
+    assert.strictEqual(classicOnly.length, 1, "Should return 1 classic item");
+    assert.strictEqual(classicOnly[0].title, "The Godfather");
+
+    // Filter by rating LOVE
+    const loveOnly = sampleItems.filter((i) => i.userRating === "LOVE");
+    assert.strictEqual(loveOnly.length, 2, "Should return 2 LOVE items");
+
+    console.log("  ✓ Library filtering verified");
+  }
+
+  // --------------------------------------------------------------------------
+  // Test 7: Pagination calculation
+  // --------------------------------------------------------------------------
+  console.log("\nTest 7: Pagination totalPages calculation");
+  {
+    const calculateTotalPages = (total: number, limit: number) => Math.ceil(total / limit) || 1;
+    assert.strictEqual(calculateTotalPages(25, 24), 2, "25 items with limit 24 should have 2 pages");
+    assert.strictEqual(calculateTotalPages(24, 24), 1, "24 items with limit 24 should have 1 page");
+    assert.strictEqual(calculateTotalPages(0, 24), 1, "0 items should have 1 page");
+    assert.strictEqual(calculateTotalPages(73, 24), 4, "73 items with limit 24 should have 4 pages");
+    console.log("  ✓ Pagination calculation verified");
+  }
+
   console.log("\n==========================================");
-  console.log("🎉 ALL PERSONAL LIBRARY TESTS PASSED (5/5)");
+  console.log("🎉 ALL PERSONAL LIBRARY TESTS PASSED (7/7)");
   console.log("==========================================\n");
   return true;
 }

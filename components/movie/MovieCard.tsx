@@ -63,7 +63,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
 
   return (
     <div
-      className={`w-full max-w-4xl mx-auto rounded-3xl bg-surface-1 border border-border/80 p-4 sm:p-6 md:p-8 shadow-md relative overflow-hidden transition-all duration-200 min-h-[480px] sm:min-h-[440px] md:min-h-[360px] flex flex-col justify-center ${
+      className={`w-full max-w-3xl mx-auto rounded-3xl bg-surface-1 border border-border/80 p-4 sm:p-6 md:p-8 shadow-md relative overflow-hidden transition-all duration-200 min-h-[460px] sm:min-h-[420px] md:min-h-[360px] flex flex-col justify-center ${
         isTransitioning ? "opacity-40 scale-[0.98] filter blur-[1px]" : "opacity-100 scale-100"
       }`}
     >
@@ -85,14 +85,14 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
       {/* Main Content Layout */}
       <div className="relative z-10 flex flex-col md:flex-row gap-5 md:gap-8 items-center md:items-stretch flex-1">
         {/* Poster Column */}
-        <div className="w-32 sm:w-44 md:w-56 aspect-[2/3] rounded-2xl overflow-hidden bg-surface-2 border border-border-strong relative flex-shrink-0 shadow-md self-center md:self-auto">
+        <div className="w-32 sm:w-44 md:w-52 aspect-[2/3] rounded-2xl overflow-hidden bg-surface-2 border border-border-strong relative flex-shrink-0 shadow-md self-center md:self-auto">
           {posterUrl && !imgError ? (
             <Image
               src={posterUrl}
               alt={movie.title}
               fill
               className="object-cover"
-              sizes="(max-width: 640px) 128px, (max-width: 768px) 176px, 224px"
+              sizes="(max-width: 640px) 128px, (max-width: 768px) 176px, 208px"
               priority
               onError={() => setImgError(true)}
             />
@@ -112,8 +112,8 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
         </div>
 
         {/* Info & Decision Column */}
-        <div className="flex-1 w-full flex flex-col justify-between self-stretch space-y-4">
-          <div className="space-y-2 text-center md:text-left flex-1 flex flex-col justify-start">
+        <div className="flex-1 w-full min-w-0 flex flex-col justify-between self-stretch space-y-4">
+          <div className="space-y-2 text-center md:text-left flex-1 flex flex-col justify-start min-w-0">
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-xs">
               {movie.releaseYear && (
                 <span className="px-2.5 py-0.5 rounded-lg bg-surface-2 border border-border font-sans font-semibold text-text-secondary">
@@ -149,17 +149,17 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
           {/* ========================================================================= */}
           {/* DECISION ACTION BUTTONS (48dp TOUCH TARGETS)                              */}
           {/* ========================================================================= */}
-          <div className="mt-auto pt-2 flex-shrink-0">
+          <div className="mt-auto pt-2 flex-shrink-0 w-full">
             {step === "step1" ? (
               <div className="space-y-3">
                 <p className="text-xs font-sans font-semibold text-text-muted text-center md:text-left uppercase tracking-wider">
                   BU FİLMİ İZLEDİNİZ Mİ?
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                   <button
                     onClick={() => setStep("step2")}
-                    className="min-h-[48px] px-4 py-3 rounded-2xl bg-accent text-white font-sans font-semibold text-sm hover:bg-accent-hover active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2 group"
+                    className="min-h-[48px] px-4 py-3 rounded-2xl bg-accent text-white font-sans font-semibold text-xs sm:text-sm hover:bg-accent-hover active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2 group whitespace-nowrap"
                   >
                     <span>👁️</span>
                     <span>İzledim</span>
@@ -170,7 +170,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
 
                   <button
                     onClick={() => onAnswer("NOT_WATCHED", null)}
-                    className="min-h-[48px] px-4 py-3 rounded-2xl bg-surface-2 border border-border hover:border-border-strong text-text-primary font-sans font-medium text-sm hover:bg-surface-3 active:scale-95 transition-all flex items-center justify-center gap-2"
+                    className="min-h-[48px] px-4 py-3 rounded-2xl bg-surface-2 border border-border hover:border-border-strong text-text-primary font-sans font-medium text-xs sm:text-sm hover:bg-surface-3 active:scale-95 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                   >
                     <span>✕</span>
                     <span>İzlemedim</span>
@@ -181,7 +181,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
 
                   <button
                     onClick={() => onAnswer("UNSURE", null)}
-                    className="min-h-[48px] px-4 py-3 rounded-2xl bg-surface-2 border border-border hover:border-border-strong text-text-secondary font-sans font-medium text-sm hover:bg-surface-3 active:scale-95 transition-all flex items-center justify-center gap-2"
+                    className="min-h-[48px] px-4 py-3 rounded-2xl bg-surface-2 border border-border hover:border-border-strong text-text-secondary font-sans font-medium text-xs sm:text-sm hover:bg-surface-3 active:scale-95 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                   >
                     <span>🤔</span>
                     <span>Emin Değilim</span>
@@ -208,7 +208,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   <button
                     onClick={() => onAnswer("WATCHED", "LOVE")}
-                    className="min-h-[48px] p-3 rounded-2xl bg-surface-2 border border-border hover:border-pink-500/50 hover:bg-pink-500/10 text-pink-400 font-sans font-semibold text-xs sm:text-sm active:scale-95 transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5"
+                    className="min-h-[48px] px-2.5 sm:px-3 py-3 rounded-2xl bg-surface-2 border border-border hover:border-pink-500/50 hover:bg-pink-500/10 text-pink-400 font-sans font-semibold text-xs sm:text-sm active:scale-95 transition-all flex items-center justify-center gap-1.5 whitespace-nowrap"
                   >
                     <span className="text-base">❤️</span>
                     <span>Çok Sevdim</span>
@@ -217,7 +217,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
 
                   <button
                     onClick={() => onAnswer("WATCHED", "LIKE")}
-                    className="min-h-[48px] p-3 rounded-2xl bg-surface-2 border border-border hover:border-emerald-500/50 hover:bg-emerald-500/10 text-emerald-400 font-sans font-semibold text-xs sm:text-sm active:scale-95 transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5"
+                    className="min-h-[48px] px-2.5 sm:px-3 py-3 rounded-2xl bg-surface-2 border border-border hover:border-emerald-500/50 hover:bg-emerald-500/10 text-emerald-400 font-sans font-semibold text-xs sm:text-sm active:scale-95 transition-all flex items-center justify-center gap-1.5 whitespace-nowrap"
                   >
                     <span className="text-base">👍</span>
                     <span>Beğendim</span>
@@ -226,7 +226,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
 
                   <button
                     onClick={() => onAnswer("WATCHED", "NEUTRAL")}
-                    className="min-h-[48px] p-3 rounded-2xl bg-surface-2 border border-border hover:border-amber-500/50 hover:bg-amber-500/10 text-amber-400 font-sans font-semibold text-xs sm:text-sm active:scale-95 transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5"
+                    className="min-h-[48px] px-2.5 sm:px-3 py-3 rounded-2xl bg-surface-2 border border-border hover:border-amber-500/50 hover:bg-amber-500/10 text-amber-400 font-sans font-semibold text-xs sm:text-sm active:scale-95 transition-all flex items-center justify-center gap-1.5 whitespace-nowrap"
                   >
                     <span className="text-base">😐</span>
                     <span>Ortalama</span>
@@ -235,7 +235,7 @@ export function MovieCard({ movie, onAnswer, isTransitioning = false }: MovieCar
 
                   <button
                     onClick={() => onAnswer("WATCHED", "DISLIKE")}
-                    className="min-h-[48px] p-3 rounded-2xl bg-surface-2 border border-border hover:border-destructive/50 hover:bg-destructive/10 text-destructive font-sans font-semibold text-xs sm:text-sm active:scale-95 transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5"
+                    className="min-h-[48px] px-2.5 sm:px-3 py-3 rounded-2xl bg-surface-2 border border-border hover:border-destructive/50 hover:bg-destructive/10 text-destructive font-sans font-semibold text-xs sm:text-sm active:scale-95 transition-all flex items-center justify-center gap-1.5 whitespace-nowrap"
                   >
                     <span className="text-base">👎</span>
                     <span>Sevmedim</span>

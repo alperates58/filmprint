@@ -317,7 +317,7 @@ export function TvCalibrationEngine({
 
       <main className="flex-1 flex flex-col items-center justify-start px-4 sm:px-6 pt-6 pb-24 w-full max-w-4xl mx-auto">
         {/* Progress & Confidence Header */}
-        <div className="w-full max-w-lg mb-6 space-y-3">
+        <div className="w-full max-w-2xl sm:max-w-3xl mb-6 space-y-3">
           <div className="flex items-center justify-between text-xs font-semibold">
             <div className="flex items-center gap-1.5 text-text-secondary">
               <span className="text-sm">{confidence?.badge || "🌱"}</span>
@@ -343,7 +343,7 @@ export function TvCalibrationEngine({
         </div>
 
         {/* Mode Switcher Tabs */}
-        <div className="w-full max-w-lg mb-6 p-1 bg-surface-2/80 rounded-2xl border border-border flex items-center gap-1 shadow-inner backdrop-blur-md">
+        <div className="w-full max-w-2xl sm:max-w-3xl mb-6 p-1 bg-surface-2/80 rounded-2xl border border-border flex items-center gap-1 shadow-inner backdrop-blur-md">
           <button
             onClick={() => handleModeChange("SMART")}
             className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
@@ -383,7 +383,7 @@ export function TvCalibrationEngine({
 
         {/* Mode 2: Genre Pills Sub-Bar */}
         {activeMode === "GENRE" && (
-          <div className="w-full max-w-lg mb-6 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+          <div className="w-full max-w-2xl sm:max-w-3xl mb-6 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
             {CANONICAL_TV_GENRES.map((g) => {
               const isSelected = selectedGenreIds.includes(g.id);
               return (
@@ -403,9 +403,9 @@ export function TvCalibrationEngine({
           </div>
         )}
 
-        {/* Mode 3: Local TV Search Mode */}
+        {/* Mode 3: Local Calibration Search Mode */}
         {activeMode === "SEARCH" ? (
-          <div className="w-full max-w-lg space-y-4">
+          <div className="w-full max-w-2xl sm:max-w-3xl space-y-4">
             <div className="relative">
               <input
                 type="text"
@@ -497,7 +497,7 @@ export function TvCalibrationEngine({
           </div>
         ) : (
           /* Main Card View (Smart & Genre Modes) */
-          <div className="w-full max-w-lg relative">
+          <div className="w-full max-w-2xl sm:max-w-3xl relative">
             {isLoading && queue.length === 0 ? (
               <TvCardSkeleton />
             ) : currentShow ? (
@@ -541,7 +541,7 @@ export function TvCalibrationEngine({
 
         {/* Prominent Fast TV DNA Trigger (When >= 5 evidence gathered) */}
         {canGenerateDna && (
-          <div className="w-full max-w-lg mt-8 p-4 bg-gradient-to-r from-accent/15 via-purple-600/10 to-transparent border border-accent/30 rounded-2xl flex items-center justify-between gap-4 shadow-lg backdrop-blur-md animate-fadeIn">
+          <div className="w-full max-w-2xl sm:max-w-3xl mt-8 p-4 bg-gradient-to-r from-accent/15 via-purple-600/10 to-transparent border border-accent/30 rounded-2xl flex items-center justify-between gap-4 shadow-lg backdrop-blur-md animate-fadeIn">
             <div className="space-y-0.5">
               <h4 className="text-xs sm:text-sm font-bold text-text-primary flex items-center gap-1.5">
                 <span>🧬</span>

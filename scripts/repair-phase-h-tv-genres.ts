@@ -18,7 +18,7 @@ export interface TvGenreRepairStats {
 export async function repairTvGenres(): Promise<TvGenreRepairStats> {
   console.log("=== Starting Targeted TV Genre Alias Repair ===");
 
-  const stats = {
+  const stats: TvGenreRepairStats = {
     examined: 0,
     repaired: 0,
     stillUnresolved: 0,
@@ -28,16 +28,22 @@ export async function repairTvGenres(): Promise<TvGenreRepairStats> {
     genreCoverage: 0,
   };
 
-  let skip = 0;
+  let lastId: string | null = null;
   let hasMore = true;
 
   while (hasMore) {
-    // Select ONLY TV shows where physical genreIds is empty
-    const candidates = await db.tvShow.findMany({
-      where: {
-        genreIds: { equals: [] },
-      },
-      skip,
+    const whereClause: any = { genreIds: { equals: [] } };
+    if (lastId) {
+      whereClause.id = { gt: lastId };
+    }
+
+    const candidates: Array<{
+      id: string;
+      tmdbId: number;
+      name: string;
+      metadata: any;
+    }> = await db.tvShow.findMany({
+      where: whereClause,
       take: BATCH_SIZE,
       orderBy: { id: "asc" },
       select: {
@@ -53,7 +59,10 @@ export async function repairTvGenres(): Promise<TvGenreRepairStats> {
       break;
     }
 
-    console.log(`Processing TV repair batch: offset ${skip}, count ${candidates.length}`);
+    console.log(`Processing TV repair batch: lastId=${lastId || "START"}, count=${candidates.length}`);
+
+    // Update keyset cursor to the last fetched record in this batch
+    lastId = candidates[candidates.length - 1].id;
 
     for (const show of candidates) {
       stats.examined++;
@@ -62,7 +71,7 @@ export async function repairTvGenres(): Promise<TvGenreRepairStats> {
         const rawGenres = (meta.genres as any[]) || [];
         const rawGenreIds = (meta.genre_ids as any[]) || (meta.genreIds as any[]) || [];
 
-        // If metadata has no genre data at all, skip
+        // If metadata has no genre data at all, record unresolved and continue
         if (rawGenres.length === 0 && rawGenreIds.length === 0) {
           stats.stillUnresolved++;
           continue;
@@ -87,9 +96,6 @@ export async function repairTvGenres(): Promise<TvGenreRepairStats> {
         console.error(`Error repairing TV show ${show.id}:`, err?.message);
       }
     }
-
-    // Since repaired items no longer have genreIds: [], advance skip by unresolved count if any
-    skip += candidates.length;
 
     if (candidates.length < BATCH_SIZE) {
       hasMore = false;

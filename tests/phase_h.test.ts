@@ -279,6 +279,71 @@ export function runPhaseHTests() {
   const movieRomance = resolveCanonicalGenreIds(["Romantik"], "FILM");
   assert(movieRomance.length === 1 && movieRomance[0] === 10749, "In FILM, Romantik resolves to 10749");
 
+  // Keyset cursor pagination simulation test on 1200 rows with mutating result set
+  interface MockTvShow {
+    id: string;
+    genreIds: number[];
+    metadata: { genres: string[] };
+  }
+
+  const mockDatabase: MockTvShow[] = [];
+  for (let i = 1; i <= 1200; i++) {
+    const id = `tv-${String(i).padStart(5, "0")}`;
+    const genreName = i % 2 === 1 ? "Gerçeklik" : "Talk";
+    mockDatabase.push({
+      id,
+      genreIds: [],
+      metadata: { genres: [genreName] },
+    });
+  }
+
+  function simulateRepairWithKeysetCursor(dbRows: MockTvShow[], batchSize = 500) {
+    const examinedIds = new Set<string>();
+    let repairedCount = 0;
+    let lastId: string | null = null;
+    let hasMore = true;
+
+    while (hasMore) {
+      const candidates = dbRows
+        .filter((r) => r.genreIds.length === 0 && (!lastId || r.id > lastId))
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .slice(0, batchSize);
+
+      if (candidates.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      lastId = candidates[candidates.length - 1].id;
+
+      for (const row of candidates) {
+        examinedIds.add(row.id);
+        const resolved = resolveCanonicalGenreIds(row.metadata.genres, "TV");
+        if (resolved.length > 0) {
+          row.genreIds = resolved;
+          repairedCount++;
+        }
+      }
+
+      if (candidates.length < batchSize) {
+        hasMore = false;
+      }
+    }
+
+    return { examinedIds, repairedCount };
+  }
+
+  // First run
+  const run1 = simulateRepairWithKeysetCursor(mockDatabase, 500);
+  assert(run1.examinedIds.size === 1200, "Keyset pagination examines all 1200 candidates exactly once without skipping");
+  assert(run1.repairedCount === 1200, "All 1200 resolvable candidates are repaired on first run");
+  assert(mockDatabase.every((r) => r.genreIds.length > 0), "Every database row now has populated genreIds");
+
+  // Second run (Idempotence)
+  const run2 = simulateRepairWithKeysetCursor(mockDatabase, 500);
+  assert(run2.examinedIds.size === 0, "Second run examines 0 rows since none have empty genreIds");
+  assert(run2.repairedCount === 0, "Second run repairs 0 rows (idempotent)");
+
   console.log(`\nPhase H Tests completed: ${passed}/${total} passed.\n`);
 }
 

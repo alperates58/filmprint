@@ -76,6 +76,23 @@ export const TV_GENRE_BY_SLUG = new Map<string, CanonicalGenre>(
   CANONICAL_TV_GENRES.map((g) => [g.slug, g])
 );
 
+export const TV_GENRE_ALIASES: Record<string, number> = {
+  "gerçeklik": 10764,
+  "gerceklik": 10764,
+  "reality": 10764,
+  "talk": 10767,
+  "talk show": 10767,
+  "bilim kurgu & fantazi": 10765,
+  "bilim kurgu ve fantezi": 10765,
+  "bilim kurgu ve fantazi": 10765,
+  "çocuklar": 10762,
+  "cocuklar": 10762,
+  "savaş & politik": 10768,
+  "savas & politik": 10768,
+  "savaş ve politika": 10768,
+  "savas ve politika": 10768,
+};
+
 /**
  * Finds a movie genre definition by URL slug.
  */
@@ -102,6 +119,7 @@ export function resolveCanonicalGenreIds(
   if (!rawGenres || !Array.isArray(rawGenres)) return [];
   const byId = mediaType === "FILM" ? MOVIE_GENRE_BY_ID : TV_GENRE_BY_ID;
   const byName = mediaType === "FILM" ? MOVIE_GENRE_BY_NAME : TV_GENRE_BY_NAME;
+  const aliases = mediaType === "TV" ? TV_GENRE_ALIASES : {};
   const resultIds = new Set<number>();
 
   for (const item of rawGenres) {
@@ -110,17 +128,23 @@ export function resolveCanonicalGenreIds(
         resultIds.add(item);
       }
     } else if (typeof item === "string") {
-      const match = byName.get(item.toLowerCase().trim());
+      const normalized = item.toLowerCase().trim();
+      const match = byName.get(normalized);
       if (match) {
         resultIds.add(match.id);
+      } else if (aliases[normalized] && byId.has(aliases[normalized])) {
+        resultIds.add(aliases[normalized]);
       }
     } else if (item && typeof item === "object") {
       if (typeof item.id === "number" && byId.has(item.id)) {
         resultIds.add(item.id);
       } else if (typeof item.name === "string") {
-        const match = byName.get(item.name.toLowerCase().trim());
+        const normalized = item.name.toLowerCase().trim();
+        const match = byName.get(normalized);
         if (match) {
           resultIds.add(match.id);
+        } else if (aliases[normalized] && byId.has(aliases[normalized])) {
+          resultIds.add(aliases[normalized]);
         }
       }
     }

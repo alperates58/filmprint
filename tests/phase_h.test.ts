@@ -235,6 +235,50 @@ export function runPhaseHTests() {
   assert(testStats.safe === 1, "SAFE increments safe count separately");
   assert(testStats.mature === 1, "MATURE increments mature count separately");
 
+  // TV Genre Aliases Regression Tests
+  const { resolveCanonicalGenreIds } = require("@/lib/catalog/genres");
+  
+  // Required TV aliases
+  const realityIds = resolveCanonicalGenreIds(["Gerçeklik"], "TV");
+  assert(realityIds.length === 1 && realityIds[0] === 10764, "Gerçeklik resolves to canonical TV Reality ID 10764");
+
+  const talkIds = resolveCanonicalGenreIds(["Talk"], "TV");
+  assert(talkIds.length === 1 && talkIds[0] === 10767, "Talk resolves to canonical TV Talk Show ID 10767");
+
+  const sciFiFantasyIds = resolveCanonicalGenreIds(["Bilim Kurgu & Fantazi"], "TV");
+  assert(sciFiFantasyIds.length === 1 && sciFiFantasyIds[0] === 10765, "Bilim Kurgu & Fantazi resolves to canonical TV ID 10765");
+
+  const kidsIds = resolveCanonicalGenreIds(["Çocuklar"], "TV");
+  assert(kidsIds.length === 1 && kidsIds[0] === 10762, "Çocuklar resolves to canonical TV Çocuk ID 10762");
+
+  const warPoliticsIds = resolveCanonicalGenreIds(["Savaş & Politik"], "TV");
+  assert(warPoliticsIds.length === 1 && warPoliticsIds[0] === 10768, "Savaş & Politik resolves to canonical TV ID 10768");
+
+  // Canonical names and numeric IDs still resolve
+  const canonicalReality = resolveCanonicalGenreIds(["Reality"], "TV");
+  assert(canonicalReality.length === 1 && canonicalReality[0] === 10764, "Canonical name Reality resolves to 10764");
+
+  const numericId = resolveCanonicalGenreIds([10764], "TV");
+  assert(numericId.length === 1 && numericId[0] === 10764, "Numeric ID 10764 resolves to 10764");
+
+  // Aliases do not create duplicate IDs
+  const deduplicated = resolveCanonicalGenreIds(["Reality", "Gerçeklik", "gerceklik", 10764], "TV");
+  assert(deduplicated.length === 1 && deduplicated[0] === 10764, "Mixed canonical, alias and numeric ID produces exactly 1 deduplicated ID");
+
+  // Unsupported TV genres Tarih / Romantik are not guessed into unrelated IDs
+  const unsupportedTvHistory = resolveCanonicalGenreIds(["Tarih"], "TV");
+  assert(unsupportedTvHistory.length === 0, "Unsupported TV Tarih is not guessed into an unrelated TV ID");
+
+  const unsupportedTvRomance = resolveCanonicalGenreIds(["Romantik"], "TV");
+  assert(unsupportedTvRomance.length === 0, "Unsupported TV Romantik is not guessed into an unrelated TV ID");
+
+  // But in FILM, Tarih and Romantik resolve to valid movie genre IDs
+  const movieHistory = resolveCanonicalGenreIds(["Tarih"], "FILM");
+  assert(movieHistory.length === 1 && movieHistory[0] === 36, "In FILM, Tarih resolves to 36");
+
+  const movieRomance = resolveCanonicalGenreIds(["Romantik"], "FILM");
+  assert(movieRomance.length === 1 && movieRomance[0] === 10749, "In FILM, Romantik resolves to 10749");
+
   console.log(`\nPhase H Tests completed: ${passed}/${total} passed.\n`);
 }
 

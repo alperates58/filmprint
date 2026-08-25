@@ -1,5 +1,7 @@
 import { db } from "@/lib/db/client";
 import { resolveGenreNamesFromIds } from "@/lib/catalog/genres";
+import { generateSearchNormalizedTitle } from "@/lib/calibration/priority";
+import { getPhaseHBackfillReadiness } from "./coverage";
 
 export interface CalibrationSearchResultItem {
   id: string;
@@ -20,7 +22,11 @@ export interface CalibrationSearchResultItem {
 /**
  * Searches local PostgreSQL catalog for in-calibration "İzlediğimi Ara" mode.
  * 100% DB-first, zero runtime TMDB network requests, bounded take 15-20.
- * Filtered by Safety V2 (18+ / adult excluded).
+ * Filtered strictly by Safety V2 (18+ / adult excluded).
+ *
+ * Performance Architecture:
+ * - When backfill is READY: Canonical hot path searches `searchNormalizedTitle` utilizing pg_trgm GIN index.
+ * - When backfill is IN_PROGRESS: Safe transitional fallback includes title/originalTitle ILIKE matching.
  */
 export async function searchLocalCalibrationCatalog(params: {
   query: string;
@@ -36,24 +42,30 @@ export async function searchLocalCalibrationCatalog(params: {
   }
 
   const boundedLimit = Math.min(Math.max(1, limit), 25);
+  const readiness = await getPhaseHBackfillReadiness(mediaType);
+  const normalizedQuery = generateSearchNormalizedTitle(cleanQuery);
+  const tmdbIdQuery = !isNaN(Number(cleanQuery)) ? Number(cleanQuery) : undefined;
 
   if (mediaType === "FILM") {
-    const tmdbIdQuery = !isNaN(Number(cleanQuery)) ? Number(cleanQuery) : undefined;
+    // Determine search criteria based on readiness
+    const textSearchConditions: any[] = [
+      { searchNormalizedTitle: { contains: normalizedQuery, mode: "insensitive" } },
+      ...(tmdbIdQuery ? [{ tmdbId: tmdbIdQuery }] : []),
+    ];
+
+    // Transitional fallback during backfill in-progress
+    if (readiness === "PHASE_H_BACKFILL_IN_PROGRESS") {
+      textSearchConditions.push(
+        { title: { contains: cleanQuery, mode: "insensitive" } },
+        { originalTitle: { contains: cleanQuery, mode: "insensitive" } }
+      );
+    }
 
     const movies = await db.movie.findMany({
       where: {
         AND: [
-          {
-            OR: [
-              { title: { contains: cleanQuery, mode: "insensitive" } },
-              { originalTitle: { contains: cleanQuery, mode: "insensitive" } },
-              { searchNormalizedTitle: { contains: cleanQuery, mode: "insensitive" } },
-              ...(tmdbIdQuery ? [{ tmdbId: tmdbIdQuery }] : []),
-            ],
-          },
-          {
-            posterPath: { not: null },
-          },
+          { OR: textSearchConditions },
+          { posterPath: { not: null } },
           {
             safetyLevel: {
               notIn: ["ADULT", "EROTIC", "SEXUAL_CONTENT"],
@@ -124,22 +136,23 @@ export async function searchLocalCalibrationCatalog(params: {
   }
 
   // TV Shows Search
-  const tmdbIdQuery = !isNaN(Number(cleanQuery)) ? Number(cleanQuery) : undefined;
+  const textSearchConditions: any[] = [
+    { searchNormalizedTitle: { contains: normalizedQuery, mode: "insensitive" } },
+    ...(tmdbIdQuery ? [{ tmdbId: tmdbIdQuery }] : []),
+  ];
+
+  if (readiness === "PHASE_H_BACKFILL_IN_PROGRESS") {
+    textSearchConditions.push(
+      { name: { contains: cleanQuery, mode: "insensitive" } },
+      { originalName: { contains: cleanQuery, mode: "insensitive" } }
+    );
+  }
 
   const tvShows = await db.tvShow.findMany({
     where: {
       AND: [
-        {
-          OR: [
-            { name: { contains: cleanQuery, mode: "insensitive" } },
-            { originalName: { contains: cleanQuery, mode: "insensitive" } },
-            { searchNormalizedTitle: { contains: cleanQuery, mode: "insensitive" } },
-            ...(tmdbIdQuery ? [{ tmdbId: tmdbIdQuery }] : []),
-          ],
-        },
-        {
-          posterPath: { not: null },
-        },
+        { OR: textSearchConditions },
+        { posterPath: { not: null } },
         {
           safetyLevel: {
             notIn: ["ADULT", "EROTIC", "SEXUAL_CONTENT"],
@@ -159,8 +172,8 @@ export async function searchLocalCalibrationCatalog(params: {
       name: true,
       originalName: true,
       posterPath: true,
-      firstAirDate: true,
       firstAirYear: true,
+      firstAirDate: true,
       voteAverage: true,
       genreIds: true,
       metadata: true,
@@ -173,14 +186,14 @@ export async function searchLocalCalibrationCatalog(params: {
     take: boundedLimit,
   });
 
-  const tvIds = tvShows.map((s) => s.id);
-  const existingTvInteractions = await db.tvInteraction.findMany({
-    where: { userId, tvShowId: { in: tvIds } },
+  const tvShowIds = tvShows.map((s) => s.id);
+  const existingInteractions = await db.tvInteraction.findMany({
+    where: { userId, tvShowId: { in: tvShowIds } },
     select: { tvShowId: true, status: true, rating: true },
   });
 
-  const tvInteractionMap = new Map(
-    existingTvInteractions.map((i) => [i.tvShowId, { status: i.status, rating: i.rating }])
+  const interactionMap = new Map(
+    existingInteractions.map((i) => [i.tvShowId, { status: i.status, rating: i.rating }])
   );
 
   return tvShows.map((s) => {
@@ -191,11 +204,13 @@ export async function searchLocalCalibrationCatalog(params: {
       genres = (s.metadata as any).genres;
     }
 
-    const releaseYear =
-      s.firstAirYear ||
-      (s.firstAirDate ? parseInt(s.firstAirDate.substring(0, 4), 10) : null);
+    let releaseYear: number | null = s.firstAirYear || null;
+    if (!releaseYear && s.firstAirDate) {
+      const parsed = parseInt(s.firstAirDate.substring(0, 4), 10);
+      if (!isNaN(parsed)) releaseYear = parsed;
+    }
 
-    const interaction = tvInteractionMap.get(s.id) || null;
+    const interaction = interactionMap.get(s.id) || null;
 
     return {
       id: s.id,
@@ -204,7 +219,7 @@ export async function searchLocalCalibrationCatalog(params: {
       title: s.name,
       originalTitle: s.originalName || null,
       posterPath: s.posterPath || null,
-      releaseYear: releaseYear && !isNaN(releaseYear) ? releaseYear : null,
+      releaseYear,
       voteAverage: s.voteAverage,
       genres,
       currentInteraction: interaction

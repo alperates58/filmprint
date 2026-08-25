@@ -20,6 +20,7 @@ import {
 } from "./confidence";
 import { FamiliarityState, GenrePreferenceScoreMap } from "./scoring";
 import { resolveGenreNamesFromIds } from "@/lib/catalog/genres";
+import { getPhaseHBackfillReadiness } from "./coverage";
 
 export interface QueueMovieResponseItem {
   id: string;
@@ -216,7 +217,7 @@ export async function getIntelligentCalibrationQueue(
       };
     }
 
-    const rows = await db.movie.findMany({
+    let rows = await db.movie.findMany({
       where: whereConditions,
       orderBy: [
         { calibrationPriorityScore: "desc" },
@@ -244,6 +245,50 @@ export async function getIntelligentCalibrationQueue(
         metadata: true,
       },
     });
+
+    // Transitional fallback for unpopulated genreIds column only while backfill is in progress
+    const readiness = await getPhaseHBackfillReadiness("FILM");
+    if (readiness === "PHASE_H_BACKFILL_IN_PROGRESS" && rows.length === 0 && mode === "GENRE" && genreIds.length > 0) {
+      const targetGenreNames = new Set(resolveGenreNamesFromIds(genreIds, "FILM"));
+      const fallbackConditions = { ...whereConditions };
+      delete fallbackConditions.genreIds;
+
+      const fallbackRows = await db.movie.findMany({
+        where: fallbackConditions,
+        orderBy: [
+          { popularity: "desc" },
+          { voteAverage: "desc" },
+          { id: "asc" },
+        ],
+        skip,
+        take: take * 3,
+        select: {
+          id: true,
+          tmdbId: true,
+          title: true,
+          originalTitle: true,
+          releaseYear: true,
+          posterPath: true,
+          backdropPath: true,
+          voteAverage: true,
+          popularity: true,
+          voteCount: true,
+          genreIds: true,
+          safetyLevel: true,
+          normalizedMinimumAge: true,
+          adult: true,
+          metadata: true,
+        },
+      });
+
+      rows = fallbackRows
+        .filter((m: any) => {
+          const meta = (m.metadata as Record<string, unknown>) || {};
+          const gList = Array.isArray(meta.genres) ? (meta.genres as string[]) : [];
+          return gList.some((g) => targetGenreNames.has(g));
+        })
+        .slice(0, take);
+    }
 
     return rows.map((m: any) => {
       const meta = (m.metadata as Record<string, unknown>) || {};

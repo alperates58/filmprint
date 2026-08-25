@@ -18,6 +18,7 @@ import {
 } from "@/lib/calibration/confidence";
 import { FamiliarityState } from "@/lib/calibration/scoring";
 import { resolveGenreNamesFromIds } from "@/lib/catalog/genres";
+import { getPhaseHBackfillReadiness } from "@/lib/calibration/coverage";
 
 export interface QueueTvShowResponseItem {
   id: string;
@@ -230,7 +231,7 @@ export async function getTvCalibrationQueue(
       };
     }
 
-    const rows = await db.tvShow.findMany({
+    let rows = await db.tvShow.findMany({
       where: whereConditions,
       orderBy: [
         { calibrationPriorityScore: "desc" },
@@ -263,6 +264,55 @@ export async function getTvCalibrationQueue(
         metadata: true,
       },
     });
+
+    // Transitional fallback for unpopulated genreIds column only while backfill is in progress
+    const readiness = await getPhaseHBackfillReadiness("TV");
+    if (readiness === "PHASE_H_BACKFILL_IN_PROGRESS" && rows.length === 0 && mode === "GENRE" && genreIds.length > 0) {
+      const targetGenreNames = new Set(resolveGenreNamesFromIds(genreIds, "TV"));
+      const fallbackConditions = { ...whereConditions };
+      delete fallbackConditions.genreIds;
+
+      const fallbackRows = await db.tvShow.findMany({
+        where: fallbackConditions,
+        orderBy: [
+          { popularity: "desc" },
+          { voteAverage: "desc" },
+          { id: "asc" },
+        ],
+        skip,
+        take: take * 3,
+        select: {
+          id: true,
+          tmdbId: true,
+          name: true,
+          originalName: true,
+          firstAirDate: true,
+          firstAirYear: true,
+          lastAirDate: true,
+          status: true,
+          originalLanguage: true,
+          posterPath: true,
+          backdropPath: true,
+          voteAverage: true,
+          voteCount: true,
+          popularity: true,
+          genreIds: true,
+          safetyLevel: true,
+          normalizedMinimumAge: true,
+          adult: true,
+          overview: true,
+          metadata: true,
+        },
+      });
+
+      rows = fallbackRows
+        .filter((s: any) => {
+          const meta = (s.metadata as Record<string, unknown>) || {};
+          const gList = Array.isArray(meta.genres) ? (meta.genres as string[]) : [];
+          return gList.some((g) => targetGenreNames.has(g));
+        })
+        .slice(0, take);
+    }
 
     return rows.map((s: any) => {
       const meta = (s.metadata as Record<string, unknown>) || {};

@@ -172,15 +172,32 @@ async function backfillMovies() {
     }
   }
 
+  const totalCatalog = await db.movie.count();
+  const searchPopulated = await db.movie.count({ where: { searchNormalizedTitle: { not: "" } } });
+  const genrePopulated = await db.movie.count({ where: { NOT: { genreIds: { equals: [] } } } });
+
+  const searchCoverage = totalCatalog > 0 ? searchPopulated / totalCatalog : 0;
+  const genreCoverage = totalCatalog > 0 ? genrePopulated / totalCatalog : 0;
+
   await db.catalogBackfillJob.update({
     where: { id: job.id },
     data: {
       status: BackfillJobStatus.COMPLETED,
       completedAt: new Date(),
+      metadata: {
+        totalCatalog,
+        searchCoverage,
+        genreCoverage,
+      },
     },
   });
 
-  console.log("=== Movie Backfill Completed ===", stats);
+  console.log("=== Movie Backfill Completed ===", {
+    ...stats,
+    totalCatalog,
+    searchCoverage: `${(searchCoverage * 100).toFixed(1)}%`,
+    genreCoverage: `${(genreCoverage * 100).toFixed(1)}%`,
+  });
 }
 
 async function backfillTvShows() {
@@ -317,15 +334,32 @@ async function backfillTvShows() {
     }
   }
 
+  const totalCatalog = await db.tvShow.count();
+  const searchPopulated = await db.tvShow.count({ where: { searchNormalizedTitle: { not: "" } } });
+  const genrePopulated = await db.tvShow.count({ where: { NOT: { genreIds: { equals: [] } } } });
+
+  const searchCoverage = totalCatalog > 0 ? searchPopulated / totalCatalog : 0;
+  const genreCoverage = totalCatalog > 0 ? genrePopulated / totalCatalog : 0;
+
   await db.catalogBackfillJob.update({
     where: { id: job.id },
     data: {
       status: BackfillJobStatus.COMPLETED,
       completedAt: new Date(),
+      metadata: {
+        totalCatalog,
+        searchCoverage,
+        genreCoverage,
+      },
     },
   });
 
-  console.log("=== TV Show Backfill Completed ===", stats);
+  console.log("=== TV Show Backfill Completed ===", {
+    ...stats,
+    totalCatalog,
+    searchCoverage: `${(searchCoverage * 100).toFixed(1)}%`,
+    genreCoverage: `${(genreCoverage * 100).toFixed(1)}%`,
+  });
 }
 
 async function main() {

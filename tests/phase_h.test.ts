@@ -18,7 +18,7 @@ import {
   getNextUtcMidnightIso,
 } from "@/lib/entitlements/service";
 import { ContentSafetyLevel } from "@prisma/client";
-import { CandidateMovie } from "@/lib/calibration/types";
+import { CandidateMovie, UserTasteProfileInput } from "@/lib/calibration/types";
 
 export function runPhaseHTests() {
   console.log("=== SINEAI — PHASE H MASTER INTELLIGENCE, SAFETY & RANK V2 TESTS ===\n");
@@ -170,6 +170,13 @@ export function runPhaseHTests() {
   const recoveryScore = scoreCandidateMovie(sampleCandidate, dummyProfile, [], "FAMILIARITY_RECOVERY");
   const deepeningScore = scoreCandidateMovie(sampleCandidate, dummyProfile, [], "DEEPENING");
   assert(recoveryScore.score > deepeningScore.score, "FAMILIARITY_RECOVERY boosts high popularity candidate over DEEPENING");
+
+  // Coverage Threshold Invariants
+  const { COVERAGE_THRESHOLDS } = require("@/lib/calibration/coverage");
+  assert(COVERAGE_THRESHOLDS.MIN_PROCESSED_COVERAGE === 0.95, "Minimum processed coverage is exactly 95%");
+  assert(COVERAGE_THRESHOLDS.MIN_SEARCH_COVERAGE === 0.90, "Minimum search coverage is exactly 90%");
+  assert(COVERAGE_THRESHOLDS.MIN_GENRE_COVERAGE === 0.85, "Minimum genre coverage is exactly 85%");
+  assert(COVERAGE_THRESHOLDS.MAX_FAILED_RATIO === 0.01, "Maximum failed ratio is exactly 1%");
 
   console.log(`\nPhase H Tests completed: ${passed}/${total} passed.\n`);
 }

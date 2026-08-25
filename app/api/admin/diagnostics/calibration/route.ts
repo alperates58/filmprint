@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { requireAdminSession } from "@/lib/admin/auth";
+import { getPhaseHBackfillReadinessReport } from "@/lib/calibration/coverage";
+import { MediaType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,8 @@ export async function GET(request: Request) {
       movieSafetyStats,
       tvSafetyStats,
       backfillJobs,
+      movieReadinessReport,
+      tvReadinessReport,
     ] = await Promise.all([
       db.movieInteraction.count(),
       db.movieInteraction.count({ where: { status: "WATCHED" } }),
@@ -32,6 +36,8 @@ export async function GET(request: Request) {
       db.catalogBackfillJob.findMany({
         orderBy: { lastRunAt: "desc" },
       }),
+      getPhaseHBackfillReadinessReport(MediaType.FILM),
+      getPhaseHBackfillReadinessReport(MediaType.TV),
     ]);
 
     const movieWatchedHitRate =
@@ -64,6 +70,10 @@ export async function GET(request: Request) {
           safetyLevel: s.safetyLevel,
           count: s._count.id,
         })),
+      },
+      readinessReports: {
+        film: movieReadinessReport,
+        tv: tvReadinessReport,
       },
       backfillJobs,
     });

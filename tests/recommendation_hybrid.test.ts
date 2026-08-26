@@ -186,8 +186,8 @@ export async function runHybridRecommendationTests(): Promise<void> {
   // -------------------------------------------------------------
 
   // Test 13: Candidate fingerprint does NOT include hybrid weights (0 AI calls on weight change)
-  const fpCandA = generateCandidateFingerprint(["c1", "c2", "c3"], 1, 1, "deepseek-chat");
-  const fpCandB = generateCandidateFingerprint(["c3", "c1", "c2"], 1, 1, "deepseek-chat");
+  const fpCandA = generateCandidateFingerprint(["c1", "c2", "c3"], 1, 1, "deepseek-v4-flash");
+  const fpCandB = generateCandidateFingerprint(["c3", "c1", "c2"], 1, 1, "deepseek-v4-flash");
   assert(
     fpCandA === fpCandB,
     "Candidate fingerprint is order-invariant and independent of admin weights (0 AI calls when tuning weights)"
@@ -223,7 +223,7 @@ export async function runHybridRecommendationTests(): Promise<void> {
         mediaType: "FILM",
         profileVersion: 1,
         aiTasteVersion: AI_TASTE_SCHEMA_VERSION,
-        model: "deepseek-chat",
+        model: "deepseek-v4-flash",
         tasteJson: mockCachedProfile as any,
         sourceEvidenceCount: 30,
         inputFingerprint: "test-fp-1",
@@ -244,7 +244,7 @@ export async function runHybridRecommendationTests(): Promise<void> {
         matchVersion: 32,
         aiTasteVersion: 1,
         candidateFingerprint: "cand-fp-1",
-        model: "deepseek-chat",
+        model: "deepseek-v4-flash",
         resultJson: {
           rankings: [{ candidateId: "m1", affinity: 92, signals: ["psikolojik tension"] }],
         } as any,

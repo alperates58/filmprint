@@ -1,4 +1,4 @@
-import { getDeepSeekConfig } from "../config/service";
+import { getDeepSeekConfig, CANONICAL_DEEPSEEK_MODEL } from "../config/service";
 import { generateRichFilmDnaSummary } from "./calculator";
 import type {
   GenrePreference,
@@ -56,7 +56,7 @@ export async function generateBespokeAiNarrative(input: GenerateAiNarrativeInput
             Authorization: `Bearer ${deepseekConfig.apiKey}`,
           },
           body: JSON.stringify({
-            model: deepseekConfig.modelId || "deepseek-chat",
+            model: deepseekConfig.modelId || CANONICAL_DEEPSEEK_MODEL,
             temperature: 0.65,
             max_tokens: 1200,
             messages: [

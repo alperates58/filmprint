@@ -383,37 +383,58 @@ export async function reserveDailyQuota(
 }
 
 /**
- * Idempotently commits a quota reservation when a chargeable AI response is successfully returned.
+ * Atomically and idempotently commits a quota reservation when a chargeable AI response is successfully returned.
+ * Allowed transition: RESERVED -> COMMITTED.
+ * Terminal states: COMMITTED (returns true, idempotent), REFUNDED (returns false, forbidden).
  */
 export async function commitDailyQuotaReservation(reservationId: string): Promise<boolean> {
   if (!reservationId) return false;
 
   try {
-    const existing = await db.quotaReservation.findUnique({
+    // 1. Atomic conditional transition: RESERVED -> COMMITTED
+    const updated = await db.quotaReservation.updateMany({
+      where: {
+        id: reservationId,
+        status: QuotaReservationStatus.RESERVED,
+      },
+      data: {
+        status: QuotaReservationStatus.COMMITTED,
+      },
+    });
+
+    if (updated.count === 1) {
+      return true;
+    }
+
+    // 2. If updated.count === 0, inspect current state
+    const current = await db.quotaReservation.findUnique({
       where: { id: reservationId },
     });
 
-    if (!existing || existing.status === QuotaReservationStatus.COMMITTED) {
-      return true; // Idempotent
+    if (!current) {
+      return false; // missing record -> false
     }
 
-    if (existing.status === QuotaReservationStatus.REFUNDED) {
-      return false; // Already refunded
+    if (current.status === QuotaReservationStatus.COMMITTED) {
+      return true; // already committed -> idempotent success
     }
 
-    await db.quotaReservation.update({
-      where: { id: reservationId },
-      data: { status: QuotaReservationStatus.COMMITTED },
-    });
+    if (current.status === QuotaReservationStatus.REFUNDED) {
+      return false; // terminal state: REFUNDED cannot commit
+    }
 
-    return true;
+    return false;
   } catch (err) {
     if (isTestEnvironment()) {
       const mem = inMemoryReservations.get(reservationId);
-      if (mem && mem.status !== "REFUNDED") {
+      if (!mem) return false;
+      if (mem.status === "COMMITTED") return true; // idempotent
+      if (mem.status === "REFUNDED") return false; // terminal state
+      if (mem.status === "RESERVED") {
         mem.status = "COMMITTED";
         return true;
       }
+      return false;
     }
     console.error("[commitDailyQuotaReservation Error]:", err);
     return false;
@@ -421,45 +442,75 @@ export async function commitDailyQuotaReservation(reservationId: string): Promis
 }
 
 /**
- * Idempotently refunds a quota reservation if provider fails, credentials are missing, or response is non-chargeable.
- * Decrements daily aggregate count by 1 (clamped at 0) exactly once.
+ * Atomically and idempotently refunds a quota reservation if provider fails, credentials are missing, or response is non-chargeable.
+ * Allowed transition: RESERVED -> REFUNDED.
+ * Decrements daily aggregate count by 1 (clamped at 0) exactly once using conditional updateMany inside ONE transaction.
+ * Terminal states: REFUNDED (returns true, idempotent), COMMITTED (returns false, forbidden).
  */
 export async function refundDailyQuotaReservation(reservationId: string): Promise<boolean> {
   if (!reservationId) return false;
 
   try {
     return await db.$transaction(async (tx) => {
-      const existing = await tx.quotaReservation.findUnique({
-        where: { id: reservationId },
-      });
-
-      if (!existing || existing.status === QuotaReservationStatus.REFUNDED) {
-        return true; // Idempotent: already refunded or record missing
-      }
-
-      await tx.quotaReservation.update({
-        where: { id: reservationId },
-        data: { status: QuotaReservationStatus.REFUNDED },
-      });
-
-      await tx.featureUsageDaily.updateMany({
+      // 1. Atomic conditional transition: RESERVED -> REFUNDED
+      const updated = await tx.quotaReservation.updateMany({
         where: {
-          userId: existing.userId,
-          featureKey: existing.featureKey,
-          usageDate: existing.usageDate,
-          count: { gt: 0 },
+          id: reservationId,
+          status: QuotaReservationStatus.RESERVED,
         },
         data: {
-          count: { decrement: 1 },
+          status: QuotaReservationStatus.REFUNDED,
         },
       });
 
-      return true;
+      if (updated.count === 1) {
+        // Exactly one concurrent transition won. Decrement aggregate usage count.
+        const record = await tx.quotaReservation.findUnique({
+          where: { id: reservationId },
+        });
+
+        if (record) {
+          await tx.featureUsageDaily.updateMany({
+            where: {
+              userId: record.userId,
+              featureKey: record.featureKey,
+              usageDate: record.usageDate,
+              count: { gt: 0 },
+            },
+            data: {
+              count: { decrement: 1 },
+            },
+          });
+        }
+        return true;
+      }
+
+      // If updated.count === 0, inspect current state
+      const current = await tx.quotaReservation.findUnique({
+        where: { id: reservationId },
+      });
+
+      if (!current) {
+        return false; // missing record -> false, not fake success
+      }
+
+      if (current.status === QuotaReservationStatus.REFUNDED) {
+        return true; // already refunded -> idempotent true (usage NOT decremented again)
+      }
+
+      if (current.status === QuotaReservationStatus.COMMITTED) {
+        return false; // terminal state: COMMITTED cannot be refunded
+      }
+
+      return false;
     });
   } catch (err) {
     if (isTestEnvironment()) {
       const mem = inMemoryReservations.get(reservationId);
-      if (mem && mem.status !== "REFUNDED") {
+      if (!mem) return false;
+      if (mem.status === "REFUNDED") return true; // idempotent
+      if (mem.status === "COMMITTED") return false; // terminal state
+      if (mem.status === "RESERVED") {
         mem.status = "REFUNDED";
         const key = `${mem.userId}_${mem.featureKey}_${mem.usageDate}`;
         const current = inMemoryUsage.get(key) || 0;
@@ -468,10 +519,55 @@ export async function refundDailyQuotaReservation(reservationId: string): Promis
         }
         return true;
       }
-      return true; // Idempotent
+      return false;
     }
     console.error("[refundDailyQuotaReservation Error]:", err);
     return false;
+  }
+}
+
+/**
+ * Recovers stale RESERVED quota reservations older than maxAgeMinutes (default: 15 minutes).
+ * Performs atomic refund transitions so no quota is leaked if a process crashes mid-request.
+ */
+export async function recoverStaleQuotaReservations(
+  maxAgeMinutes = 15,
+  batchSize = 25
+): Promise<{ scanned: number; recovered: number }> {
+  const cutoff = new Date(Date.now() - maxAgeMinutes * 60 * 1000);
+
+  try {
+    const staleRecords = await db.quotaReservation.findMany({
+      where: {
+        status: QuotaReservationStatus.RESERVED,
+        createdAt: { lt: cutoff },
+      },
+      select: { id: true },
+      take: batchSize,
+    });
+
+    let recovered = 0;
+    for (const record of staleRecords) {
+      const didRefund = await refundDailyQuotaReservation(record.id);
+      if (didRefund) recovered++;
+    }
+
+    return { scanned: staleRecords.length, recovered };
+  } catch (err) {
+    if (isTestEnvironment()) {
+      let recovered = 0;
+      let scanned = 0;
+      for (const [id, mem] of inMemoryReservations.entries()) {
+        if (mem.status === "RESERVED") {
+          scanned++;
+          const didRefund = await refundDailyQuotaReservation(id);
+          if (didRefund) recovered++;
+        }
+      }
+      return { scanned, recovered };
+    }
+    console.error("[recoverStaleQuotaReservations Error]:", err);
+    return { scanned: 0, recovered: 0 };
   }
 }
 

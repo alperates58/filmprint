@@ -40,7 +40,7 @@ export async function runTvHybridRecommendationTests() {
       data: {
         userId: testUser.id,
         mediaType: "FILM",
-        model: "deepseek-chat",
+        model: "deepseek-v4-flash",
         inputFingerprint: "film_fp_123",
         tasteJson: { corePreferences: ["Film Noir", "Cinematic Drama"] },
         sourceEvidenceCount: 30,
@@ -52,7 +52,7 @@ export async function runTvHybridRecommendationTests() {
       data: {
         userId: testUser.id,
         mediaType: "TV",
-        model: "deepseek-chat",
+        model: "deepseek-v4-flash",
         inputFingerprint: "tv_fp_456",
         tasteJson: { corePreferences: ["Slow-Burn Mystery", "Miniseries"] },
         sourceEvidenceCount: 20,

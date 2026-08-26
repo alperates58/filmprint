@@ -68,7 +68,7 @@ export async function evaluateProfileQuality(
         update: {
           profileVersion: profile.version || 1,
           aiTasteVersion: 1,
-          model: "deepseek-chat",
+          model: "deepseek-v4-flash",
           tasteJson: options.frozenAiTasteProfile as any,
           sourceEvidenceCount: setup.watchedCount,
           inputFingerprint: `frozen_${spec.id}`,
@@ -78,7 +78,7 @@ export async function evaluateProfileQuality(
           mediaType: "FILM",
           profileVersion: profile.version || 1,
           aiTasteVersion: 1,
-          model: "deepseek-chat",
+          model: "deepseek-v4-flash",
           tasteJson: options.frozenAiTasteProfile as any,
           sourceEvidenceCount: setup.watchedCount,
           inputFingerprint: `frozen_${spec.id}`,

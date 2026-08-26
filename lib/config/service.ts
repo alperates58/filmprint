@@ -98,7 +98,7 @@ export async function getDeepSeekConfig(): Promise<DeepSeekConfig> {
     return {
       apiKey: process.env.DEEPSEEK_API_KEY,
       baseUrl: process.env.DEEPSEEK_BASE_URL || defaultBaseUrl,
-      modelId: normalizeDeepSeekModel(process.env.DEEPSEEK_MODEL_ID),
+      modelId: normalizeDeepSeekModel(process.env.DEEPSEEK_MODEL_ID || process.env.DEEPSEEK_MODEL),
       enabled: true,
       source: "environment",
     };
@@ -148,7 +148,7 @@ export async function getIntegrationStatus(provider: string): Promise<Integratio
       isConfigured: true,
       lastFour: envKey.length >= 4 ? envKey.slice(-4) : envKey,
       source: "environment",
-      metadata: provider === "deepseek" ? { baseUrl: process.env.DEEPSEEK_BASE_URL || CANONICAL_DEEPSEEK_BASE_URL, modelId: normalizeDeepSeekModel(process.env.DEEPSEEK_MODEL_ID), enabled: true } : {},
+      metadata: provider === "deepseek" ? { baseUrl: process.env.DEEPSEEK_BASE_URL || CANONICAL_DEEPSEEK_BASE_URL, modelId: normalizeDeepSeekModel(process.env.DEEPSEEK_MODEL_ID || process.env.DEEPSEEK_MODEL), enabled: true } : {},
       updatedAt: null,
     };
   }

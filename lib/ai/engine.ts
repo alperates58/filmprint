@@ -28,6 +28,11 @@ import {
   EnrichedAiMovieItem,
   AiRecommendationResponse,
 } from "./types";
+import {
+  getDeepSeekConfig,
+  CANONICAL_DEEPSEEK_MODEL,
+  CANONICAL_DEEPSEEK_BASE_URL,
+} from "@/lib/config/service";
 
 const AI_PROVIDER = process.env.AI_PROVIDER || "deepseek";
 const AI_RESULT_LIMIT = parseInt(process.env.AI_RESULT_LIMIT || "12", 10);
@@ -66,21 +71,22 @@ function parseProviderJson(content: string): any {
   return JSON.parse(text);
 }
 
-function sanitizeProviderMessage(message?: string): string {
+function sanitizeProviderMessage(message?: string, extraSecrets: (string | null | undefined)[] = []): string {
   let safe = String(message || "Bilinmeyen sağlayıcı hatası");
-  for (const secret of [process.env.DEEPSEEK_API_KEY, process.env.OPENAI_API_KEY, process.env.GEMINI_API_KEY]) {
+  for (const secret of [process.env.DEEPSEEK_API_KEY, process.env.OPENAI_API_KEY, process.env.GEMINI_API_KEY, ...extraSecrets]) {
     if (secret) safe = safe.split(secret).join("[redacted]");
   }
   return safe.substring(0, 400);
 }
 
-async function callDeepSeek(query: string): Promise<any> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) throw new Error("DeepSeek API anahtarı yapılandırılmamış");
-  const baseUrl = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
-  const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+async function callDeepSeek(query: string, config?: { apiKey: string | null; baseUrl: string; modelId: string; enabled: boolean }): Promise<any> {
+  const deepseek = config || (await getDeepSeekConfig());
+  const apiKey = deepseek.apiKey;
+  if (!apiKey || !deepseek.enabled) throw new Error("DeepSeek API anahtarı yapılandırılmamış veya servis devre dışı");
+  const baseUrl = deepseek.baseUrl || CANONICAL_DEEPSEEK_BASE_URL;
+  const model = deepseek.modelId || CANONICAL_DEEPSEEK_MODEL;
 
-  const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
@@ -97,7 +103,7 @@ async function callDeepSeek(query: string): Promise<any> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`DeepSeek ${response.status}: ${sanitizeProviderMessage(errorText)}`);
+    throw new Error(`DeepSeek ${response.status}: ${sanitizeProviderMessage(errorText, [apiKey])}`);
   }
   const data = await response.json();
   return parseProviderJson(data.choices?.[0]?.message?.content);
@@ -124,7 +130,7 @@ async function callOpenAI(query: string): Promise<any> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`OpenAI ${response.status}: ${sanitizeProviderMessage(errorText)}`);
+    throw new Error(`OpenAI ${response.status}: ${sanitizeProviderMessage(errorText, [apiKey])}`);
   }
   const data = await response.json();
   return parseProviderJson(data.choices?.[0]?.message?.content);
@@ -152,7 +158,7 @@ async function callGemini(query: string): Promise<any> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Gemini ${response.status}: ${sanitizeProviderMessage(errorText)}`);
+    throw new Error(`Gemini ${response.status}: ${sanitizeProviderMessage(errorText, [apiKey])}`);
   }
   const data = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.map((part: any) => part.text || "").join("") || "";
@@ -164,7 +170,7 @@ export async function normalizeAiQuery(query: string): Promise<NormalizedAiQuery
   const safeQuery = query.substring(0, 500);
   const analysisMeta = {
     provider: AI_PROVIDER,
-    model: process.env.DEEPSEEK_MODEL || process.env.OPENAI_MODEL || process.env.GEMINI_MODEL || "deterministic",
+    model: CANONICAL_DEEPSEEK_MODEL,
     providerAttempted: false,
     providerSucceeded: false,
     fallback: false,
@@ -175,11 +181,13 @@ export async function normalizeAiQuery(query: string): Promise<NormalizedAiQuery
 
   try {
     let rawResult: any = null;
-    if (process.env.DEEPSEEK_API_KEY) {
+    const deepseekConfig = await getDeepSeekConfig().catch(() => null);
+
+    if (deepseekConfig?.apiKey && deepseekConfig?.enabled) {
       analysisMeta.provider = "deepseek";
-      analysisMeta.model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+      analysisMeta.model = deepseekConfig.modelId || CANONICAL_DEEPSEEK_MODEL;
       analysisMeta.providerAttempted = true;
-      rawResult = await callDeepSeek(safeQuery);
+      rawResult = await callDeepSeek(safeQuery, deepseekConfig);
       analysisMeta.providerSucceeded = true;
       analysisMeta.chargeable = true;
     } else if (process.env.OPENAI_API_KEY) {
@@ -221,6 +229,7 @@ export async function normalizeAiQuery(query: string): Promise<NormalizedAiQuery
     return fallback;
   }
 }
+
 
 export async function getAiRecommendations(rawQuery: string): Promise<AiRecommendationResponse> {
   const startTime = Date.now();

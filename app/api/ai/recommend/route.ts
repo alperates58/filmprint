@@ -94,14 +94,15 @@ export async function POST(request: Request) {
     }
 
     // 5. Account Machine-Readable Provider Outcome
-    if (response._analysis?.chargeable) {
-      if (reservationId) {
-        await commitDailyQuotaReservation(reservationId);
-      }
-    } else {
-      // Fallback, missing credentials, or provider error with fallback -> 0 Net consumption
-      if (reservationId) {
-        await refundDailyQuotaReservation(reservationId);
+    const activeResId = reservationId;
+    reservationId = null; // Finalize local tracking so subsequent catch blocks cannot attempt conflicting transitions
+
+    if (activeResId) {
+      if (response._analysis?.chargeable) {
+        await commitDailyQuotaReservation(activeResId);
+      } else {
+        // Fallback, missing credentials, or provider error with fallback -> 0 Net consumption
+        await refundDailyQuotaReservation(activeResId);
       }
     }
 
@@ -112,7 +113,9 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     if (reservationId) {
-      await refundDailyQuotaReservation(reservationId);
+      const pendingResId = reservationId;
+      reservationId = null;
+      await refundDailyQuotaReservation(pendingResId).catch(() => {});
     }
     console.error("[API AI Recommend Error]:", error);
     return NextResponse.json(

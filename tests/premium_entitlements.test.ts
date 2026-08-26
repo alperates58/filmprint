@@ -11,6 +11,7 @@ import {
   reserveDailyQuota,
   commitDailyQuotaReservation,
   refundDailyQuotaReservation,
+  recoverStaleQuotaReservations,
   getDailyQuotaStatus,
 } from "@/lib/entitlements/service";
 import { FEATURE_REGISTRY, FeatureEntitlement } from "@/lib/entitlements/types";
@@ -26,6 +27,9 @@ export async function runPremiumEntitlementsTests() {
   const testUserIdExpired = `test_user_exp_${Date.now()}`;
   const testUserIdOverride = `test_user_override_${Date.now()}`;
   const testUserIdQuota = `test_user_quota_${Date.now()}`;
+  const testUserConcurrent1 = `test_conc1_${Date.now()}`;
+  const testUserConcurrent2 = `test_conc2_${Date.now()}`;
+  const testUserStale = `test_stale_${Date.now()}`;
 
   try {
     // -------------------------------------------------------------
@@ -168,6 +172,74 @@ export async function runPremiumEntitlementsTests() {
     console.log("✓ Test Suite 2 Passed: Truly Idempotent Quota Reservations & Safe Refunds");
 
     // -------------------------------------------------------------
+    // 2B. REAL CONCURRENCY & TERMINAL STATE MACHINE INVARIANTS
+    // -------------------------------------------------------------
+    // 1. 4 simultaneous refund calls on one reservation -> usage decrements exactly once
+    const resConc1 = await reserveDailyQuota(testUserConcurrent1, "AI_DISCOVER");
+    assert.strictEqual(resConc1.allowed, true);
+    assert.strictEqual(resConc1.consumed, 1);
+
+    const concurrentRefunds = await Promise.all([
+      refundDailyQuotaReservation(resConc1.reservationId!),
+      refundDailyQuotaReservation(resConc1.reservationId!),
+      refundDailyQuotaReservation(resConc1.reservationId!),
+      refundDailyQuotaReservation(resConc1.reservationId!),
+    ]);
+
+    // All return true (first commits refund, rest are idempotent true)
+    assert.ok(concurrentRefunds.every((r) => r === true), "All concurrent refunds must resolve true");
+    const statusConc1 = await getDailyQuotaStatus(testUserConcurrent1, "AI_DISCOVER");
+    assert.strictEqual(statusConc1.consumed, 0, "4 simultaneous refunds must decrement aggregate usage exactly once to 0");
+
+    // Repeated refund later must not decrement count below 0
+    await refundDailyQuotaReservation(resConc1.reservationId!);
+    const statusConc1Repeat = await getDailyQuotaStatus(testUserConcurrent1, "AI_DISCOVER");
+    assert.strictEqual(statusConc1Repeat.consumed, 0, "Repeated refund must not change count");
+
+    // 2. Concurrent Commit vs Refund: Exactly ONE terminal state must win
+    const resConc2 = await reserveDailyQuota(testUserConcurrent2, "AI_DISCOVER");
+    assert.strictEqual(resConc2.allowed, true);
+    assert.strictEqual(resConc2.consumed, 1);
+
+    const [commitWon, refundWon] = await Promise.all([
+      commitDailyQuotaReservation(resConc2.reservationId!),
+      refundDailyQuotaReservation(resConc2.reservationId!),
+    ]);
+
+    // Exactly one operation wins the state transition
+    assert.ok(
+      (commitWon && !refundWon) || (!commitWon && refundWon),
+      "Exactly one terminal state must win between concurrent commit and refund"
+    );
+
+    const statusConc2 = await getDailyQuotaStatus(testUserConcurrent2, "AI_DISCOVER");
+    if (commitWon) {
+      assert.strictEqual(statusConc2.consumed, 1, "If commit won, usage remains 1");
+      // COMMITTED reservation cannot later be refunded
+      const lateRefund = await refundDailyQuotaReservation(resConc2.reservationId!);
+      assert.strictEqual(lateRefund, false, "COMMITTED reservation cannot later refund");
+      const statusAfterLateRefund = await getDailyQuotaStatus(testUserConcurrent2, "AI_DISCOVER");
+      assert.strictEqual(statusAfterLateRefund.consumed, 1, "Failed late refund must not decrement usage");
+    } else {
+      assert.strictEqual(statusConc2.consumed, 0, "If refund won, usage drops to 0");
+      // REFUNDED reservation cannot later be committed
+      const lateCommit = await commitDailyQuotaReservation(resConc2.reservationId!);
+      assert.strictEqual(lateCommit, false, "REFUNDED reservation cannot later commit");
+    }
+
+    // 3. Stale Reservation Recovery
+    const resStale = await reserveDailyQuota(testUserStale, "AI_DISCOVER");
+    assert.strictEqual(resStale.allowed, true);
+    assert.strictEqual(resStale.consumed, 1);
+
+    const { recovered } = await recoverStaleQuotaReservations(0, 10);
+    assert.ok(recovered >= 1, "recoverStaleQuotaReservations must recover pending reservation");
+
+    const statusStale = await getDailyQuotaStatus(testUserStale, "AI_DISCOVER");
+    assert.strictEqual(statusStale.consumed, 0, "Recovered stale reservation must refund consumed usage to 0");
+    console.log("✓ Test Suite 2B Passed: Concurrency Safety, Terminal State Guarantees & Stale Recovery");
+
+    // -------------------------------------------------------------
     // 3. CANONICAL AD_FREE & BILLING READINESS
     // -------------------------------------------------------------
     const freeSummary = await getUserEntitlementSummary(testUserIdFree);
@@ -196,7 +268,16 @@ export async function runPremiumEntitlementsTests() {
       await db.userEntitlement.deleteMany({
         where: {
           userId: {
-            in: [testUserIdFree, testUserIdPremium, testUserIdExpired, testUserIdOverride, testUserIdQuota],
+            in: [
+              testUserIdFree,
+              testUserIdPremium,
+              testUserIdExpired,
+              testUserIdOverride,
+              testUserIdQuota,
+              testUserConcurrent1,
+              testUserConcurrent2,
+              testUserStale,
+            ],
           },
         },
       });

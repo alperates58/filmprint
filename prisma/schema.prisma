@@ -776,6 +776,7 @@ model QuotaReservation {
 
   @@index([userId, featureKey, usageDate])
   @@index([status])
+  @@index([status, createdAt])
 }
 
 

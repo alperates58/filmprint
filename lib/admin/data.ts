@@ -1,5 +1,6 @@
 import { db } from "@/lib/db/client";
 import { getSystemSettings, getIntegrationStatus, getDeepSeekConfig } from "@/lib/config/service";
+import { getUserEntitlementSummary } from "@/lib/entitlements/service";
 import {
   getRankForCount,
   getProgressionForCount,
@@ -571,6 +572,8 @@ export async function getAdminUserDetailData(id: string) {
   const totalTvRecommendationFeedbacks =
     tvWatchLaterCount + tvNotInterestedCount + tvAlreadyWatchedCount + tvWatchedFromRecCount;
 
+  const entitlement = await getUserEntitlementSummary(user.id);
+
   return {
     user: {
       id: user.id,
@@ -583,6 +586,7 @@ export async function getAdminUserDetailData(id: string) {
       lastSeenAt: user.lastSeenAt,
       progression,
       tvProgression,
+      entitlement,
       stats: {
         totalInteractions: totalMovieInteractionCount,
         watched,

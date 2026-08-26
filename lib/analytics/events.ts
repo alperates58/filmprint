@@ -34,7 +34,15 @@ export type SineaiAnalyticsEvent =
   // User Lifecycle (Strictly without PII)
   | { name: "signup_complete"; params: { method: "google" | "email" | "anonymous" } }
   | { name: "login_complete"; params: { method: "google" | "email" } }
-  | { name: "library_view"; params: { media_type: "film" | "tv"; active_tab: string } };
+  | { name: "library_view"; params: { media_type: "film" | "tv"; active_tab: string } }
+
+  // Premium & Monetization (Privacy-Safe)
+  | { name: "premium_page_view"; params: { source?: string } }
+  | { name: "premium_cta_click"; params: { plan?: string; source?: string } }
+  | { name: "ai_discover_quota_exhausted"; params: { limit: number; remaining: number } }
+  | { name: "ai_discover_premium_usage"; params: { model?: string } }
+  | { name: "movie_night_premium_opened"; params: { session_code: string; is_host: boolean } }
+  | { name: "movie_night_premium_session_created"; params: { session_code: string } };
 
 /**
  * Validates that event payloads do not contain sensitive fields.

@@ -4,6 +4,7 @@ import { Footer } from "@/components/ui/Footer";
 import { getAuthenticatedUser } from "@/lib/auth/service";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db/client";
+import { getUserEntitlementSummary } from "@/lib/entitlements/service";
 import { AccountSettingsForm, AccountSettingsUser } from "@/components/account/AccountSettingsForm";
 
 export default async function AccountSettingsPage() {
@@ -13,17 +14,20 @@ export default async function AccountSettingsPage() {
     redirect("/auth");
   }
 
-  const user = await db.user.findUnique({
-    where: { id: currentUser.id },
-    include: {
-      _count: {
-        select: { interactions: true },
+  const [entitlement, user] = await Promise.all([
+    getUserEntitlementSummary(currentUser.id),
+    db.user.findUnique({
+      where: { id: currentUser.id },
+      include: {
+        _count: {
+          select: { interactions: true },
+        },
+        tasteProfile: {
+          select: { profileJson: true },
+        },
       },
-      tasteProfile: {
-        select: { profileJson: true },
-      },
-    },
-  });
+    }),
+  ]);
 
   if (!user) {
     redirect("/auth");
@@ -42,6 +46,9 @@ export default async function AccountSettingsPage() {
     accountType: user.accountType,
     showEmail,
     interactionCount: user._count.interactions,
+    tier: entitlement.tier,
+    isPremium: entitlement.isPremium,
+    validUntil: entitlement.validUntil,
   };
 
   return (

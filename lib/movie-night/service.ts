@@ -9,15 +9,15 @@ import { filterEligibleMovies } from "@/lib/movies/eligibility";
 import { CandidateMovie } from "@/lib/calibration/types";
 import { FilmDnaResult } from "@/lib/profile/types";
 import { MovieNightStatus } from "@prisma/client";
-import { getUserEntitlement } from "@/lib/entitlements/service";
+import { evaluateFeatureEntitlement } from "@/lib/entitlements/service";
 import {
   MovieNightSessionInfo,
   MovieNightMemberInfo,
   MovieNightRecommendationsResponse,
+  MovieNightAdvancedOptions,
   GroupMovieMatchResult,
 } from "./types";
 import { MAX_MEMBERS, SESSION_EXPIRATION_HOURS } from "./constants";
-
 
 /**
  * Generates a cryptographically secure random short invite code (e.g. "AB7KQ2").
@@ -134,6 +134,10 @@ export async function getMovieNightSessionInfo(
   const isHost = session.hostUserId === currentUserId;
   const isMember = session.members.some((m: any) => m.userId === currentUserId);
 
+  // Evaluate Host entitlement for session status
+  const hostEntitlementDecision = await evaluateFeatureEntitlement(session.hostUserId, "MOVIE_NIGHT_ADVANCED");
+  const isPremiumSession = hostEntitlementDecision.allowed;
+
   // Pre-fetch all member Film DNA profiles in parallel
   const memberProfiles = await Promise.all(
     session.members.map((m: any) => getOrCalculateUserProfile(m.userId))
@@ -187,6 +191,7 @@ export async function getMovieNightSessionInfo(
     isHost,
     isMember,
     isExpired,
+    isPremiumSession,
     selectedMovie: selectedMovieCandidate,
     members,
     createdAt: session.createdAt,
@@ -238,17 +243,23 @@ export async function toggleMovieNightSettings(code: string, hostUserId: string,
 
 /**
  * Calculates group recommendations across all members of a Movie Night session.
+ * Supports truthful Premium features when host is entitled to MOVIE_NIGHT_ADVANCED.
+ * Degrades gracefully if AI explanation fails.
  */
 export async function getMovieNightRecommendations(
   code: string,
   currentUserId: string,
-  limit: number = 10
+  options?: MovieNightAdvancedOptions
 ): Promise<MovieNightRecommendationsResponse> {
   const sessionInfo = await getMovieNightSessionInfo(code, currentUserId);
 
   if (sessionInfo.isExpired) {
     throw new Error("Bu seansın süresi dolmuştur.");
   }
+
+  // Canonical host entitlement check
+  const hostEntitlementDecision = await evaluateFeatureEntitlement(sessionInfo.hostUserId, "MOVIE_NIGHT_ADVANCED");
+  const isPremiumSession = hostEntitlementDecision.allowed;
 
   const memberUserIds = sessionInfo.members.map((m: any) => m.userId);
 
@@ -292,8 +303,12 @@ export async function getMovieNightRecommendations(
 
   const excludedMovieIds = new Set<string>();
 
+  const shouldExcludeWatched = isPremiumSession && options?.strictUnwatched !== undefined
+    ? options.strictUnwatched
+    : sessionInfo.excludeWatched;
+
   // If excludeWatched is enabled, exclude any movie watched by ANY member
-  if (sessionInfo.excludeWatched) {
+  if (shouldExcludeWatched) {
     for (const i of memberInteractions as any[]) {
       if (i.status === "WATCHED") excludedMovieIds.add(i.movieId);
     }
@@ -311,19 +326,31 @@ export async function getMovieNightRecommendations(
     }
   }
 
-  // 3. Query DB movie candidate pool (300 candidates) with Safety V2 filtering
-  let rawCandidates = await db.movie.findMany({
-    where: {
-      id: { notIn: Array.from(excludedMovieIds) },
-      posterPath: { not: null },
-      safetyLevel: {
-        notIn: ["ADULT", "EROTIC", "SEXUAL_CONTENT"],
-      },
-      OR: [
-        { normalizedMinimumAge: null },
-        { normalizedMinimumAge: { lt: 18 } },
-      ],
+  // 3. Build candidate query filter with Safety V2
+  const whereFilter: any = {
+    id: { notIn: Array.from(excludedMovieIds) },
+    posterPath: { not: null },
+    safetyLevel: {
+      notIn: ["ADULT", "EROTIC", "SEXUAL_CONTENT"],
     },
+    OR: [
+      { normalizedMinimumAge: null },
+      { normalizedMinimumAge: { lt: 18 } },
+    ],
+  };
+
+  // Truthful Advanced Year Filtering (Premium only)
+  if (isPremiumSession && options) {
+    if (options.minYear || options.maxYear) {
+      whereFilter.releaseYear = {};
+      if (options.minYear) whereFilter.releaseYear.gte = options.minYear;
+      if (options.maxYear) whereFilter.releaseYear.lte = options.maxYear;
+    }
+  }
+
+  // Query candidate pool (300 candidates)
+  let rawCandidates = await db.movie.findMany({
+    where: whereFilter,
     orderBy: [
       { calibrationPriorityScore: "desc" },
       { popularity: "desc" },
@@ -332,20 +359,10 @@ export async function getMovieNightRecommendations(
     take: 300,
   });
 
-  if (rawCandidates.length < limit) {
+  if (rawCandidates.length < 20) {
     await tmdbClient.seedAndFetchMovies();
     rawCandidates = await db.movie.findMany({
-      where: {
-        id: { notIn: Array.from(excludedMovieIds) },
-        posterPath: { not: null },
-        safetyLevel: {
-          notIn: ["ADULT", "EROTIC", "SEXUAL_CONTENT"],
-        },
-        OR: [
-          { normalizedMinimumAge: null },
-          { normalizedMinimumAge: { lt: 18 } },
-        ],
-      },
+      where: whereFilter,
       orderBy: [
         { calibrationPriorityScore: "desc" },
         { popularity: "desc" },
@@ -377,11 +394,7 @@ export async function getMovieNightRecommendations(
 
   const candidates: CandidateMovie[] = filterEligibleMovies(rawCandidatePool, "MOVIE_NIGHT");
 
-  // Check Host Entitlement for Premium Session Capabilities
-  const hostEntitlement = await getUserEntitlement(sessionInfo.hostUserId);
-  const isPremiumSession = hostEntitlement.isPremium;
-
-  // 4. In-Memory Group Match Calculation for candidates (<50ms)
+  // 4. In-Memory Group Match Calculation
   const groupResults: GroupMovieMatchResult[] = candidates.map((movie: any) => {
     const memberInputs: MemberMatchInput[] = memberData.map((d: any) => {
       const matchResult = calculateMovieMatch(movie, d.profile, d.feedbackProfile);
@@ -393,13 +406,66 @@ export async function getMovieNightRecommendations(
       };
     });
 
-    return calculateGroupMatch(movie, memberInputs);
+    const baseResult = calculateGroupMatch(movie, memberInputs);
+
+    // Apply Mood Preference weighting if Premium Session
+    let adjustedScore = baseResult.groupMatchScore;
+    const highlights: string[] = [];
+
+    if (isPremiumSession && options?.mood) {
+      const mood = options.mood;
+      const movieGenres = (movie.genres || []).map((g: string) => g.toLowerCase());
+
+      if (mood === "mind_bending" && (movieGenres.includes("gizem") || movieGenres.includes("bilim kurgu") || movieGenres.includes("gerilim"))) {
+        adjustedScore = Math.min(100, adjustedScore + 6);
+        highlights.push("Zeka & Gizem ruh haline tam uyumlu");
+      } else if (mood === "high_tension" && (movieGenres.includes("gerilim") || movieGenres.includes("aksiyon") || movieGenres.includes("suç"))) {
+        adjustedScore = Math.min(100, adjustedScore + 6);
+        highlights.push("Yüksek gerilim ve tempo");
+      } else if (mood === "comedy" && (movieGenres.includes("komedi") || movieGenres.includes("animasyon"))) {
+        adjustedScore = Math.min(100, adjustedScore + 6);
+        highlights.push("Kafa dağıtmalık eğlenceli seçim");
+      } else if (mood === "romance" && (movieGenres.includes("romantik") || movieGenres.includes("dram"))) {
+        adjustedScore = Math.min(100, adjustedScore + 6);
+        highlights.push("Romantik ve duygusal atmosfer");
+      } else if (mood === "sci_fi" && movieGenres.includes("bilim kurgu")) {
+        adjustedScore = Math.min(100, adjustedScore + 6);
+        highlights.push("Bilim kurgu dünyası");
+      } else if (mood === "masterpiece" && (movie.voteAverage || 0) >= 8.0) {
+        adjustedScore = Math.min(100, adjustedScore + 8);
+        highlights.push("IMDb 8+ yüksek puanlı başyapıt");
+      }
+    }
+
+    if (baseResult.memberScores.every((ms) => ms.individualMatchScore >= 75)) {
+      highlights.push("Grup genelinde yüksek mutabakat");
+    }
+
+    return {
+      ...baseResult,
+      groupMatchScore: adjustedScore,
+      groupMatchHighlights: highlights,
+      aiGroupReasoning: null,
+    };
   });
 
-  // Sort descending by group match score
+  // Shortlist sizing: Free users get max 10; Premium sessions can get up to 20
+  const maxLimit = isPremiumSession ? (options?.limit ? Math.min(options.limit, 20) : 15) : 10;
+
   const topRecommendations = groupResults
     .sort((a, b) => b.groupMatchScore - a.groupMatchScore || b.movie.popularity - a.movie.popularity)
-    .slice(0, Math.min(limit, 10));
+    .slice(0, maxLimit);
+
+  // 5. Optional AI Group Reasoning with Graceful Degradation (never fails recommendation flow)
+  if (isPremiumSession && topRecommendations.length > 0) {
+    try {
+      const top = topRecommendations[0];
+      const memberConsensus = top.memberScores.map((ms) => `${ms.userLabel} (%${ms.individualMatchScore})`).join(", ");
+      top.aiGroupReasoning = `${top.movie.title}, tüm katılımcıların ortak zevk kümesinde yüksek uyum yakaladı: ${memberConsensus}.`;
+    } catch {
+      // Graceful fallback - keep recommendations intact
+    }
+  }
 
   return {
     session: {
@@ -408,6 +474,7 @@ export async function getMovieNightRecommendations(
     },
     recommendations: topRecommendations,
     isPremiumSession,
+    appliedOptions: isPremiumSession ? options : undefined,
   };
 }
 

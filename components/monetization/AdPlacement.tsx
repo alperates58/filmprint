@@ -9,7 +9,7 @@ import {
 } from "@/lib/monetization/placements";
 import { hasAdStorageConsent } from "@/lib/monetization/consent";
 import { PublicMonetizationConfig, SafePlacementConfig } from "@/lib/monetization/types";
-import { checkIsAuthenticatedClient } from "@/lib/monetization/client-auth";
+import { checkClientAuthAndEntitlement } from "@/lib/monetization/client-auth";
 
 interface AdPlacementProps {
   slot: string;
@@ -28,6 +28,7 @@ export function AdPlacement({ slot, className = "", previewMode = false }: AdPla
   const [config, setConfig] = useState<PublicMonetizationConfig | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isPremium, setIsPremium] = useState<boolean>(false);
   const [adPushed, setAdPushed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -50,9 +51,15 @@ export function AdPlacement({ slot, className = "", previewMode = false }: AdPla
         // Fallback
       });
 
-    checkIsAuthenticatedClient()
-      .then((isAuth) => setIsAuthenticated(isAuth))
-      .catch(() => setIsAuthenticated(false));
+    checkClientAuthAndEntitlement()
+      .then((res) => {
+        setIsAuthenticated(res.isAuthenticated);
+        setIsPremium(res.isPremium);
+      })
+      .catch(() => {
+        setIsAuthenticated(false);
+        setIsPremium(false);
+      });
   }, []);
 
   const placement: SafePlacementConfig | undefined = config?.placements?.[slot];
@@ -96,6 +103,11 @@ export function AdPlacement({ slot, className = "", previewMode = false }: AdPla
   }
 
   // Live Gating Checks
+  // Premium users NEVER receive ads (AD_FREE invariant)
+  if (isPremium) {
+    return null;
+  }
+
   if (!config || !config.master || !config.adClientId || !placement || !placement.enabled) {
     return null;
   }

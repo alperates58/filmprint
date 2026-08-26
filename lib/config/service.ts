@@ -260,10 +260,20 @@ export const DEFAULT_SYSTEM_SETTINGS = {
   tvHybridAiWeight: 40,
   tvAiTasteRefreshEvidenceCount: 25,
   tvAiRerankShortlistSize: 50,
+  // Premium Product Settings
+  freeAiDiscoverDailyLimit: 5,
+  premiumAiDiscoverFairUseLimit: 100,
+  premiumEnabled: true,
+  adminBillingEnabled: false,
+  premiumMonthlyPrice: null as string | null,
+  premiumAnnualPrice: null as string | null,
+  premiumAnnualDiscountLabel: null as string | null,
+  premiumCurrency: "TRY",
+  premiumTrialText: null as string | null,
 };
 
 /**
- * System Settings Resolution (e.g. calibrationTarget, queuePreloadCount, aiEnabled, activeLearningEnabled, recommendationsEnabled, aiExplanationsEnabled, hybrid recommendation settings).
+ * System Settings Resolution (e.g. calibrationTarget, queuePreloadCount, aiEnabled, activeLearningEnabled, recommendationsEnabled, aiExplanationsEnabled, hybrid recommendation settings, premium product settings).
  */
 export async function getSystemSettings() {
   if (
@@ -298,6 +308,22 @@ export async function getSystemSettings() {
     const rawTvShortlist = parseInt(settingsMap.get("tv_ai_rerank_shortlist_size") || "50", 10);
     const tvAiRerankShortlistSize = Math.max(40, Math.min(60, isNaN(rawTvShortlist) ? 50 : rawTvShortlist));
 
+    // Premium & Pricing Settings
+    const rawFreeAiQuota = parseInt(settingsMap.get("free_ai_discover_daily_limit") || "5", 10);
+    const freeAiDiscoverDailyLimit = Math.max(1, isNaN(rawFreeAiQuota) ? 5 : rawFreeAiQuota);
+
+    const rawPremiumFairUse = parseInt(settingsMap.get("premium_ai_discover_fair_use_limit") || "100", 10);
+    const premiumAiDiscoverFairUseLimit = Math.max(10, isNaN(rawPremiumFairUse) ? 100 : rawPremiumFairUse);
+
+    const premiumEnabled = settingsMap.get("premium_enabled") !== "false";
+    const adminBillingEnabled = settingsMap.get("admin_billing_enabled") === "true";
+
+    const premiumMonthlyPrice = settingsMap.get("premium_monthly_price") || null;
+    const premiumAnnualPrice = settingsMap.get("premium_annual_price") || null;
+    const premiumAnnualDiscountLabel = settingsMap.get("premium_annual_discount_label") || null;
+    const premiumCurrency = settingsMap.get("premium_currency") || "TRY";
+    const premiumTrialText = settingsMap.get("premium_trial_text") || null;
+
     return {
       calibrationTarget: parseInt(settingsMap.get("calibration_target") || "30", 10),
       queuePreloadCount: parseInt(settingsMap.get("queue_preload_count") || "5", 10),
@@ -318,6 +344,16 @@ export async function getSystemSettings() {
       tvHybridAiWeight: tvAiWeight,
       tvAiTasteRefreshEvidenceCount,
       tvAiRerankShortlistSize,
+      // Premium Product Settings
+      freeAiDiscoverDailyLimit,
+      premiumAiDiscoverFairUseLimit,
+      premiumEnabled,
+      adminBillingEnabled,
+      premiumMonthlyPrice,
+      premiumAnnualPrice,
+      premiumAnnualDiscountLabel,
+      premiumCurrency,
+      premiumTrialText,
     };
   } catch (error) {
     return DEFAULT_SYSTEM_SETTINGS;

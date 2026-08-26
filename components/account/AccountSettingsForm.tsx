@@ -13,6 +13,9 @@ export interface AccountSettingsUser {
   accountType: "ANONYMOUS" | "REGISTERED";
   showEmail: boolean;
   interactionCount: number;
+  tier?: "FREE" | "PREMIUM";
+  isPremium?: boolean;
+  validUntil?: string | null;
 }
 
 interface AccountSettingsFormProps {
@@ -406,7 +409,58 @@ export function AccountSettingsForm({ initialUser }: AccountSettingsFormProps) {
         </div>
       )}
 
-      {/* 5. Sticky / Prominent Save Bar */}
+      {/* 5. Subscription & Membership Status Section */}
+      <div className="rounded-3xl bg-surface-1 border border-border/80 p-6 md:p-8 space-y-6 shadow-sm">
+        <div className="border-b border-border/60 pb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-display text-lg sm:text-xl font-bold text-text-primary flex items-center gap-2">
+              <span>👑</span>
+              <span>Üyelik & Abonelik Planı</span>
+            </h2>
+            <p className="text-xs text-text-muted mt-0.5">
+              SINEAI hesap katmanınız ve aktif yetkileriniz.
+            </p>
+          </div>
+          <span
+            className={`px-3 py-1 rounded-full text-xs font-mono font-bold ${
+              initialUser.isPremium
+                ? "bg-purple-950/80 border border-purple-500/40 text-purple-300"
+                : "bg-surface-2 border border-border text-text-muted"
+            }`}
+          >
+            {initialUser.isPremium ? "✨ PREMIUM" : "ÜCRETSİZ PLAN"}
+          </span>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl bg-surface-2 border border-border/70">
+          <div className="space-y-1">
+            <p className="text-sm font-bold text-text-primary">
+              {initialUser.isPremium ? "SINEAI Premium Üyeliği Aktif" : "SINEAI Free Planı"}
+            </p>
+            <p className="text-xs text-text-muted leading-relaxed">
+              {initialUser.isPremium
+                ? initialUser.validUntil
+                  ? `Üyeliğiniz ${new Date(initialUser.validUntil).toLocaleDateString("tr-TR")} tarihine kadar geçerlidir.`
+                  : "Süresiz aktif Premium üyeliğiniz bulunmaktadır."
+                : "Günlük 5 AI keşfi, sınırsız film/dizi kalibrasyonu ve temel Movie Night dahildir."}
+            </p>
+          </div>
+
+          <Link
+            href="/premium"
+            className={`px-5 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5 flex-shrink-0 ${
+              initialUser.isPremium
+                ? "bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 border border-purple-500/40"
+                : "bg-accent hover:bg-accent-hover text-white shadow-md"
+            }`}
+          >
+            <span>{initialUser.isPremium ? "Plan Detayları" : "✨ Premium'a Yükselt"}</span>
+            <span>→</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* 6. Sticky / Prominent Save Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-3xl bg-surface-1 border border-border shadow-xl">
         <div className="flex items-center gap-3">
           <Link

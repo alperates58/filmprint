@@ -89,6 +89,7 @@ export async function PUT(request: Request) {
       await updateSystemSetting("tv_hybrid_ai_weight", aiWeight.toString());
     }
 
+    // TV Hybrid Settings
     if (typeof tvAiTasteRefreshEvidenceCount === "number") {
       const clamped = Math.max(10, Math.min(100, Math.round(tvAiTasteRefreshEvidenceCount)));
       await updateSystemSetting("tv_ai_taste_refresh_evidence_count", clamped.toString());
@@ -97,6 +98,45 @@ export async function PUT(request: Request) {
     if (typeof tvAiRerankShortlistSize === "number") {
       const clamped = Math.max(40, Math.min(60, Math.round(tvAiRerankShortlistSize)));
       await updateSystemSetting("tv_ai_rerank_shortlist_size", clamped.toString());
+    }
+
+    // Premium & Pricing Settings
+    if (typeof body.freeAiDiscoverDailyLimit === "number") {
+      const clamped = Math.max(1, Math.round(body.freeAiDiscoverDailyLimit));
+      await updateSystemSetting("free_ai_discover_daily_limit", clamped.toString());
+    }
+
+    if (typeof body.premiumAiDiscoverFairUseLimit === "number") {
+      const clamped = Math.max(10, Math.round(body.premiumAiDiscoverFairUseLimit));
+      await updateSystemSetting("premium_ai_discover_fair_use_limit", clamped.toString());
+    }
+
+    if (typeof body.premiumEnabled === "boolean") {
+      await updateSystemSetting("premium_enabled", body.premiumEnabled.toString());
+    }
+
+    if (typeof body.adminBillingEnabled === "boolean") {
+      await updateSystemSetting("admin_billing_enabled", body.adminBillingEnabled.toString());
+    }
+
+    if (body.premiumMonthlyPrice !== undefined) {
+      await updateSystemSetting("premium_monthly_price", body.premiumMonthlyPrice ? String(body.premiumMonthlyPrice).trim() : "");
+    }
+
+    if (body.premiumAnnualPrice !== undefined) {
+      await updateSystemSetting("premium_annual_price", body.premiumAnnualPrice ? String(body.premiumAnnualPrice).trim() : "");
+    }
+
+    if (body.premiumAnnualDiscountLabel !== undefined) {
+      await updateSystemSetting("premium_annual_discount_label", body.premiumAnnualDiscountLabel ? String(body.premiumAnnualDiscountLabel).trim() : "");
+    }
+
+    if (body.premiumCurrency !== undefined) {
+      await updateSystemSetting("premium_currency", body.premiumCurrency ? String(body.premiumCurrency).trim() : "TRY");
+    }
+
+    if (body.premiumTrialText !== undefined) {
+      await updateSystemSetting("premium_trial_text", body.premiumTrialText ? String(body.premiumTrialText).trim() : "");
     }
 
     await logAdminAudit(admin.id, "SYSTEM_SETTINGS_UPDATED", "SystemSetting", undefined, body);

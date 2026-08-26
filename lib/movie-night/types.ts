@@ -15,6 +15,17 @@ export interface GroupMovieMatchResult {
   groupMatchLabel: string;
   memberScores: GroupMemberScore[];
   reasons: string[];
+  aiGroupReasoning?: string | null;
+  groupMatchHighlights?: string[];
+}
+
+export interface MovieNightAdvancedOptions {
+  mood?: "mind_bending" | "high_tension" | "comedy" | "romance" | "sci_fi" | "cozy" | "masterpiece" | "balanced";
+  genreIds?: number[];
+  minYear?: number;
+  maxYear?: number;
+  strictUnwatched?: boolean;
+  limit?: number;
 }
 
 export interface MovieNightMemberInfo {
@@ -50,5 +61,6 @@ export interface MovieNightRecommendationsResponse {
   session: MovieNightSessionInfo;
   recommendations: GroupMovieMatchResult[];
   isPremiumSession?: boolean;
+  appliedOptions?: MovieNightAdvancedOptions;
 }
 

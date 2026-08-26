@@ -42,6 +42,7 @@ import { runModalBottomSheetPhaseGTests } from "./modal_bottom_sheet_phase_g.tes
 import { runGrowthAndSeoTests } from "./growth_and_seo.test";
 import { runMonetizationAndAdSenseTests } from "./monetization_and_adsense.test";
 import { runPhaseHTests } from "./phase_h.test";
+import { runPremiumEntitlementsTests } from "./premium_entitlements.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -94,6 +95,7 @@ async function runAllUnitAndRegressionTests() {
     { name: "Phase I-A & I-B Growth and SEO Foundation Tests", fn: runGrowthAndSeoTests },
     { name: "Phase I-C & I-D Monetization & AdSense Control Plane Tests", fn: runMonetizationAndAdSenseTests },
     { name: "Phase H Intelligence, Safety & Rank V2 Tests", fn: runPhaseHTests },
+    { name: "Phase P1 Premium Product & Entitlements Tests", fn: runPremiumEntitlementsTests },
   ];
 
   let passedSuites = 0;

@@ -6,6 +6,7 @@ import { getAdminSession } from "@/lib/admin/auth";
 import { redirect } from "next/navigation";
 import { getAdminUserDetailData } from "@/lib/admin/data";
 import { AdminUserActions } from "@/components/admin/AdminUserActions";
+import { AdminUserEntitlementManager } from "@/components/admin/AdminUserEntitlementManager";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,11 @@ export default async function AdminUserDetailPage({
                   <AdminStatusBadge
                     status={user.accountType === "REGISTERED" ? (user.provider === "GOOGLE" ? "GOOGLE" : "REGISTERED") : "ANONYMOUS"}
                   />
+                  {user.entitlement?.isPremium && (
+                    <span className="px-2 py-0.5 rounded-full bg-purple-950/80 border border-purple-500/40 text-purple-300 text-[10px] font-mono font-bold">
+                      👑 PREMIUM
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-text-secondary">{user.email || "E-posta tanımlanmamış"}</p>
                 <p className="text-[11px] font-mono text-text-muted truncate max-w-[240px] sm:max-w-none">UUID: {user.id}</p>
@@ -94,6 +100,9 @@ export default async function AdminUserDetailPage({
             </div>
           </div>
         </div>
+
+        {/* User Entitlement Management Card */}
+        <AdminUserEntitlementManager userId={user.id} initialSummary={user.entitlement} />
 
         {/* Film & TV Stats Grids */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -4,8 +4,9 @@ import React, { useEffect, useState, use } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Header } from "@/components/ui/Header";
-import { MovieNightSessionInfo, MovieNightRecommendationsResponse, GroupMovieMatchResult } from "@/lib/movie-night/types";
+import { MovieNightSessionInfo, MovieNightRecommendationsResponse, GroupMovieMatchResult, MovieNightAdvancedOptions } from "@/lib/movie-night/types";
 import { getTmdbImageUrl } from "@/lib/tmdb/image";
+import { trackEvent } from "@/lib/analytics/client";
 
 export default function MovieNightSessionPage({
   params,
@@ -19,6 +20,7 @@ export default function MovieNightSessionPage({
   const [isFindingMovies, setIsFindingMovies] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [selectedMood, setSelectedMood] = useState<string>("all");
 
   const fetchSession = async () => {
     try {
@@ -29,6 +31,13 @@ export default function MovieNightSessionPage({
       }
       const data = await res.json();
       setSession(data.session);
+
+      if (data.session.isPremiumSession) {
+        trackEvent({
+          name: "movie_night_premium_opened",
+          params: { session_code: code, is_host: data.session.isHost },
+        });
+      }
 
       if (data.session.status === "COMPLETED" && data.session.selectedMovie) {
         setIsLoading(false);
@@ -89,7 +98,13 @@ export default function MovieNightSessionPage({
     setIsFindingMovies(true);
     setError(null);
     try {
-      const res = await fetch(`/api/movie-night/${code}/recommendations`);
+      const queryParams = new URLSearchParams();
+      if (session?.isPremiumSession && selectedMood && selectedMood !== "all") {
+        queryParams.set("mood", selectedMood);
+      }
+
+      const url = `/api/movie-night/${code}/recommendations${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+      const res = await fetch(url);
       if (!res.ok) {
         const json = await res.json();
         throw new Error(json.error || "Grup önerileri hesaplanamadı.");
@@ -351,15 +366,65 @@ export default function MovieNightSessionPage({
 
             {/* Host Controls Panel */}
             <div className="space-y-6">
-              <div className="p-6 rounded-3xl bg-surface border border-border/80 space-y-6">
+              <div className="p-6 rounded-3xl bg-surface border border-border/80 space-y-5">
                 <div className="space-y-1">
-                  <h3 className="font-display text-base font-bold text-text-primary">
-                    Seans Kontrolleri
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-display text-base font-bold text-text-primary">
+                      Seans Kontrolleri
+                    </h3>
+                    {session.isPremiumSession && (
+                      <span className="px-2 py-0.5 rounded-md bg-purple-950/60 border border-purple-500/40 text-purple-300 text-[10px] font-mono font-bold">
+                        👑 Premium Seans
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-text-muted">
                     {session.isHost ? "Ev sahibi ayarları" : "Katılımcı görünümü"}
                   </p>
                 </div>
+
+                {/* Premium Session Perks / Host Mood Controls */}
+                {session.isPremiumSession ? (
+                  <div className="p-3.5 rounded-2xl bg-purple-950/30 border border-purple-500/30 space-y-2.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-purple-300">
+                      <span>✨</span>
+                      <span>Gelişmiş Grup Zekası</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-400 leading-relaxed">
+                      Ev sahibinin Premium ayrıcalığıyla bu seansta genişletilmiş öneriler ve ruh hali eşleşmesi aktiftir.
+                    </p>
+                    {session.isHost && (
+                      <div className="pt-1 space-y-1.5">
+                        <label className="text-[11px] font-semibold text-zinc-300 block">Ruh Hali / Tema Filtresi:</label>
+                        <select
+                          value={selectedMood}
+                          onChange={(e) => setSelectedMood(e.target.value)}
+                          className="w-full bg-zinc-900 border border-purple-500/40 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-400"
+                        >
+                          <option value="all">Tüm Temalar (Dengeli Ortak Zevk)</option>
+                          <option value="mind_bending">🧠 Zeka & Gizem</option>
+                          <option value="high_tension">😱 Yüksek Gerilim & Aksiyon</option>
+                          <option value="comedy">😂 Kafa Dağıtmalık Komedi</option>
+                          <option value="romance">🌊 Romantik & Duygusal</option>
+                          <option value="sci_fi">🚀 Bilim Kurgu</option>
+                          <option value="masterpiece">⭐ IMDb 8+ Başyapıtlar</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  session.isHost && (
+                    <div className="p-3 rounded-2xl bg-surface-elevated border border-border space-y-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-text-primary">Movie Night+</span>
+                        <Link href="/premium" className="text-[10px] text-accent hover:underline font-mono">Premium'a Geç →</Link>
+                      </div>
+                      <p className="text-[10px] text-text-muted">
+                        Ruh hali filtreleri ve 20'ye varan öneri havuzu için Premium'u keşfedin.
+                      </p>
+                    </div>
+                  )
+                )}
 
                 {/* Settings Toggle (Host only) */}
                 <div className="p-4 rounded-2xl bg-surface-elevated border border-border/60 space-y-3">
@@ -390,9 +455,19 @@ export default function MovieNightSessionPage({
                 <button
                   onClick={handleFindGroupRecommendations}
                   disabled={isFindingMovies || session.members.length < 1}
-                  className="w-full py-3.5 rounded-xl bg-accent text-white font-medium text-xs hover:bg-accent-hover transition-all shadow-md disabled:opacity-50"
+                  className="w-full py-3.5 rounded-xl bg-accent text-white font-medium text-xs hover:bg-accent-hover transition-all shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {isFindingMovies ? "Grup Önerileri Hesaplanıyor..." : "🎬 Film Bul (Grup Önerileri)"}
+                  {isFindingMovies ? (
+                    <>
+                      <span className="animate-spin text-sm">↻</span>
+                      <span>Grup Önerileri Hesaplanıyor...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🎬</span>
+                      <span>{session.isPremiumSession ? "Gelişmiş Grup Önerilerini Bul" : "Film Bul (Grup Önerileri)"}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -414,7 +489,7 @@ function HeroGroupRecommendation({
   isHost: boolean;
   onSelectMovie: (id: string) => void;
 }) {
-  const { movie, groupMatchScore, groupMatchLabel, memberScores } = item;
+  const { movie, groupMatchScore, groupMatchLabel, memberScores, aiGroupReasoning, groupMatchHighlights } = item;
   const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
 
   return (
@@ -450,6 +525,25 @@ function HeroGroupRecommendation({
               {movie.title}
             </h3>
           </div>
+
+          {/* AI Group Reasoning Box */}
+          {aiGroupReasoning && (
+            <div className="p-3.5 rounded-2xl bg-purple-950/30 border border-purple-500/30 text-xs text-purple-200 leading-relaxed">
+              <span className="font-semibold text-purple-400 mr-1.5">💡 Ortak Gerekçe:</span>
+              {aiGroupReasoning}
+            </div>
+          )}
+
+          {/* Group Highlights */}
+          {groupMatchHighlights && groupMatchHighlights.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {groupMatchHighlights.map((hl, idx) => (
+                <span key={idx} className="px-2.5 py-0.5 rounded-lg bg-accent/10 border border-accent/25 text-[11px] font-mono text-accent font-medium">
+                  ✓ {hl}
+                </span>
+              ))}
+            </div>
+          )}
 
           <div className="p-4 rounded-2xl bg-surface-elevated border border-border/70 space-y-2">
             <h4 className="font-display text-xs font-bold text-text-primary">
@@ -495,12 +589,12 @@ function GroupAlternativesGrid({
   return (
     <div className="space-y-4">
       <h3 className="font-display text-lg font-bold text-text-primary">
-        Diğer Ortak Seçenekler
+        Diğer Ortak Seçenekler ({items.length})
       </h3>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {items.map((item) => {
-          const { movie, groupMatchScore } = item;
+          const { movie, groupMatchScore, groupMatchHighlights } = item;
           const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
 
           return (
@@ -518,13 +612,18 @@ function GroupAlternativesGrid({
                   </div>
                 </div>
 
-                <div>
+                <div className="space-y-1">
                   <h4 className="font-display text-sm font-bold text-text-primary line-clamp-1">
                     {movie.title}
                   </h4>
                   <p className="text-[10px] font-mono text-text-muted">
                     {movie.releaseYear} • {movie.genres.join(", ")}
                   </p>
+                  {groupMatchHighlights && groupMatchHighlights.length > 0 && (
+                    <span className="inline-block text-[10px] font-mono text-accent">
+                      {groupMatchHighlights[0]}
+                    </span>
+                  )}
                 </div>
               </div>
 

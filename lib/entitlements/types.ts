@@ -19,6 +19,15 @@ export interface UserEntitlementStatus {
   features: Record<FeatureEntitlement, boolean>;
 }
 
+export interface FeatureEntitlementDecision {
+  feature: FeatureEntitlement;
+  tier: SubscriptionTierType;
+  allowed: boolean;
+  remaining?: number | null;
+  limit?: number | null;
+  reason?: string;
+}
+
 export interface DailyQuotaCheckResult {
   allowed: boolean;
   tier: SubscriptionTierType;
@@ -26,4 +35,12 @@ export interface DailyQuotaCheckResult {
   consumed: number;
   remaining: number;
   resetAtUtc: string; // ISO string of next UTC midnight
+}
+
+export interface UserEntitlementSummary {
+  tier: SubscriptionTierType;
+  isPremium: boolean;
+  validUntil: string | null;
+  features: Record<FeatureEntitlement, boolean>;
+  aiDiscoverQuota?: DailyQuotaCheckResult;
 }

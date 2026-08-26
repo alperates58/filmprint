@@ -8,6 +8,7 @@ import { MovieDetailsModal } from "@/components/movie/MovieDetailsModal";
 import { TvDetailsModal } from "@/components/tv/TvDetailsModal";
 import { EnrichedAiMovieItem, AiRecommendationResponse } from "@/lib/ai/types";
 import { generateMovieSlug, generateTvSlug } from "@/lib/growth/seo/slug";
+import { trackEvent } from "@/lib/analytics/client";
 import Link from "next/link";
 
 const MOOD_CHIPS = [
@@ -41,14 +42,22 @@ export default function AiDiscoveryPage() {
   const [isListening, setIsListening] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<"relevance" | "rating" | "year">("relevance");
-  const [quota, setQuota] = useState<{ remaining: number; limit: number; tier: string } | null>(null);
+  const [quota, setQuota] = useState<{ remaining: number; limit: number; tier: string; consumed?: number } | null>(null);
 
   // Fetch initial quota on mount
   useEffect(() => {
     fetch("/api/ai/recommend?action=quota")
       .then((r) => r.json())
       .then((d) => {
-        if (d.quota) setQuota(d.quota);
+        if (d.quota) {
+          setQuota(d.quota);
+          if (d.quota.tier !== "PREMIUM" && d.quota.remaining <= 0) {
+            trackEvent({
+              name: "ai_discover_quota_exhausted",
+              params: { limit: d.quota.limit, remaining: 0 },
+            });
+          }
+        }
       })
       .catch(() => {});
   }, []);
@@ -87,13 +96,34 @@ export default function AiDiscoveryPage() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        if (errData.quota) setQuota(errData.quota);
+        if (errData.quota) {
+          setQuota(errData.quota);
+          if (errData.quota.remaining <= 0) {
+            trackEvent({
+              name: "ai_discover_quota_exhausted",
+              params: { limit: errData.quota.limit, remaining: 0 },
+            });
+          }
+        }
         throw new Error(errData.error || "Öneriler alınırken bir sorun oluştu.");
       }
 
       const json: AiRecommendationResponse & { quota?: any } = await res.json();
       setData(json);
-      if (json.quota) setQuota(json.quota);
+      if (json.quota) {
+        setQuota(json.quota);
+        if (json.quota.tier === "PREMIUM") {
+          trackEvent({
+            name: "ai_discover_premium_usage",
+            params: { model: json._analysis?.model || "AI Engine" },
+          });
+        } else if (json.quota.remaining <= 0) {
+          trackEvent({
+            name: "ai_discover_quota_exhausted",
+            params: { limit: json.quota.limit, remaining: 0 },
+          });
+        }
+      }
 
       // Scroll to results on mobile/desktop smoothly
       setTimeout(() => {
@@ -337,18 +367,50 @@ export default function AiDiscoveryPage() {
             {quota && (
               <div className="text-xs text-zinc-400 font-sans">
                 {quota.tier === "PREMIUM" ? (
-                  <span className="text-purple-300 font-medium flex items-center gap-1">
-                    ✨ Premium Sınırsız AI Keşif
+                  <span className="text-purple-300 font-medium flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-950/50 border border-purple-500/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                    <span>Premium Sınırsız AI Keşif</span>
                   </span>
                 ) : (
                   <span>
-                    Günlük Kalan Arama: <strong className="text-purple-400 font-semibold">{quota.remaining}</strong> / {quota.limit}
+                    Bugün <strong className="text-purple-400 font-semibold">{quota.consumed ?? (quota.limit - quota.remaining)}</strong> / {quota.limit} AI keşfi kullandın
                   </span>
                 )}
               </div>
             )}
           </div>
         </div>
+
+        {/* Quota Exhausted Non-destructive Paywall State */}
+        {quota && quota.tier !== "PREMIUM" && quota.remaining <= 0 && (
+          <div className="max-w-3xl mx-auto p-5 mb-8 rounded-2xl bg-gradient-to-r from-purple-950/80 via-indigo-950/60 to-zinc-900 border border-purple-500/40 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in">
+            <div className="space-y-1 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+                <span className="text-purple-300 font-bold text-xs uppercase tracking-wider">Günlük Ücretsiz Limit</span>
+              </div>
+              <p className="text-sm text-zinc-100 font-bold">
+                Bugünkü ücretsiz AI keşif hakkını kullandın.
+              </p>
+              <p className="text-xs text-zinc-400">
+                Yarın ücretsiz hakların yenilenir.
+              </p>
+            </div>
+            <Link
+              href="/premium"
+              onClick={() => {
+                trackEvent({
+                  name: "premium_cta_click",
+                  params: { source: "ai_discover_quota_banner" },
+                });
+              }}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs sm:text-sm shadow-lg shadow-purple-600/30 transition-all flex-shrink-0 flex items-center gap-2 active:scale-95"
+            >
+              <span>SINEAI Premium ile devam et</span>
+              <span>→</span>
+            </Link>
+          </div>
+        )}
 
         {/* Mood Chips Bar */}
         <div className="space-y-2 mb-12">

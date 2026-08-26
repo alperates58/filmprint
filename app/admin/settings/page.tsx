@@ -24,6 +24,17 @@ export default function AdminSettingsPage() {
   const [tvAiTasteRefreshEvidenceCount, setTvAiTasteRefreshEvidenceCount] = useState(25);
   const [tvAiRerankShortlistSize, setTvAiRerankShortlistSize] = useState(50);
 
+  // Phase P1 Premium Product & Monetization Settings
+  const [freeAiDiscoverDailyLimit, setFreeAiDiscoverDailyLimit] = useState(5);
+  const [premiumAiDiscoverFairUseLimit, setPremiumAiDiscoverFairUseLimit] = useState(100);
+  const [premiumEnabled, setPremiumEnabled] = useState(true);
+  const [adminBillingEnabled, setAdminBillingEnabled] = useState(false);
+  const [premiumMonthlyPrice, setPremiumMonthlyPrice] = useState("");
+  const [premiumAnnualPrice, setPremiumAnnualPrice] = useState("");
+  const [premiumAnnualDiscountLabel, setPremiumAnnualDiscountLabel] = useState("");
+  const [premiumCurrency, setPremiumCurrency] = useState("TRY");
+  const [premiumTrialText, setPremiumTrialText] = useState("");
+
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -51,6 +62,16 @@ export default function AdminSettingsPage() {
             setTvHybridAiWeight(data.settings.tvHybridAiWeight ?? 40);
             setTvAiTasteRefreshEvidenceCount(data.settings.tvAiTasteRefreshEvidenceCount || 25);
             setTvAiRerankShortlistSize(data.settings.tvAiRerankShortlistSize || 50);
+            // Premium
+            setFreeAiDiscoverDailyLimit(data.settings.freeAiDiscoverDailyLimit ?? 5);
+            setPremiumAiDiscoverFairUseLimit(data.settings.premiumAiDiscoverFairUseLimit ?? 100);
+            setPremiumEnabled(data.settings.premiumEnabled !== false);
+            setAdminBillingEnabled(data.settings.adminBillingEnabled === true);
+            setPremiumMonthlyPrice(data.settings.premiumMonthlyPrice || "");
+            setPremiumAnnualPrice(data.settings.premiumAnnualPrice || "");
+            setPremiumAnnualDiscountLabel(data.settings.premiumAnnualDiscountLabel || "");
+            setPremiumCurrency(data.settings.premiumCurrency || "TRY");
+            setPremiumTrialText(data.settings.premiumTrialText || "");
           }
         }
       } catch (e) {
@@ -129,6 +150,16 @@ export default function AdminSettingsPage() {
           tvHybridAiWeight,
           tvAiTasteRefreshEvidenceCount,
           tvAiRerankShortlistSize,
+          // Premium Product Settings
+          freeAiDiscoverDailyLimit,
+          premiumAiDiscoverFairUseLimit,
+          premiumEnabled,
+          adminBillingEnabled,
+          premiumMonthlyPrice: premiumMonthlyPrice || null,
+          premiumAnnualPrice: premiumAnnualPrice || null,
+          premiumAnnualDiscountLabel: premiumAnnualDiscountLabel || null,
+          premiumCurrency: premiumCurrency || "TRY",
+          premiumTrialText: premiumTrialText || null,
         }),
       });
 
@@ -671,13 +702,147 @@ export default function AdminSettingsPage() {
               </div>
             </div>
 
+            {/* Section 4: Premium Product & Monetization Settings */}
+            <div className="p-6 rounded-2xl bg-surface-1 border border-border space-y-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4">
+                <div>
+                  <h2 className="font-display text-base font-bold text-text-primary flex items-center gap-2">
+                    <span>👑</span> SINEAI Premium & Monetizasyon Kontrol Paneli
+                  </h2>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Günlük kotalar, yetkilendirme limitleri ve ödeme geçidi yapılandırması
+                  </p>
+                </div>
+                <AdminStatusBadge
+                  status={premiumEnabled ? "RUNNING" : "PAUSED"}
+                  label={premiumEnabled ? "Premium Aktif" : "Premium Kapalı"}
+                />
+              </div>
+
+              {/* Master Premium Toggle */}
+              <div className="space-y-1.5 p-4 rounded-xl bg-surface-2 border border-border">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={premiumEnabled}
+                    onChange={(e) => setPremiumEnabled(e.target.checked)}
+                    className="w-4 h-4 rounded bg-surface-1 border-border text-accent focus:ring-0 cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-text-primary">
+                    SINEAI Premium Ürününü Aktif Et (/premium sayfası ve yükseltme CTA'ları)
+                  </span>
+                </label>
+                <p className="text-[11px] text-text-muted pl-7">
+                  Kapalıyken Premium tanıtımları ve yükseltme butonları gizlenir veya devre dışı bırakılır.
+                </p>
+              </div>
+
+              {/* Quota Limits */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-text-primary">
+                    Ücretsiz (Free) Günlük AI ile Keşfet Limiti
+                  </label>
+                  <p className="text-[11px] text-text-muted">
+                    Giriş yapmış veya misafir ücretsiz kullanıcıların günlük hak sayısı (Varsayılan: 5).
+                  </p>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={freeAiDiscoverDailyLimit}
+                    onChange={(e) => setFreeAiDiscoverDailyLimit(parseInt(e.target.value, 10) || 5)}
+                    className="w-36 px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-text-primary">
+                    Premium AI Fair-Use Günlük Limiti
+                  </label>
+                  <p className="text-[11px] text-text-muted">
+                    Premium aboneler için abuse önleme amaçlı yüksek günlük sınır (Varsayılan: 100).
+                  </p>
+                  <input
+                    type="number"
+                    min="10"
+                    max="1000"
+                    value={premiumAiDiscoverFairUseLimit}
+                    onChange={(e) => setPremiumAiDiscoverFairUseLimit(parseInt(e.target.value, 10) || 100)}
+                    className="w-36 px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+
+              {/* Billing Readiness & Pricing */}
+              <div className="space-y-4 pt-4 border-t border-border">
+                <div className="space-y-1.5 p-4 rounded-xl bg-surface-2 border border-border">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={adminBillingEnabled}
+                      onChange={(e) => setAdminBillingEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded bg-surface-1 border-border text-accent focus:ring-0 cursor-pointer"
+                    />
+                    <span className="text-xs font-semibold text-text-primary">
+                      Ödeme Altyapısını Aktif Et (Admin Billing Gate)
+                    </span>
+                  </label>
+                  <p className="text-[11px] text-text-muted pl-7">
+                    Gerçek ödeme akışının açılması için bu ayar AÇIK VE geçerli bir ödeme sağlayıcısının hazır olması zorunludur.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-text-primary">
+                      Aylık Fiyat Metni (Opsiyonel)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Örn: ₺89"
+                      value={premiumMonthlyPrice}
+                      onChange={(e) => setPremiumMonthlyPrice(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-text-primary">
+                      Yıllık Fiyat Metni (Opsiyonel)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Örn: ₺799"
+                      value={premiumAnnualPrice}
+                      onChange={(e) => setPremiumAnnualPrice(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-text-primary">
+                      Yıllık İndirim Rozeti (Opsiyonel)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Örn: %25 İndirim"
+                      value={premiumAnnualDiscountLabel}
+                      onChange={(e) => setPremiumAnnualDiscountLabel(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="pt-2">
               <button
                 type="submit"
                 disabled={isSaving}
                 className="min-h-[44px] px-6 py-2.5 rounded-xl bg-accent text-white font-semibold text-xs hover:bg-accent-hover transition-all disabled:opacity-50 shadow-sm"
               >
-                {isSaving ? "Kaydediliyor..." : "Sistem & Hibrit Motor Ayarlarını Kaydet"}
+                {isSaving ? "Kaydediliyor..." : "Sistem & Premium Ayarlarını Kaydet"}
               </button>
             </div>
           </form>

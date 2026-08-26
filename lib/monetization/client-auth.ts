@@ -4,15 +4,19 @@
  */
 
 let cachedAuthStatus: boolean | null = null;
+let cachedIsPremium: boolean | null = null;
 let lastCheckTime = 0;
-let inflightPromise: Promise<boolean> | null = null;
+let inflightPromise: Promise<{ isAuthenticated: boolean; isPremium: boolean }> | null = null;
 
-export async function checkIsAuthenticatedClient(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
+export async function checkClientAuthAndEntitlement(): Promise<{ isAuthenticated: boolean; isPremium: boolean }> {
+  if (typeof window === "undefined") return { isAuthenticated: false, isPremium: false };
 
   const now = Date.now();
   if (cachedAuthStatus !== null && now - lastCheckTime < 30000) {
-    return cachedAuthStatus;
+    return {
+      isAuthenticated: cachedAuthStatus,
+      isPremium: Boolean(cachedIsPremium),
+    };
   }
 
   if (inflightPromise) {
@@ -23,17 +27,29 @@ export async function checkIsAuthenticatedClient(): Promise<boolean> {
     .then((res) => (res.ok ? res.json() : { user: null }))
     .then((data) => {
       const isAuth = Boolean(data?.user?.isAuthenticated || data?.user?.id);
+      const isPrem = Boolean(data?.entitlement?.isPremium);
       cachedAuthStatus = isAuth;
+      cachedIsPremium = isPrem;
       lastCheckTime = Date.now();
       inflightPromise = null;
-      return isAuth;
+      return { isAuthenticated: isAuth, isPremium: isPrem };
     })
     .catch(() => {
       inflightPromise = null;
-      return false;
+      return { isAuthenticated: false, isPremium: false };
     });
 
   return inflightPromise;
+}
+
+export async function checkIsAuthenticatedClient(): Promise<boolean> {
+  const res = await checkClientAuthAndEntitlement();
+  return res.isAuthenticated;
+}
+
+export async function checkIsPremiumClient(): Promise<boolean> {
+  const res = await checkClientAuthAndEntitlement();
+  return res.isPremium;
 }
 
 export function getCachedIsAuthenticatedClient(): boolean {
@@ -45,5 +61,6 @@ export function getCachedIsAuthenticatedClient(): boolean {
  */
 export function setCachedAuthStatus(isAuth: boolean | null): void {
   cachedAuthStatus = isAuth;
+  cachedIsPremium = null;
   lastCheckTime = isAuth !== null ? Date.now() : 0;
 }

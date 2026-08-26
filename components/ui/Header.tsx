@@ -27,6 +27,7 @@ export function Header({
   const [avatar, setAvatar] = useState(userAvatar);
   const [email, setEmail] = useState(userEmail);
   const [fetchedCount, setFetchedCount] = useState<number | null>(null);
+  const [isPremium, setIsPremium] = useState(false);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
 
   useEffect(() => {
@@ -46,6 +47,9 @@ export function Header({
         }
         if (data?.progression) {
           setFetchedCount(data.progression.evaluatedCount);
+        }
+        if (data?.entitlement) {
+          setIsPremium(data.entitlement.isPremium === true);
         }
       })
       .catch(() => {})
@@ -302,11 +306,22 @@ export function Header({
             {/* Dropdown Menu */}
             {userDropdownOpen && (
               <div
-                className="absolute right-0 mt-2 w-60 rounded-2xl bg-surface-2 border border-border-strong p-2 shadow-xl z-50 animate-fadeIn space-y-1 text-xs font-sans"
+                className="absolute right-0 mt-2 w-64 rounded-2xl bg-surface-2 border border-border-strong p-2 shadow-xl z-50 animate-fadeIn space-y-1 text-xs font-sans"
                 onClick={() => setUserDropdownOpen(false)}
               >
                 <div className="p-3 border-b border-border/80 space-y-1 bg-surface-1/50 rounded-xl">
-                  <p className="font-semibold text-text-primary text-xs truncate">{displayName}</p>
+                  <div className="flex items-center justify-between gap-1">
+                    <p className="font-semibold text-text-primary text-xs truncate">{displayName}</p>
+                    {isPremium ? (
+                      <span className="px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-500/40 text-purple-300 text-[10px] font-mono font-bold">
+                        PREMIUM
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded bg-surface-3 text-text-muted text-[10px] font-mono">
+                        ÜCRETSİZ
+                      </span>
+                    )}
+                  </div>
                   {email && <p className="text-text-muted text-[11px] truncate">{email}</p>}
                   <div className="pt-1 flex items-center gap-1.5">
                     <span className="text-sm">{progression.currentRank.badgeIcon}</span>
@@ -315,6 +330,23 @@ export function Header({
                     </span>
                   </div>
                 </div>
+
+                <Link
+                  href="/premium"
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors ${
+                    isPremium
+                      ? "bg-purple-950/40 border border-purple-500/30 text-purple-300 hover:bg-purple-900/50"
+                      : "bg-surface-3 hover:bg-purple-950/40 text-text-primary hover:text-purple-300 border border-border"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span>👑</span>
+                    <span className="font-semibold">{isPremium ? "Premium Ayrıcalıkları" : "SINEAI Premium"}</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-purple-400">
+                    {isPremium ? "AKTİF" : "YÜKSELT"}
+                  </span>
+                </Link>
 
                 <Link
                   href={isTvMode ? "/tv/profile" : "/profile"}
@@ -385,11 +417,22 @@ export function Header({
           {/* Mobile Dropdown Menu */}
           {userDropdownOpen && (
             <div
-              className="absolute right-0 top-11 sm:top-12 w-60 rounded-2xl bg-surface-2 border border-border-strong p-2 shadow-2xl z-50 animate-fadeIn space-y-1 text-xs font-sans"
+              className="absolute right-0 top-11 sm:top-12 w-64 rounded-2xl bg-surface-2 border border-border-strong p-2 shadow-2xl z-50 animate-fadeIn space-y-1 text-xs font-sans"
               onClick={() => setUserDropdownOpen(false)}
             >
               <div className="p-3 border-b border-border/80 space-y-1 bg-surface-1/50 rounded-xl">
-                <p className="font-semibold text-text-primary text-xs truncate">{displayName}</p>
+                <div className="flex items-center justify-between gap-1">
+                  <p className="font-semibold text-text-primary text-xs truncate">{displayName}</p>
+                  {isPremium ? (
+                    <span className="px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-500/40 text-purple-300 text-[10px] font-mono font-bold">
+                      PREMIUM
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded bg-surface-3 text-text-muted text-[10px] font-mono">
+                      ÜCRETSİZ
+                    </span>
+                  )}
+                </div>
                 {email && <p className="text-text-muted text-[11px] truncate">{email}</p>}
                 <div className="pt-1 flex items-center gap-1.5">
                   <span className="text-sm">{progression.currentRank.badgeIcon}</span>
@@ -398,6 +441,23 @@ export function Header({
                   </span>
                 </div>
               </div>
+
+              <Link
+                href="/premium"
+                className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors ${
+                  isPremium
+                    ? "bg-purple-950/40 border border-purple-500/30 text-purple-300 hover:bg-purple-900/50"
+                    : "bg-surface-3 hover:bg-purple-950/40 text-text-primary hover:text-purple-300 border border-border"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span>👑</span>
+                  <span className="font-semibold">{isPremium ? "Premium Ayrıcalıkları" : "SINEAI Premium"}</span>
+                </div>
+                <span className="text-[10px] font-mono font-bold text-purple-400">
+                  {isPremium ? "AKTİF" : "YÜKSELT"}
+                </span>
+              </Link>
 
               <Link
                 href={isTvMode ? "/tv/profile" : "/profile"}

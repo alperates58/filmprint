@@ -28,7 +28,7 @@ export function AdPlacement({ slot, className = "", previewMode = false }: AdPla
   const [config, setConfig] = useState<PublicMonetizationConfig | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [isPremium, setIsPremium] = useState<boolean>(false);
+  const [isAdFree, setIsAdFree] = useState<boolean>(false);
   const [adPushed, setAdPushed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -54,11 +54,11 @@ export function AdPlacement({ slot, className = "", previewMode = false }: AdPla
     checkClientAuthAndEntitlement()
       .then((res) => {
         setIsAuthenticated(res.isAuthenticated);
-        setIsPremium(res.isPremium);
+        setIsAdFree(res.isAdFree);
       })
       .catch(() => {
         setIsAuthenticated(false);
-        setIsPremium(false);
+        setIsAdFree(false);
       });
   }, []);
 
@@ -103,8 +103,8 @@ export function AdPlacement({ slot, className = "", previewMode = false }: AdPla
   }
 
   // Live Gating Checks
-  // Premium users NEVER receive ads (AD_FREE invariant)
-  if (isPremium) {
+  // Users with AD_FREE entitlement NEVER receive ads (AD_FREE invariant)
+  if (isAdFree) {
     return null;
   }
 

@@ -165,7 +165,11 @@ export async function normalizeAiQuery(query: string): Promise<NormalizedAiQuery
   const analysisMeta = {
     provider: AI_PROVIDER,
     model: process.env.DEEPSEEK_MODEL || process.env.OPENAI_MODEL || process.env.GEMINI_MODEL || "deterministic",
+    providerAttempted: false,
+    providerSucceeded: false,
     fallback: false,
+    cached: false,
+    chargeable: false,
     error: undefined as string | undefined,
   };
 
@@ -174,18 +178,31 @@ export async function normalizeAiQuery(query: string): Promise<NormalizedAiQuery
     if (process.env.DEEPSEEK_API_KEY) {
       analysisMeta.provider = "deepseek";
       analysisMeta.model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+      analysisMeta.providerAttempted = true;
       rawResult = await callDeepSeek(safeQuery);
+      analysisMeta.providerSucceeded = true;
+      analysisMeta.chargeable = true;
     } else if (process.env.OPENAI_API_KEY) {
       analysisMeta.provider = "openai";
       analysisMeta.model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+      analysisMeta.providerAttempted = true;
       rawResult = await callOpenAI(safeQuery);
+      analysisMeta.providerSucceeded = true;
+      analysisMeta.chargeable = true;
     } else if (process.env.GEMINI_API_KEY) {
       analysisMeta.provider = "gemini";
       analysisMeta.model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+      analysisMeta.providerAttempted = true;
       rawResult = await callGemini(safeQuery);
+      analysisMeta.providerSucceeded = true;
+      analysisMeta.chargeable = true;
     } else {
       analysisMeta.provider = "deterministic-fallback";
+      analysisMeta.model = "heuristic-v1";
+      analysisMeta.providerAttempted = false;
+      analysisMeta.providerSucceeded = false;
       analysisMeta.fallback = true;
+      analysisMeta.chargeable = false;
       rawResult = {};
     }
 
@@ -194,7 +211,10 @@ export async function normalizeAiQuery(query: string): Promise<NormalizedAiQuery
     return normalized;
   } catch (err: any) {
     const safeError = sanitizeProviderMessage(err?.message);
+    analysisMeta.providerAttempted = true;
+    analysisMeta.providerSucceeded = false;
     analysisMeta.fallback = true;
+    analysisMeta.chargeable = false;
     analysisMeta.error = safeError;
     const fallback = applyQueryHeuristics({}, safeQuery);
     fallback._analysis = analysisMeta;
@@ -216,6 +236,16 @@ export async function getAiRecommendations(rawQuery: string): Promise<AiRecommen
       results: [],
       warnings: [],
       total: 0,
+      _analysis: {
+        provider: "deterministic",
+        model: "none",
+        providerAttempted: false,
+        providerSucceeded: false,
+        fallback: true,
+        cached: false,
+        chargeable: false,
+        latencyMs: 0,
+      },
     };
   }
 
@@ -224,8 +254,16 @@ export async function getAiRecommendations(rawQuery: string): Promise<AiRecommen
     return {
       ...cached,
       _analysis: {
-        ...(cached._analysis || { provider: "cache", model: "memory", fallback: false }),
+        ...(cached._analysis || {
+          provider: "cache",
+          model: "memory",
+          providerAttempted: false,
+          providerSucceeded: true,
+          fallback: false,
+          chargeable: false,
+        }),
         cached: true,
+        chargeable: false,
         latencyMs: Date.now() - startTime,
       },
     };
@@ -479,8 +517,12 @@ export async function getAiRecommendations(rawQuery: string): Promise<AiRecommen
     _analysis: {
       provider: normalized._analysis?.provider || "sineai-engine",
       model: normalized._analysis?.model || "v1",
+      providerAttempted: Boolean(normalized._analysis?.providerAttempted),
+      providerSucceeded: Boolean(normalized._analysis?.providerSucceeded),
       fallback: Boolean(normalized._analysis?.fallback),
       cached: false,
+      chargeable: Boolean(normalized._analysis?.chargeable),
+      error: normalized._analysis?.error,
       latencyMs: Date.now() - startTime,
     },
   };

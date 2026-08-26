@@ -1,3 +1,5 @@
+process.env.NODE_ENV = "test";
+
 import { runAuthMigrationTests } from "./auth_migration.test";
 import { runCalculatorTests } from "./calculator.test";
 import { runCalibrationSelectorTests } from "./calibration_selector.test";

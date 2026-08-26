@@ -95,6 +95,12 @@ enum SubscriptionTier {
   PREMIUM
 }
 
+enum QuotaReservationStatus {
+  RESERVED
+  COMMITTED
+  REFUNDED
+}
+
 enum BackfillJobStatus {
   PENDING
   RUNNING
@@ -130,6 +136,7 @@ model User {
   genrePreferences        UserGenrePreference[]
   entitlement             UserEntitlement?
   dailyFeatureUsages      FeatureUsageDaily[]
+  quotaReservations       QuotaReservation[]
 }
 
 model UserSession {
@@ -753,6 +760,21 @@ model CatalogBackfillJob {
   updatedAt      DateTime          @updatedAt
 
   @@unique([jobType, mediaType])
+  @@index([status])
+}
+
+model QuotaReservation {
+  id         String                 @id @default(uuid())
+  userId     String
+  featureKey String
+  usageDate  String
+  status     QuotaReservationStatus @default(RESERVED)
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, featureKey, usageDate])
   @@index([status])
 }
 

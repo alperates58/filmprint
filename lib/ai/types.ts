@@ -13,6 +13,18 @@ export interface AiRecommendedTitle {
   match_tags?: string[];
 }
 
+export interface AiProviderOutcome {
+  provider: string;
+  model: string;
+  providerAttempted: boolean;
+  providerSucceeded: boolean;
+  fallback: boolean;
+  cached?: boolean;
+  chargeable: boolean;
+  error?: string;
+  latencyMs?: number;
+}
+
 export interface NormalizedAiQuery {
   request_summary_tr: string;
   intent: AiIntent;
@@ -49,12 +61,7 @@ export interface NormalizedAiQuery {
   trailer_required: boolean;
   resolved_must_have?: string[];
   resolved_semantic?: string[];
-  _analysis?: {
-    provider: string;
-    model: string;
-    fallback: boolean;
-    error?: string;
-  };
+  _analysis?: AiProviderOutcome;
 }
 
 export interface WatchProviderInfo {
@@ -103,11 +110,5 @@ export interface AiRecommendationResponse {
   results: EnrichedAiMovieItem[];
   warnings: string[];
   total: number;
-  _analysis?: {
-    provider: string;
-    model: string;
-    fallback: boolean;
-    cached?: boolean;
-    latencyMs?: number;
-  };
+  _analysis?: AiProviderOutcome;
 }

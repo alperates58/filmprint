@@ -5,17 +5,19 @@
 
 let cachedAuthStatus: boolean | null = null;
 let cachedIsPremium: boolean | null = null;
+let cachedIsAdFree: boolean | null = null;
 let lastCheckTime = 0;
-let inflightPromise: Promise<{ isAuthenticated: boolean; isPremium: boolean }> | null = null;
+let inflightPromise: Promise<{ isAuthenticated: boolean; isPremium: boolean; isAdFree: boolean }> | null = null;
 
-export async function checkClientAuthAndEntitlement(): Promise<{ isAuthenticated: boolean; isPremium: boolean }> {
-  if (typeof window === "undefined") return { isAuthenticated: false, isPremium: false };
+export async function checkClientAuthAndEntitlement(): Promise<{ isAuthenticated: boolean; isPremium: boolean; isAdFree: boolean }> {
+  if (typeof window === "undefined") return { isAuthenticated: false, isPremium: false, isAdFree: false };
 
   const now = Date.now();
   if (cachedAuthStatus !== null && now - lastCheckTime < 30000) {
     return {
       isAuthenticated: cachedAuthStatus,
       isPremium: Boolean(cachedIsPremium),
+      isAdFree: Boolean(cachedIsAdFree),
     };
   }
 
@@ -28,15 +30,17 @@ export async function checkClientAuthAndEntitlement(): Promise<{ isAuthenticated
     .then((data) => {
       const isAuth = Boolean(data?.user?.isAuthenticated || data?.user?.id);
       const isPrem = Boolean(data?.entitlement?.isPremium);
+      const isAdFree = Boolean(data?.entitlement?.isAdFree || data?.entitlement?.features?.AD_FREE);
       cachedAuthStatus = isAuth;
       cachedIsPremium = isPrem;
+      cachedIsAdFree = isAdFree;
       lastCheckTime = Date.now();
       inflightPromise = null;
-      return { isAuthenticated: isAuth, isPremium: isPrem };
+      return { isAuthenticated: isAuth, isPremium: isPrem, isAdFree };
     })
     .catch(() => {
       inflightPromise = null;
-      return { isAuthenticated: false, isPremium: false };
+      return { isAuthenticated: false, isPremium: false, isAdFree: false };
     });
 
   return inflightPromise;
@@ -52,6 +56,11 @@ export async function checkIsPremiumClient(): Promise<boolean> {
   return res.isPremium;
 }
 
+export async function checkIsAdFreeClient(): Promise<boolean> {
+  const res = await checkClientAuthAndEntitlement();
+  return res.isAdFree;
+}
+
 export function getCachedIsAuthenticatedClient(): boolean {
   return Boolean(cachedAuthStatus);
 }
@@ -62,5 +71,6 @@ export function getCachedIsAuthenticatedClient(): boolean {
 export function setCachedAuthStatus(isAuth: boolean | null): void {
   cachedAuthStatus = isAuth;
   cachedIsPremium = null;
+  cachedIsAdFree = null;
   lastCheckTime = isAuth !== null ? Date.now() : 0;
 }

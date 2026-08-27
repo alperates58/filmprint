@@ -723,12 +723,14 @@ export async function adminGrantUserEntitlement(
       where: { userId },
       update: {
         tier: prismaTier,
+        source: "MANUAL",
         validUntil: validUntil !== undefined ? validUntil : null,
         customLimits: customLimits !== undefined ? (customLimits as any) : undefined,
       },
       create: {
         userId,
         tier: prismaTier,
+        source: "MANUAL",
         validUntil: validUntil !== undefined ? validUntil : null,
         customLimits: customLimits !== undefined ? (customLimits as any) : {},
       },
@@ -741,6 +743,7 @@ export async function adminGrantUserEntitlement(
         id: `mem_${userId}`,
         userId,
         tier: prismaTier,
+        source: "MANUAL",
         validUntil: validUntil || null,
         customLimits: customLimits || {},
         createdAt: new Date(),
@@ -766,11 +769,13 @@ export async function adminRevokeUserEntitlement(userId: string) {
       where: { userId },
       update: {
         tier: SubscriptionTier.FREE,
+        source: "MANUAL",
         validUntil: null,
       },
       create: {
         userId,
         tier: SubscriptionTier.FREE,
+        source: "MANUAL",
         validUntil: null,
       },
     });

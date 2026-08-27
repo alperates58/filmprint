@@ -95,6 +95,34 @@ enum SubscriptionTier {
   PREMIUM
 }
 
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  PAST_DUE
+  CANCEL_AT_PERIOD_END
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum EntitlementSource {
+  BILLING
+  MANUAL
+  PROMOTIONAL
+}
+
 enum QuotaReservationStatus {
   RESERVED
   COMMITTED
@@ -138,6 +166,9 @@ model User {
   entitlement             UserEntitlement?
   dailyFeatureUsages      FeatureUsageDaily[]
   quotaReservations       QuotaReservation[]
+  billingCustomer         BillingCustomer?
+  subscriptions           Subscription[]
+  billingPayments         BillingPayment[]
 }
 
 model UserSession {
@@ -731,17 +762,19 @@ model UserGenrePreference {
 }
 
 model UserEntitlement {
-  id           String           @id @default(uuid())
-  userId       String           @unique
-  tier         SubscriptionTier @default(FREE)
+  id           String            @id @default(uuid())
+  userId       String            @unique
+  tier         SubscriptionTier  @default(FREE)
+  source       EntitlementSource @default(MANUAL)
   validUntil   DateTime?
-  customLimits Json             @default("{}")
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  customLimits Json              @default("{}")
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tier])
+  @@index([source])
 }
 
 model FeatureUsageDaily {
@@ -798,6 +831,92 @@ model QuotaReservation {
   @@index([userId, featureKey, usageDate])
   @@index([status])
   @@index([status, createdAt])
+}
+
+model BillingCustomer {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  provider           String   @default("PAYTR")
+  providerCustomerId String?
+  encryptedUtoken    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([provider])
+}
+
+model Subscription {
+  id                     String             @id @default(uuid())
+  userId                 String
+  provider               String             @default("PAYTR")
+  providerSubscriptionId String?
+  planKey                String             @default("SINEAI_PREMIUM")
+  billingInterval        BillingInterval    @default(MONTHLY)
+  status                 SubscriptionStatus @default(PENDING)
+  currentPeriodStart     DateTime
+  currentPeriodEnd       DateTime
+  cancelAtPeriodEnd      Boolean            @default(false)
+  cancelledAt            DateTime?
+  endedAt                DateTime?
+  gracePeriodEnd         DateTime?
+  metadata               Json               @default("{}")
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments BillingPayment[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([currentPeriodEnd])
+  @@index([userId, status])
+}
+
+model BillingPayment {
+  id                    String        @id @default(uuid())
+  userId                String
+  subscriptionId        String?
+  provider              String        @default("PAYTR")
+  merchantOid           String        @unique
+  providerTransactionId String?
+  amount                Float
+  currency              String        @default("TRY")
+  status                PaymentStatus @default(PENDING)
+  failureCode           String?
+  failureMessage        String?
+  paidAt                DateTime?
+  renewalKey            String?
+  metadata              Json          @default("{}")
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([merchantOid])
+  @@index([subscriptionId])
+  @@index([renewalKey])
+}
+
+model BillingWebhookEvent {
+  id               String    @id @default(uuid())
+  provider         String    @default("PAYTR")
+  providerEventKey String?
+  merchantOid      String
+  payloadHash      String
+  status           String
+  receivedAt       DateTime  @default(now())
+  processedAt      DateTime?
+  error            String?
+
+  @@unique([provider, merchantOid, payloadHash])
+  @@index([merchantOid])
+  @@index([receivedAt])
+  @@index([status])
 }
 
 

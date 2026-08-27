@@ -1,18 +1,23 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin/auth";
 import { getIntegrationStatus } from "@/lib/config/service";
+import { getMaskedPaytrConfig } from "@/lib/billing/paytr/client";
 
 export async function GET() {
   try {
     await requireAdminSession();
 
-    const tmdb = await getIntegrationStatus("tmdb");
-    const deepseek = await getIntegrationStatus("deepseek");
+    const [tmdb, deepseek, paytr] = await Promise.all([
+      getIntegrationStatus("tmdb"),
+      getIntegrationStatus("deepseek"),
+      getMaskedPaytrConfig(),
+    ]);
 
     return NextResponse.json({
       integrations: {
         tmdb,
         deepseek,
+        paytr,
       },
     });
   } catch (error) {

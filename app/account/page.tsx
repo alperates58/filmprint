@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db/client";
 import { getUserEntitlementSummary } from "@/lib/entitlements/service";
 import { AccountSettingsForm, AccountSettingsUser } from "@/components/account/AccountSettingsForm";
+import { AccountBillingSection } from "@/components/account/AccountBillingSection";
 
 export default async function AccountSettingsPage() {
   const currentUser = await getAuthenticatedUser();
@@ -61,14 +62,16 @@ export default async function AccountSettingsPage() {
             HESAP AYARLARI & PROFİL
           </span>
           <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-text-primary">
-            Kullanıcı Profili & Gizlilik
+            Kullanıcı Profili & Üyelik
           </h1>
           <p className="text-sm text-text-secondary">
-            Profil adını, avatarını ve e-posta görünürlük tercihlerini bu sayfadan yönetebilirsin.
+            Profil adını, avatarını, gizlilik ayarlarını ve SINEAI Premium üyeliğini bu sayfadan yönetebilirsin.
           </p>
         </div>
 
         <AccountSettingsForm initialUser={initialUser} />
+
+        <AccountBillingSection />
       </main>
 
       <Footer />

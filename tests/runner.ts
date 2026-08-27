@@ -47,6 +47,9 @@ import { runPhaseHTests } from "./phase_h.test";
 import { runPremiumEntitlementsTests } from "./premium_entitlements.test";
 import { runMovieNightVotingTests } from "./movie_night_voting.test";
 import { runTvDiscoveryQualityTests } from "./tv_discovery_quality.test";
+import { runPaytrBillingTests } from "./paytr_billing.test";
+import { runFilmTvPremiumParityTests } from "./film_tv_premium_parity.test";
+import { runBomScanTest } from "./migration_bom.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -102,6 +105,9 @@ async function runAllUnitAndRegressionTests() {
     { name: "Phase P1 Premium Product & Entitlements Tests", fn: runPremiumEntitlementsTests },
     { name: "Phase P1.1 Movie Night Consensus Voting Tests", fn: runMovieNightVotingTests },
     { name: "Phase P1.1 TV Catalog Quality & Discovery Tests", fn: runTvDiscoveryQualityTests },
+    { name: "Phase P2 PayTR Billing & Subscription Tests", fn: runPaytrBillingTests },
+    { name: "Phase P2 Film + TV Single Premium Parity & Regression Tests", fn: runFilmTvPremiumParityTests },
+    { name: "Phase P2 Repository Migration UTF-8 BOM Validation", fn: runBomScanTest },
   ];
 
   let passedSuites = 0;

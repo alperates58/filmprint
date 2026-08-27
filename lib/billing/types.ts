@@ -1,4 +1,4 @@
-﻿export type BillingPlan = 'monthly' | 'annual';
+export type BillingPlan = "monthly" | "annual";
 
 export interface CheckoutSessionResult {
   checkoutUrl: string;
@@ -12,13 +12,13 @@ export interface WebhookEventResult {
 
 export interface SubscriptionStatusResult {
   active: boolean;
-  tier: 'FREE' | 'PREMIUM';
+  tier: "FREE" | "PREMIUM";
   expiresAt?: Date | null;
 }
 
 export interface BillingProvider {
   readonly name: string;
-  isReady(): boolean;
+  isReady(): Promise<boolean> | boolean;
   createCheckoutSession(userId: string, plan: BillingPlan): Promise<CheckoutSessionResult>;
   handleWebhook(payload: any, signature?: string): Promise<WebhookEventResult>;
   getSubscriptionStatus(userId: string): Promise<SubscriptionStatusResult>;
@@ -30,4 +30,9 @@ export interface EffectiveBillingReadiness {
   adminEnabled: boolean;
   providerReady: boolean;
   providerName: string;
+  pricing?: {
+    monthlyPrice: number | null;
+    yearlyPrice: number | null;
+    currency: string;
+  };
 }

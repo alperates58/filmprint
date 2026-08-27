@@ -42,14 +42,34 @@ export default function PremiumPage() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const handleCtaClick = (plan: "monthly" | "annual") => {
+  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
+
+  const handleCtaClick = async (plan: "monthly" | "annual") => {
     trackEvent({
       name: "premium_cta_click",
       params: { plan, source: "premium_page_cta" },
     });
 
     if (data?.billingReadiness?.isReady) {
-      setCtaNotice("Ödeme sağlayıcısına yönlendiriliyorsunuz...");
+      setIsProcessingCheckout(true);
+      setCtaNotice("Güvenli PayTR ödeme sayfasına yönlendiriliyorsunuz...");
+      try {
+        const res = await fetch("/api/billing/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ interval: plan === "monthly" ? "MONTHLY" : "YEARLY" }),
+        });
+        const json = await res.json();
+        if (res.ok && json.checkoutUrl) {
+          window.location.href = json.checkoutUrl;
+        } else {
+          setCtaNotice(json.error || "Ödeme oturumu başlatılamadı. Lütfen tekrar deneyin.");
+        }
+      } catch {
+        setCtaNotice("Ödeme servisine bağlanırken bir sorun oluştu.");
+      } finally {
+        setIsProcessingCheckout(false);
+      }
     } else {
       setCtaNotice("SINEAI Premium abonelikleri çok yakında kullanıma sunulacaktır. İlginiz için teşekkürler!");
     }

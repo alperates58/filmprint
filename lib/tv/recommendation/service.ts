@@ -2,6 +2,7 @@ import { db } from "@/lib/db/client";
 import { getDeepSeekConfig, getSystemSettings } from "@/lib/config/service";
 import { getOrRecalculateTvTasteProfile } from "../profile/service";
 import { evaluateTvEligibility } from "../eligibility";
+import { buildAutomaticTvDiscoveryWhere } from "../discovery";
 import { buildTvTasteEvidenceProfile } from "./evidence";
 import { buildTvFeedbackProfile } from "./feedback-profile";
 import { calculateTvMatch } from "./matcher";
@@ -222,9 +223,9 @@ export async function getPersonalizedTvRecommendations(
 
   // 4. Source B & C: FRESH_DISCOVERY & ADJACENT_DISCOVERY from DB
   const freshShows = await db.tvShow.findMany({
-    where: {
+    where: buildAutomaticTvDiscoveryWhere({
       id: { notIn: Array.from(new Set([...excludedShowIds, ...candidateIdSet])) },
-    },
+    }),
     take: 100,
     orderBy: { popularity: "desc" },
   });

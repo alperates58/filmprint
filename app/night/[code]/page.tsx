@@ -118,20 +118,44 @@ export default function MovieNightSessionPage({
     }
   };
 
-  const handleSelectMovie = async (movieId: string) => {
+  const [isFinalizing, setIsFinalizing] = useState(false);
+
+  const handleVote = async (movieId: string) => {
     try {
-      const res = await fetch(`/api/movie-night/${code}/select`, {
+      const res = await fetch(`/api/movie-night/${code}/vote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ movieId }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setSession(data.session);
-        setRecommendationsData(null);
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Oy kullanılamadı.");
       }
+      const data = await res.json();
+      setSession(data.session);
     } catch (e) {
-      console.error(e);
+      setError((e as Error).message);
+    }
+  };
+
+  const handleFinalizeVoting = async () => {
+    try {
+      setIsFinalizing(true);
+      setError(null);
+      const res = await fetch(`/api/movie-night/${code}/finalize`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Oylama sonlandırılamadı.");
+      }
+      const data = await res.json();
+      setSession(data.session);
+      setRecommendationsData(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setIsFinalizing(false);
     }
   };
 
@@ -246,27 +270,85 @@ export default function MovieNightSessionPage({
           </div>
         )}
 
-        {/* 2. GROUP RECOMMENDATIONS RESULTS VIEW */}
+        {/* 2. GROUP RECOMMENDATIONS & VOTING VIEW */}
         {!isCompleted && showResults && (
           <div className="space-y-10 animate-fade-in">
-            <div className="flex justify-between items-center">
-              <h2 className="font-display text-2xl font-bold text-text-primary">
-                Ortak İzleme Seçenekleri
-              </h2>
-              <button
-                onClick={() => setRecommendationsData(null)}
-                className="text-xs font-mono text-text-muted hover:text-text-primary underline"
-              >
-                ← Lobiciliğe Dön
-              </button>
+            {/* Top Voting Header Panel */}
+            <div className="p-6 rounded-3xl bg-surface border border-border/80 shadow-sm space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-accent uppercase tracking-widest font-semibold">
+                      OYLAMA SÜRECİ
+                    </span>
+                    <span className="text-[10px] font-mono bg-surface-elevated px-2 py-0.5 rounded border border-border text-text-primary">
+                      {session.totalVotes || 0} / {session.readyMembersCount || 0} hazır kişi oy verdi
+                    </span>
+                  </div>
+                  <h2 className="font-display text-2xl font-bold text-text-primary mt-1">
+                    Ortak İzleme Seçenekleri
+                  </h2>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setRecommendationsData(null)}
+                    className="px-4 py-2 rounded-xl bg-surface-elevated hover:bg-border border border-border text-xs font-mono text-text-muted hover:text-text-primary transition-colors"
+                  >
+                    ← Lobiye Dön
+                  </button>
+
+                  {session.isHost && (
+                    <button
+                      onClick={handleFinalizeVoting}
+                      disabled={isFinalizing || !session.allReadyVoted || (session.readyMembersCount || 0) === 0}
+                      className="px-5 py-2.5 rounded-xl bg-accent text-white font-medium text-xs hover:bg-accent-hover transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isFinalizing ? (
+                        <>
+                          <span className="animate-spin text-sm">↻</span>
+                          <span>Hesaplanıyor...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>🏆</span>
+                          <span>Oylamayı Bitir</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Message */}
+              <div className="p-3 rounded-2xl bg-surface-elevated/70 border border-border/60 text-xs font-mono text-text-secondary flex items-center justify-between">
+                <span>
+                  {session.allReadyVoted && (session.readyMembersCount || 0) > 0
+                    ? session.isHost
+                      ? "✓ Tüm hazır üyeler oy verdi. Oylamayı bitirerek kazananı belirleyebilirsiniz."
+                      : "✓ Tüm hazır üyeler oy verdi. Ev sahibinin oylamayı bitirmesi bekleniyor..."
+                    : "⏳ Diğer katılımcıların oyları bekleniyor (Oylama için hazır durumda olmak gereklidir)."}
+                </span>
+                {!session.members.find((m) => m.isCurrentUser)?.isReady && (
+                  <button
+                    onClick={handleToggleReady}
+                    className="text-accent underline font-semibold ml-2 hover:text-accent-hover"
+                  >
+                    Hazır Ol →
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Top #1 Group Hero Recommendation */}
             {recommendationsData.recommendations.length > 0 && (
               <HeroGroupRecommendation
                 item={recommendationsData.recommendations[0]}
-                isHost={session.isHost}
-                onSelectMovie={handleSelectMovie}
+                currentUserVote={session.currentUserVote}
+                voteCounts={session.movieVoteCounts}
+                isCurrentUserReady={Boolean(session.members.find((m) => m.isCurrentUser)?.isReady)}
+                onVote={handleVote}
+                onToggleReady={handleToggleReady}
               />
             )}
 
@@ -274,8 +356,11 @@ export default function MovieNightSessionPage({
             {recommendationsData.recommendations.length > 1 && (
               <GroupAlternativesGrid
                 items={recommendationsData.recommendations.slice(1)}
-                isHost={session.isHost}
-                onSelectMovie={handleSelectMovie}
+                currentUserVote={session.currentUserVote}
+                voteCounts={session.movieVoteCounts}
+                isCurrentUserReady={Boolean(session.members.find((m) => m.isCurrentUser)?.isReady)}
+                onVote={handleVote}
+                onToggleReady={handleToggleReady}
               />
             )}
           </div>
@@ -482,15 +567,23 @@ export default function MovieNightSessionPage({
 
 function HeroGroupRecommendation({
   item,
-  isHost,
-  onSelectMovie,
+  currentUserVote,
+  voteCounts,
+  isCurrentUserReady,
+  onVote,
+  onToggleReady,
 }: {
   item: GroupMovieMatchResult;
-  isHost: boolean;
-  onSelectMovie: (id: string) => void;
+  currentUserVote?: string | null;
+  voteCounts?: Record<string, number>;
+  isCurrentUserReady: boolean;
+  onVote: (id: string) => void;
+  onToggleReady: () => void;
 }) {
   const { movie, groupMatchScore, groupMatchLabel, memberScores, aiGroupReasoning, groupMatchHighlights } = item;
   const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
+  const movieVoteCount = voteCounts?.[movie.id] || 0;
+  const hasVotedThis = currentUserVote === movie.id;
 
   return (
     <div className="p-6 md:p-10 rounded-3xl bg-surface border border-border/80 shadow-cinematic space-y-6">
@@ -500,8 +593,15 @@ function HeroGroupRecommendation({
           ZİRVESEL GRUP ÖNERİSİ
         </span>
 
-        <div className="px-4 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-text-primary text-xs font-mono font-bold">
-          %{groupMatchScore} GRUP UYUMU ({groupMatchLabel})
+        <div className="flex items-center gap-2">
+          {movieVoteCount > 0 && (
+            <div className="px-3 py-1.5 rounded-full bg-accent/20 border border-accent/40 text-accent text-xs font-mono font-bold">
+              🗳️ {movieVoteCount} oy
+            </div>
+          )}
+          <div className="px-4 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-text-primary text-xs font-mono font-bold">
+            %{groupMatchScore} GRUP UYUMU ({groupMatchLabel})
+          </div>
         </div>
       </div>
 
@@ -561,16 +661,32 @@ function HeroGroupRecommendation({
             </div>
           </div>
 
-          {isHost && (
-            <div className="pt-2">
+          {/* Consensus Voting Action Button */}
+          <div className="pt-2">
+            {!isCurrentUserReady ? (
               <button
-                onClick={() => onSelectMovie(movie.id)}
-                className="px-6 py-3 rounded-xl bg-accent text-white font-medium text-xs hover:bg-accent-hover transition-all shadow-md"
+                onClick={onToggleReady}
+                className="px-6 py-3 rounded-xl bg-surface-elevated hover:bg-border border border-border text-text-primary font-mono text-xs font-semibold transition-all"
               >
-                🎉 Bunu İzleyelim (Gruba Seç)
+                Oy Vermek İçin Önce Hazır Ol
               </button>
-            </div>
-          )}
+            ) : hasVotedThis ? (
+              <button
+                disabled
+                className="px-6 py-3 rounded-xl bg-accent text-white font-mono text-xs font-semibold shadow-md cursor-default flex items-center gap-2"
+              >
+                <span>✓</span>
+                <span>Senin Oyun</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => onVote(movie.id)}
+                className="px-6 py-3 rounded-xl bg-accent text-white font-mono text-xs font-semibold hover:bg-accent-hover transition-all shadow-md"
+              >
+                {currentUserVote ? "Oyumu Bu Filme Değiştir" : "Oy Ver"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -579,12 +695,18 @@ function HeroGroupRecommendation({
 
 function GroupAlternativesGrid({
   items,
-  isHost,
-  onSelectMovie,
+  currentUserVote,
+  voteCounts,
+  isCurrentUserReady,
+  onVote,
+  onToggleReady,
 }: {
   items: GroupMovieMatchResult[];
-  isHost: boolean;
-  onSelectMovie: (id: string) => void;
+  currentUserVote?: string | null;
+  voteCounts?: Record<string, number>;
+  isCurrentUserReady: boolean;
+  onVote: (id: string) => void;
+  onToggleReady: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -596,19 +718,30 @@ function GroupAlternativesGrid({
         {items.map((item) => {
           const { movie, groupMatchScore, groupMatchHighlights } = item;
           const posterUrl = getTmdbImageUrl(movie.posterPath, "w500");
+          const movieVoteCount = voteCounts?.[movie.id] || 0;
+          const hasVotedThis = currentUserVote === movie.id;
 
           return (
             <div
               key={movie.id}
-              className="p-4 rounded-2xl bg-surface border border-border/70 shadow-sm flex flex-col justify-between space-y-3"
+              className={`p-4 rounded-2xl bg-surface border transition-all flex flex-col justify-between space-y-3 ${
+                hasVotedThis ? "border-accent ring-1 ring-accent/30 shadow-md" : "border-border/70 shadow-sm"
+              }`}
             >
               <div className="space-y-3">
                 <div className="w-full aspect-[2/3] rounded-xl overflow-hidden bg-surface-elevated relative">
                   {posterUrl && (
                     <Image src={posterUrl} alt={movie.title} fill className="object-cover" />
                   )}
-                  <div className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-background/90 border border-accent/40 text-text-primary text-[10px] font-mono font-bold">
-                    %{groupMatchScore} UYUM
+                  <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+                    <div className="px-2.5 py-1 rounded-full bg-background/90 border border-accent/40 text-text-primary text-[10px] font-mono font-bold">
+                      %{groupMatchScore} UYUM
+                    </div>
+                    {movieVoteCount > 0 && (
+                      <div className="px-2 py-0.5 rounded-full bg-accent/90 text-white text-[10px] font-mono font-bold">
+                        🗳️ {movieVoteCount} oy
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -627,14 +760,28 @@ function GroupAlternativesGrid({
                 </div>
               </div>
 
-              {isHost && (
-                <button
-                  onClick={() => onSelectMovie(movie.id)}
-                  className="w-full py-2 rounded-lg bg-surface-elevated hover:bg-border border border-border text-text-primary font-mono text-xs font-semibold transition-colors"
-                >
-                  Bunu Seç
-                </button>
-              )}
+              {/* Consensus Voting Action Button */}
+              <div>
+                {!isCurrentUserReady ? (
+                  <button
+                    onClick={onToggleReady}
+                    className="w-full py-2 rounded-lg bg-surface-elevated hover:bg-border border border-border text-text-primary font-mono text-xs font-semibold transition-colors"
+                  >
+                    Önce Hazır Ol
+                  </button>
+                ) : hasVotedThis ? (
+                  <div className="w-full py-2 rounded-lg bg-accent text-white font-mono text-xs font-semibold text-center shadow-sm">
+                    ✓ Senin Oyun
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => onVote(movie.id)}
+                    className="w-full py-2 rounded-lg bg-surface-elevated hover:bg-border border border-border text-text-primary font-mono text-xs font-semibold transition-colors"
+                  >
+                    {currentUserVote ? "Oyumu Değiştir" : "Oy Ver"}
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}

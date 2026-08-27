@@ -123,6 +123,7 @@ export async function getMovieNightSessionInfo(
         include: { user: true },
       },
       selectedMovie: true,
+      votes: true,
     },
   });
 
@@ -182,6 +183,21 @@ export async function getMovieNightSessionInfo(
     };
   }
 
+  // Voting metrics calculation from current ready members
+  const readyMembers = session.members.filter((m: any) => m.isReady);
+  const readyUserIds = new Set(readyMembers.map((m: any) => m.userId));
+  const readyVotes = (session.votes || []).filter((v: any) => readyUserIds.has(v.userId));
+
+  const movieVoteCounts: Record<string, number> = {};
+  for (const v of readyVotes) {
+    movieVoteCounts[v.movieId] = (movieVoteCounts[v.movieId] || 0) + 1;
+  }
+
+  const currentUserVote = (session.votes || []).find((v: any) => v.userId === currentUserId)?.movieId || null;
+  const readyMembersCount = readyMembers.length;
+  const totalVotes = readyVotes.length;
+  const allReadyVoted = readyMembersCount > 0 && totalVotes === readyMembersCount;
+
   return {
     id: session.id,
     code: session.code,
@@ -194,6 +210,11 @@ export async function getMovieNightSessionInfo(
     isPremiumSession,
     selectedMovie: selectedMovieCandidate,
     members,
+    currentUserVote,
+    totalVotes,
+    readyMembersCount,
+    allReadyVoted,
+    movieVoteCounts,
     createdAt: session.createdAt,
     expiresAt: session.expiresAt,
   };
@@ -479,23 +500,282 @@ export async function getMovieNightRecommendations(
 }
 
 /**
- * Host selects the winning movie for Movie Night and completes session.
+ * Casts or updates a member's consensus vote for a movie in a Movie Night session.
+ * Invariant: The voting member must have isReady === true.
  */
-export async function selectMovieNightMovie(code: string, hostUserId: string, movieId: string) {
-  const session = await db.movieNightSession.findUnique({ where: { code: code.toUpperCase() } });
-  if (!session) throw new Error("Seans bulunamadı.");
-  if (session.hostUserId !== hostUserId) throw new Error("Yalnızca ev sahibi filmi seçebilir.");
+export async function voteMovieNightMovie(code: string, userId: string, movieId: string) {
+  const session = await db.movieNightSession.findUnique({
+    where: { code: code.toUpperCase() },
+    include: { members: true },
+  });
+
+  if (!session) {
+    throw new Error("Movie Night seansı bulunamadı.");
+  }
+
+  if (new Date() > session.expiresAt || session.status === MovieNightStatus.EXPIRED) {
+    throw new Error("Bu Movie Night seansının süresi dolmuştur.");
+  }
+
+  if (session.status === MovieNightStatus.COMPLETED) {
+    throw new Error("Tamamlanmış bir seansta oy kullanılamaz.");
+  }
+
+  if (session.status === MovieNightStatus.CANCELLED) {
+    throw new Error("İptal edilmiş bir seansta oy kullanılamaz.");
+  }
+
+  const member = session.members.find((m: any) => m.userId === userId);
+  if (!member) {
+    throw new Error("Bu seansın üyesi değilsiniz.");
+  }
+
+  if (!member.isReady) {
+    throw new Error("Oy kullanabilmek için önce hazır durumuna geçmelisiniz.");
+  }
 
   const movie = await db.movie.findUnique({ where: { id: movieId } });
-  if (!movie) throw new Error("Film bulunamadı.");
+  if (!movie) {
+    throw new Error("Seçilen film katalogda bulunamadı.");
+  }
+
+  if (
+    movie.safetyLevel === "ADULT" ||
+    movie.safetyLevel === "EROTIC" ||
+    movie.safetyLevel === "SEXUAL_CONTENT" ||
+    (movie.normalizedMinimumAge !== null && movie.normalizedMinimumAge >= 18)
+  ) {
+    throw new Error("Bu film Movie Night güvenlik kriterlerine uygun değildir.");
+  }
+
+  await db.movieNightVote.upsert({
+    where: {
+      sessionId_userId: {
+        sessionId: session.id,
+        userId,
+      },
+    },
+    update: {
+      movieId,
+      updatedAt: new Date(),
+    },
+    create: {
+      sessionId: session.id,
+      userId,
+      movieId,
+    },
+  });
+
+  return getMovieNightSessionInfo(code, userId);
+}
+
+/**
+ * Returns canonical vote state for a session.
+ */
+export async function getMovieNightVoteState(code: string, userId: string) {
+  return getMovieNightSessionInfo(code, userId);
+}
+
+/**
+ * Finalizes Movie Night consensus voting and selects the deterministic winning movie.
+ * Host is session coordinator but cannot arbitrarily force an unvoted or losing movie.
+ *
+ * Winner Deterministic Priority:
+ * 1. Highest explicit vote count among READY members
+ * 2. Highest SINEAI Group Match Score across members
+ * 3. Highest minimum individual member match score (fairness protection)
+ * 4. Highest calibrationPriorityScore
+ *    (subordinate deterministic fallbacks: voteCount, voteAverage, popularity)
+ * 5. Stable movie id order
+ */
+export async function finalizeMovieNightVoting(code: string, hostUserId: string) {
+  const session = await db.movieNightSession.findUnique({
+    where: { code: code.toUpperCase() },
+    include: {
+      members: {
+        orderBy: { joinedAt: "asc" },
+        include: { user: true },
+      },
+      votes: true,
+    },
+  });
+
+  if (!session) {
+    throw new Error("Movie Night seansı bulunamadı.");
+  }
+
+  if (session.hostUserId !== hostUserId) {
+    throw new Error("Yalnızca ev sahibi oylamayı sonlandırabilir.");
+  }
+
+  if (new Date() > session.expiresAt || session.status === MovieNightStatus.EXPIRED) {
+    throw new Error("Bu seansın süresi dolmuştur.");
+  }
+
+  if (session.status === MovieNightStatus.COMPLETED) {
+    return getMovieNightSessionInfo(code, hostUserId);
+  }
+
+  if (session.status === MovieNightStatus.CANCELLED) {
+    throw new Error("Bu seans iptal edilmiştir.");
+  }
+
+  const readyMembers = session.members.filter((m: any) => m.isReady);
+  if (readyMembers.length === 0) {
+    throw new Error("Oylamayı sonlandırmak için en az bir hazır katılımcı gereklidir.");
+  }
+
+  const readyUserIds = new Set(readyMembers.map((m: any) => m.userId));
+  const readyVotes = session.votes.filter((v: any) => readyUserIds.has(v.userId));
+
+  if (readyVotes.length < readyMembers.length) {
+    throw new Error("Tüm hazır katılımcılar oy vermeden oylama sonlandırılamaz.");
+  }
+
+  // Count votes per movie
+  const voteCounts = new Map<string, number>();
+  for (const v of readyVotes) {
+    voteCounts.set(v.movieId, (voteCounts.get(v.movieId) || 0) + 1);
+  }
+
+  const uniqueMovieIds = Array.from(voteCounts.keys());
+  const candidateDbMovies = await db.movie.findMany({
+    where: { id: { in: uniqueMovieIds } },
+  });
+
+  if (candidateDbMovies.length === 0) {
+    throw new Error("Oylanan geçerli film bulunamadı.");
+  }
+
+  // Pre-fetch all member Film DNA profiles & feedback profiles
+  const memberData = await Promise.all(
+    session.members.map(async (m: any) => {
+      const [profileRes, feedbackProfile] = await Promise.all([
+        getOrCalculateUserProfile(m.userId),
+        buildUserFeedbackProfile(m.userId),
+      ]);
+
+      const profile = (profileRes.profile as FilmDnaResult) || {
+        version: 1,
+        confidence: 0.2,
+        genres: [],
+        eras: [],
+        popularity: { orientation: "balanced" },
+        familiarity: { label: "balanced" },
+        traits: [],
+      };
+
+      return {
+        member: m,
+        profile,
+        feedbackProfile,
+      };
+    })
+  );
+
+  interface ScoredCandidate {
+    id: string;
+    voteCount: number;
+    groupMatchScore: number;
+    minMemberScore: number;
+    calibrationPriorityScore: number;
+    voteCountCatalog: number;
+    voteAverage: number;
+    popularity: number;
+  }
+
+  const scoredCandidates: ScoredCandidate[] = candidateDbMovies.map((dbMovie: any) => {
+    const meta = (dbMovie.metadata as Record<string, unknown>) || {};
+    const candidateMovie: CandidateMovie = {
+      id: dbMovie.id,
+      tmdbId: dbMovie.tmdbId,
+      title: dbMovie.title,
+      originalTitle: dbMovie.originalTitle,
+      releaseYear: dbMovie.releaseYear,
+      popularity: dbMovie.popularity,
+      voteAverage: dbMovie.voteAverage,
+      posterPath: dbMovie.posterPath,
+      backdropPath: dbMovie.backdropPath,
+      genres: (meta.genres as string[]) || [],
+      overview: (meta.overview as string) || "",
+    };
+
+    const memberInputs: MemberMatchInput[] = memberData.map((d: any) => {
+      const matchResult = calculateMovieMatch(candidateMovie, d.profile, d.feedbackProfile);
+      return {
+        userId: d.member.userId,
+        userLabel: d.member.userLabel,
+        matchResult,
+        confidence: d.profile.confidence || 0.5,
+      };
+    });
+
+    const groupResult = calculateGroupMatch(candidateMovie, memberInputs);
+    const memberScores = groupResult.memberScores.map((ms) => ms.individualMatchScore);
+    const minMemberScore = memberScores.length > 0 ? Math.min(...memberScores) : 0;
+
+    return {
+      id: dbMovie.id,
+      voteCount: voteCounts.get(dbMovie.id) || 0,
+      groupMatchScore: groupResult.groupMatchScore,
+      minMemberScore,
+      calibrationPriorityScore: dbMovie.calibrationPriorityScore || 0,
+      voteCountCatalog: dbMovie.voteCount || 0,
+      voteAverage: dbMovie.voteAverage || 0,
+      popularity: dbMovie.popularity || 0,
+    };
+  });
+
+  // Sort candidate movies according to canonical consensus & tie-breaker rules
+  scoredCandidates.sort((a, b) => {
+    // 1. Highest explicit vote count among READY members
+    if (b.voteCount !== a.voteCount) {
+      return b.voteCount - a.voteCount;
+    }
+    // 2. Highest Group Match Score
+    if (b.groupMatchScore !== a.groupMatchScore) {
+      return b.groupMatchScore - a.groupMatchScore;
+    }
+    // 3. Highest minimum individual member match score (fairness engine protection)
+    if (b.minMemberScore !== a.minMemberScore) {
+      return b.minMemberScore - a.minMemberScore;
+    }
+    // 4. Highest calibrationPriorityScore
+    if (b.calibrationPriorityScore !== a.calibrationPriorityScore) {
+      return b.calibrationPriorityScore - a.calibrationPriorityScore;
+    }
+    // Subordinate fallbacks: voteCount, voteAverage, popularity
+    if (b.voteCountCatalog !== a.voteCountCatalog) {
+      return b.voteCountCatalog - a.voteCountCatalog;
+    }
+    if (b.voteAverage !== a.voteAverage) {
+      return b.voteAverage - a.voteAverage;
+    }
+    if (b.popularity !== a.popularity) {
+      return b.popularity - a.popularity;
+    }
+    // 5. Stable movie id order
+    return a.id.localeCompare(b.id);
+  });
+
+  const winningMovieId = scoredCandidates[0].id;
 
   await db.movieNightSession.update({
     where: { id: session.id },
     data: {
-      selectedMovieId: movieId,
+      selectedMovieId: winningMovieId,
       status: MovieNightStatus.COMPLETED,
     },
   });
 
   return getMovieNightSessionInfo(code, hostUserId);
 }
+
+/**
+ * Backward compatibility wrapper for /select route.
+ * Converts direct selection into consensus finalization, preventing unilateral host selection bypass.
+ */
+export async function selectMovieNightMovie(code: string, hostUserId: string, _movieId?: string) {
+  return finalizeMovieNightVoting(code, hostUserId);
+}
+

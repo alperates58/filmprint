@@ -1,5 +1,7 @@
 import { db } from "@/lib/db/client";
 import { tmdbTvClient } from "@/lib/tmdb/tv/client";
+import { isTvShowEligible } from "@/lib/tv/eligibility";
+import { buildAutomaticTvDiscoveryWhere } from "@/lib/tv/discovery";
 
 export interface RelatedTvInput {
   id: string;
@@ -112,6 +114,7 @@ export async function getRelatedTvShowsForShow(
         }
 
         if (dbShow && dbShow.posterPath && !seenDbIds.has(dbShow.id)) {
+          if (!isTvShowEligible(dbShow as any, "RECOMMENDATION")) continue;
           seenTmdbIds.add(dbShow.tmdbId);
           seenDbIds.add(dbShow.id);
           results.push(dbShow);
@@ -127,11 +130,10 @@ export async function getRelatedTvShowsForShow(
   if (results.length < limit) {
     try {
       const localCandidates = await db.tvShow.findMany({
-        where: {
+        where: buildAutomaticTvDiscoveryWhere({
           id: { notIn: Array.from(seenDbIds) },
           tmdbId: { notIn: Array.from(seenTmdbIds) },
-          posterPath: { not: null },
-        },
+        }),
         select: {
           id: true,
           tmdbId: true,
@@ -140,12 +142,15 @@ export async function getRelatedTvShowsForShow(
           firstAirDate: true,
           voteAverage: true,
           popularity: true,
+          genreIds: true,
           metadata: true,
         },
         take: 100,
       });
 
-      const scored = localCandidates.map((candidate) => {
+      const scored = localCandidates
+        .filter((candidate) => isTvShowEligible(candidate as any, "RECOMMENDATION"))
+        .map((candidate) => {
         const meta = (candidate.metadata as Record<string, any>) || {};
         const genres = Array.isArray(meta.genres) ? meta.genres : [];
         const creators = Array.isArray(meta.creators) ? meta.creators : [];

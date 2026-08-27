@@ -53,6 +53,11 @@ export interface MovieNightSessionInfo {
   isPremiumSession?: boolean;
   selectedMovie?: CandidateMovie | null;
   members: MovieNightMemberInfo[];
+  currentUserVote?: string | null;
+  totalVotes?: number;
+  readyMembersCount?: number;
+  allReadyVoted?: boolean;
+  movieVoteCounts?: Record<string, number>;
   createdAt: Date;
   expiresAt: Date;
 }

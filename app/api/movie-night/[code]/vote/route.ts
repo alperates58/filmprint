@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOrCreateSession } from "@/lib/session";
-import { selectMovieNightMovie } from "@/lib/movie-night/service";
+import { voteMovieNightMovie } from "@/lib/movie-night/service";
 
 export async function POST(
   request: Request,
@@ -12,12 +12,20 @@ export async function POST(
     if (!userSession) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const sessionInfo = await selectMovieNightMovie(code, userSession.userId);
+    const { userId } = userSession;
+    const body = await request.json();
+    const { movieId } = body;
+
+    if (!movieId) {
+      return NextResponse.json({ error: "movieId gereklidir." }, { status: 400 });
+    }
+
+    const sessionInfo = await voteMovieNightMovie(code, userId, movieId);
     return NextResponse.json({ session: sessionInfo });
   } catch (error) {
-    console.error("[Movie Night Select Error]:", error);
+    console.error("[Movie Night Vote Error]:", error);
     return NextResponse.json(
-      { error: (error as Error).message || "Film seçilemedi." },
+      { error: (error as Error).message || "Oy kullanılamadı." },
       { status: 400 }
     );
   }

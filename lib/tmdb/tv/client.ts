@@ -334,6 +334,18 @@ export class TMDBTvClient {
       });
     }
 
+    // Extract canonical TV genre IDs
+    const canonicalGenreIds = resolveCanonicalGenreIds(
+      tmdbShow.genre_ids || tmdbShow.genres || [],
+      "TV"
+    );
+
+    const discoveryExclusionReasons: string[] = [];
+    if (canonicalGenreIds.includes(10762)) discoveryExclusionReasons.push("KIDS_CONTENT");
+    if (canonicalGenreIds.includes(10763)) discoveryExclusionReasons.push("NEWS_CONTENT");
+    if (canonicalGenreIds.includes(10767)) discoveryExclusionReasons.push("TALK_SHOW_CONTENT");
+    const discoveryEligible = discoveryExclusionReasons.length === 0;
+
     const overviewText = normalizeOverviewForPersistence(tmdbShow.overview);
     const existingShow = await db.tvShow.findUnique({
       where: { tmdbId: tmdbShow.id },
@@ -359,13 +371,9 @@ export class TMDBTvClient {
       overviewLocalizationSource: localization.overviewSource,
       turkishTitle: localization.turkishTitle,
       englishTitle: localization.englishTitle,
+      discoveryEligible,
+      discoveryExclusionReasons,
     };
-
-    // Extract canonical TV genre IDs
-    const canonicalGenreIds = resolveCanonicalGenreIds(
-      tmdbShow.genre_ids || tmdbShow.genres || [],
-      "TV"
-    );
 
     // Extract Certification & Content Safety V2
     const cert = pickTmdbCertification(tmdbShow, "TV");

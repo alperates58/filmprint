@@ -3,7 +3,8 @@ export type TvEligibilityContext =
   | "RECOMMENDATION"
   | "HOME"
   | "FRESH_DISCOVERY"
-  | "LIBRARY";
+  | "LIBRARY"
+  | "SEARCH";
 
 export type TvEligibilityRejectionReason =
   | "ADULT_FLAG"
@@ -16,7 +17,10 @@ export type TvEligibilityRejectionReason =
   | "MISSING_POSTER"
   | "FUTURE_RELEASE"
   | "LOW_VOTE_CONFIDENCE"
-  | "LOW_POPULARITY";
+  | "LOW_POPULARITY"
+  | "KIDS_CONTENT"
+  | "NEWS_CONTENT"
+  | "TALK_SHOW_CONTENT";
 
 export interface TvEligibilityResult {
   isEligible: boolean;
@@ -51,6 +55,7 @@ export interface EligibleTvShowInput {
   voteCount?: number | null;
   vote_count?: number | null;
   genres?: string[] | { id?: number; name?: string }[] | null;
+  genreIds?: number[] | null;
   genre_ids?: number[] | null;
   adult?: boolean | null;
   metadata?: Record<string, unknown> | null;

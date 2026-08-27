@@ -19,6 +19,7 @@ import {
 import { FamiliarityState } from "@/lib/calibration/scoring";
 import { resolveGenreNamesFromIds } from "@/lib/catalog/genres";
 import { getPhaseHBackfillReadiness } from "@/lib/calibration/coverage";
+import { buildAutomaticTvDiscoveryWhere } from "@/lib/tv/discovery";
 
 export interface QueueTvShowResponseItem {
   id: string;
@@ -204,32 +205,26 @@ export async function getTvCalibrationQueue(
     skip: number;
     take: number;
   }) {
-    const whereConditions: any = {
+    const baseWhere: any = {
       id: { notIn: Array.from(answeredTvShowIds) },
-      posterPath: { not: null },
-      safetyLevel: {
-        notIn: ["ADULT", "EROTIC", "SEXUAL_CONTENT"],
-      },
-      OR: [
-        { normalizedMinimumAge: null },
-        { normalizedMinimumAge: { lt: 18 } },
-      ],
     };
 
     if (mode === "GENRE" && genreIds.length > 0) {
-      whereConditions.genreIds = {
+      baseWhere.genreIds = {
         hasSome: genreIds,
       };
     }
 
     if (excludedGenreIds.size > 0) {
       const excludedArr = Array.from(excludedGenreIds);
-      whereConditions.NOT = {
+      baseWhere.NOT = {
         genreIds: {
           hasSome: excludedArr,
         },
       };
     }
+
+    const whereConditions = buildAutomaticTvDiscoveryWhere(baseWhere);
 
     let rows = await db.tvShow.findMany({
       where: whereConditions,

@@ -132,6 +132,7 @@ model User {
   libraryEntries          UserContentLibrary[]
   hostedMovieNights       MovieNightSession[]      @relation("HostedMovieNights")
   movieNightMemberships   MovieNightMember[]
+  movieNightVotes         MovieNightVote[]
   sessions                UserSession[]
   genrePreferences        UserGenrePreference[]
   entitlement             UserEntitlement?
@@ -177,6 +178,7 @@ model Movie {
   recommendationFeedbacks  RecommendationFeedback[]
   libraryEntries           UserContentLibrary[]
   selectedInMovieNights    MovieNightSession[]      @relation("SelectedMovieNight")
+  movieNightVotes          MovieNightVote[]
 
   @@index([popularity])
   @@index([voteAverage(sort: Desc), popularity(sort: Desc)])
@@ -265,8 +267,9 @@ model MovieNightSession {
   expiresAt       DateTime
 
   host          User               @relation("HostedMovieNights", fields: [hostUserId], references: [id], onDelete: Cascade)
-  selectedMovie Movie?              @relation("SelectedMovieNight", fields: [selectedMovieId], references: [id], onDelete: SetNull)
+  selectedMovie Movie?             @relation("SelectedMovieNight", fields: [selectedMovieId], references: [id], onDelete: SetNull)
   members       MovieNightMember[]
+  votes         MovieNightVote[]
 
   @@index([code])
   @@index([hostUserId])
@@ -284,6 +287,24 @@ model MovieNightMember {
 
   @@unique([sessionId, userId])
   @@index([sessionId])
+  @@index([userId])
+}
+
+model MovieNightVote {
+  id        String   @id @default(uuid())
+  sessionId String
+  userId    String
+  movieId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session MovieNightSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie   Movie             @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
+  @@index([sessionId])
+  @@index([movieId])
   @@index([userId])
 }
 

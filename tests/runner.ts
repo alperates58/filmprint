@@ -45,11 +45,13 @@ import { runGrowthAndSeoTests } from "./growth_and_seo.test";
 import { runMonetizationAndAdSenseTests } from "./monetization_and_adsense.test";
 import { runPhaseHTests } from "./phase_h.test";
 import { runPremiumEntitlementsTests } from "./premium_entitlements.test";
+import { runMovieNightVotingTests } from "./movie_night_voting.test";
+import { runTvDiscoveryQualityTests } from "./tv_discovery_quality.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
   console.log("FILMPRINT MASTER UNIT & REGRESSION TEST SUITE");
-  console.log("===============================================================\n");
+  console.log("===============================================================");
 
   const startTime = Date.now();
   const testSuites = [
@@ -98,6 +100,8 @@ async function runAllUnitAndRegressionTests() {
     { name: "Phase I-C & I-D Monetization & AdSense Control Plane Tests", fn: runMonetizationAndAdSenseTests },
     { name: "Phase H Intelligence, Safety & Rank V2 Tests", fn: runPhaseHTests },
     { name: "Phase P1 Premium Product & Entitlements Tests", fn: runPremiumEntitlementsTests },
+    { name: "Phase P1.1 Movie Night Consensus Voting Tests", fn: runMovieNightVotingTests },
+    { name: "Phase P1.1 TV Catalog Quality & Discovery Tests", fn: runTvDiscoveryQualityTests },
   ];
 
   let passedSuites = 0;

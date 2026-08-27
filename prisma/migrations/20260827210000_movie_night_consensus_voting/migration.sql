@@ -1,4 +1,4 @@
-﻿-- CreateTable
+-- CreateTable
 CREATE TABLE "MovieNightVote" (
     "id" TEXT NOT NULL,
     "sessionId" TEXT NOT NULL,

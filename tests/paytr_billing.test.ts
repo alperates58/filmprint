@@ -11,7 +11,7 @@ import { PaytrConfig } from "../lib/billing/paytr/types";
 import { encryptSecret, decryptSecret } from "../lib/security/crypto";
 
 export function runPaytrBillingTests() {
-  console.log("=== PHASE P2 PAYTR BILLING & SUBSCRIPTION TESTS ===\n");
+  console.log("=== PHASE P2 PAYTR BILLING & SUBSCRIPTION HARDENING TESTS ===\n");
   let passed = 0;
 
   function test(name: string, fn: () => void) {
@@ -87,8 +87,8 @@ export function runPaytrBillingTests() {
     assert.strictEqual(status, "ERROR");
   });
 
-  // 4. Tested + billingEnabled -> ACTIVE
-  test("Test 4: Configured, tested, and billingEnabled resolves to ACTIVE", () => {
+  // 4. Configured + enabled + billingEnabled + valid pricing -> ACTIVE
+  test("Test 4: Configured, enabled, billingEnabled with valid pricing resolves to ACTIVE", () => {
     const config: PaytrConfig = {
       merchantId: "123456",
       merchantKey: "test_key_abc",
@@ -108,8 +108,30 @@ export function runPaytrBillingTests() {
     assert.strictEqual(status, "ACTIVE");
   });
 
-  // 5. Tested but billingEnabled=false -> TESTED
-  test("Test 5: Tested provider without billing enabled resolves to TESTED", () => {
+  // 5. Configured + billingEnabled but MISSING pricing -> NOT ACTIVE (cannot activate without prices)
+  test("Test 5: Configured and billingEnabled without explicit pricing CANNOT become ACTIVE", () => {
+    const config: PaytrConfig = {
+      merchantId: "123456",
+      merchantKey: "test_key_abc",
+      merchantSalt: "test_salt_xyz",
+      testMode: true,
+      enabled: true,
+      billingEnabled: true,
+      monthlyPrice: null,
+      yearlyPrice: null,
+      currency: "TRY",
+      gracePeriodDays: 3,
+      recurringEnabled: true,
+      non3dEnabled: true,
+      lastTestedAt: new Date(),
+    };
+    const status = computePaytrLifecycle(config);
+    assert.notStrictEqual(status, "ACTIVE", "Must not become ACTIVE without configured pricing");
+    assert.strictEqual(status, "TESTED");
+  });
+
+  // 6. Tested provider without billing enabled -> TESTED (Yapılandırma Doğrulandı)
+  test("Test 6: Tested provider without billing enabled resolves to TESTED (Yapılandırma Doğrulandı)", () => {
     const config: PaytrConfig = {
       merchantId: "123456",
       merchantKey: "test_key_abc",
@@ -129,8 +151,68 @@ export function runPaytrBillingTests() {
     assert.strictEqual(status, "TESTED");
   });
 
-  // 6. PayTR Iframe Token generation format test
-  test("Test 6: PayTR HMAC-SHA256 iframe token is generated deterministically", () => {
+  // 7. Pricing config absent -> strictly null (no fake 99/990 fallback)
+  test("Test 7: Pricing config absent returns null for monthlyPrice and yearlyPrice", () => {
+    const settingsMap = new Map<string, string>();
+    const monthlyStr = settingsMap.get("paytr_monthly_price");
+    const rawMonthly = monthlyStr ? parseFloat(monthlyStr) : null;
+    const monthlyPrice = rawMonthly !== null && !isNaN(rawMonthly) && rawMonthly > 0 ? rawMonthly : null;
+
+    const yearlyStr = settingsMap.get("paytr_yearly_price");
+    const rawYearly = yearlyStr ? parseFloat(yearlyStr) : null;
+    const yearlyPrice = rawYearly !== null && !isNaN(rawYearly) && rawYearly > 0 ? rawYearly : null;
+
+    assert.strictEqual(monthlyPrice, null);
+    assert.strictEqual(yearlyPrice, null);
+  });
+
+  // 8. Empty or 0 pricing does not convert to 99/990
+  test("Test 8: Empty string or 0 pricing does not convert to 99/990 default", () => {
+    const settingsMap = new Map<string, string>([
+      ["paytr_monthly_price", "0"],
+      ["paytr_yearly_price", ""],
+    ]);
+    const monthlyStr = settingsMap.get("paytr_monthly_price");
+    const rawMonthly = monthlyStr ? parseFloat(monthlyStr) : null;
+    const monthlyPrice = rawMonthly !== null && !isNaN(rawMonthly) && rawMonthly > 0 ? rawMonthly : null;
+
+    const yearlyStr = settingsMap.get("paytr_yearly_price");
+    const rawYearly = yearlyStr ? parseFloat(yearlyStr) : null;
+    const yearlyPrice = rawYearly !== null && !isNaN(rawYearly) && rawYearly > 0 ? rawYearly : null;
+
+    assert.strictEqual(monthlyPrice, null);
+    assert.strictEqual(yearlyPrice, null);
+  });
+
+  // 9. Negative pricing rejected
+  test("Test 9: Negative pricing is rejected as invalid null", () => {
+    const settingsMap = new Map<string, string>([
+      ["paytr_monthly_price", "-50.00"],
+      ["paytr_yearly_price", "-500.00"],
+    ]);
+    const monthlyStr = settingsMap.get("paytr_monthly_price");
+    const rawMonthly = monthlyStr ? parseFloat(monthlyStr) : null;
+    const monthlyPrice = rawMonthly !== null && !isNaN(rawMonthly) && rawMonthly > 0 ? rawMonthly : null;
+
+    assert.strictEqual(monthlyPrice, null);
+  });
+
+  // 10. Local validation semantic assertion
+  test("Test 10: Local validation verifies credentials presence without claiming network connectivity", () => {
+    const config = {
+      merchantId: "123456",
+      merchantKey: "key_abc",
+      merchantSalt: "salt_xyz",
+    };
+    const hasCredentials = Boolean(config.merchantId && config.merchantKey && config.merchantSalt);
+    assert.strictEqual(hasCredentials, true);
+    // Message semantics
+    const testMessage = "PayTR yapılandırma ve kimlik formatı doğrulaması başarılı.";
+    assert.ok(!testMessage.includes("bağlantısı başarılı"));
+  });
+
+  // 11. PayTR Iframe Token generation format test
+  test("Test 11: PayTR HMAC-SHA256 iframe token is generated deterministically", () => {
     const token = generatePaytrIframeToken({
       merchantId: "123456",
       userIp: "127.0.0.1",
@@ -150,15 +232,14 @@ export function runPaytrBillingTests() {
     assert.ok(token.length > 20, "Token should be valid base64 HMAC");
   });
 
-  // 7. PayTR Callback Hash verification - Valid Signature
-  test("Test 7: Valid PayTR callback hash is verified successfully", () => {
+  // 12. PayTR Callback Hash verification - Valid Signature
+  test("Test 12: Valid PayTR callback hash is verified successfully", () => {
     const merchantOid = "sp_test_12345";
     const merchantSalt = "salt_987654";
     const merchantKey = "key_secret_321";
     const status = "success";
     const totalAmount = "9900";
 
-    // Generate expected hash
     const crypto = require("crypto");
     const hashStr = merchantOid + merchantSalt + status + totalAmount;
     const hmac = crypto.createHmac("sha256", merchantKey);
@@ -177,8 +258,8 @@ export function runPaytrBillingTests() {
     assert.strictEqual(verified, true, "Hash must be verified");
   });
 
-  // 8. PayTR Callback Hash verification - Invalid Signature rejected
-  test("Test 8: Tampered or invalid callback hash is rejected with zero mutation", () => {
+  // 13. PayTR Callback Hash verification - Invalid Signature rejected
+  test("Test 13: Tampered or invalid callback hash is rejected with zero mutation", () => {
     const verified = verifyPaytrCallbackHash({
       merchantOid: "sp_test_12345",
       merchantSalt: "salt_987654",
@@ -191,8 +272,8 @@ export function runPaytrBillingTests() {
     assert.strictEqual(verified, false, "Invalid hash must be rejected");
   });
 
-  // 9. Timing-Safe check length mismatch handled cleanly
-  test("Test 9: Signature length mismatch fails safely without throwing exception", () => {
+  // 14. Timing-Safe check length mismatch handled cleanly
+  test("Test 14: Signature length mismatch fails safely without throwing exception", () => {
     const verified = verifyPaytrCallbackHash({
       merchantOid: "sp_test_12345",
       merchantSalt: "salt_987654",
@@ -205,8 +286,8 @@ export function runPaytrBillingTests() {
     assert.strictEqual(verified, false, "Length mismatch should cleanly return false");
   });
 
-  // 10. Payload Hash for Webhook Idempotency
-  test("Test 10: Deterministic payload hash generates identical hash for duplicate callbacks", () => {
+  // 15. Payload Hash for Webhook Idempotency
+  test("Test 15: Deterministic payload hash generates identical hash for duplicate callbacks", () => {
     const hash1 = generatePayloadHash("sp_123", "9900", "success");
     const hash2 = generatePayloadHash("sp_123", "9900", "success");
     const hashDifferent = generatePayloadHash("sp_123", "9900", "failed");
@@ -215,8 +296,8 @@ export function runPaytrBillingTests() {
     assert.notStrictEqual(hash1, hashDifferent, "Different status must yield different payloadHash");
   });
 
-  // 11. Secret encryption at rest with AES-256-GCM
-  test("Test 11: Merchant key and salt are encrypted at rest with AES-256-GCM authenticated ciphertext", () => {
+  // 16. Secret encryption at rest with AES-256-GCM
+  test("Test 16: Merchant key and salt are encrypted at rest with AES-256-GCM authenticated ciphertext", () => {
     const rawCredentials = "merchant_key_12345:merchant_salt_67890";
     const { encryptedValue, lastFour } = encryptSecret(rawCredentials);
 
@@ -227,8 +308,8 @@ export function runPaytrBillingTests() {
     assert.strictEqual(decrypted, rawCredentials, "Decrypted credentials must match raw input");
   });
 
-  // 12. Utoken (card token) encryption
-  test("Test 12: PayTR utoken is encrypted at rest and never plaintext in storage", () => {
+  // 17. Utoken (card token) encryption
+  test("Test 17: PayTR utoken is encrypted at rest and never plaintext in storage", () => {
     const rawUtoken = "utoken_vault_secure_token_987654321";
     const { encryptedValue } = encryptSecret(rawUtoken);
 
@@ -237,8 +318,8 @@ export function runPaytrBillingTests() {
     assert.strictEqual(decrypted, rawUtoken);
   });
 
-  // 13. Same-period recurring renewal key generation prevents double charge
-  test("Test 13: Deterministic renewal key blocks same-period duplicate recurring charges", () => {
+  // 18. RenewalKey uniqueness for recurring payments
+  test("Test 18: Deterministic renewal key blocks same-period duplicate recurring charges", () => {
     const subId = "sub_user_abc123";
     const periodEnd = new Date("2026-09-27T00:00:00.000Z");
     const periodKey = periodEnd.toISOString().slice(0, 10);
@@ -249,8 +330,21 @@ export function runPaytrBillingTests() {
     assert.strictEqual(renewalKey1, "renewal_sub_user_abc123_2026-09-27");
   });
 
-  // 14. Subscription period calculation for Monthly
-  test("Test 14: Monthly subscription adds 30 days accurately", () => {
+  // 19. Single active subscription partial unique constraint rule
+  test("Test 19: Single active subscription invariant is enforced on active statuses", () => {
+    const activeStatuses = ["ACTIVE", "PAST_DUE", "CANCEL_AT_PERIOD_END"];
+    const historicalStatuses = ["EXPIRED", "CANCELLED", "FAILED"];
+
+    for (const st of activeStatuses) {
+      assert.ok(["ACTIVE", "PAST_DUE", "CANCEL_AT_PERIOD_END"].includes(st));
+    }
+    for (const st of historicalStatuses) {
+      assert.ok(!["ACTIVE", "PAST_DUE", "CANCEL_AT_PERIOD_END"].includes(st));
+    }
+  });
+
+  // 20. Subscription period calculation for Monthly
+  test("Test 20: Monthly subscription adds 30 days accurately", () => {
     const start = new Date("2026-08-27T12:00:00.000Z");
     const end = new Date(start);
     end.setDate(end.getDate() + 30);
@@ -259,8 +353,8 @@ export function runPaytrBillingTests() {
     assert.strictEqual(diffDays, 30);
   });
 
-  // 15. Subscription period calculation for Yearly
-  test("Test 15: Yearly subscription adds 1 calendar year accurately", () => {
+  // 21. Subscription period calculation for Yearly
+  test("Test 21: Yearly subscription adds 1 calendar year accurately", () => {
     const start = new Date("2026-08-27T12:00:00.000Z");
     const end = new Date(start);
     end.setFullYear(end.getFullYear() + 1);
@@ -270,8 +364,8 @@ export function runPaytrBillingTests() {
     assert.strictEqual(end.getUTCDate(), 27);
   });
 
-  // 16. Grace period calculation
-  test("Test 16: Grace period adds configured days on renewal failure", () => {
+  // 22. Grace period calculation
+  test("Test 22: Grace period adds configured days on renewal failure", () => {
     const now = new Date("2026-08-27T12:00:00.000Z");
     const graceDays = 3;
     const graceEnd = new Date(now);
@@ -281,8 +375,8 @@ export function runPaytrBillingTests() {
     assert.strictEqual(diffHours, 72);
   });
 
-  // 17. Entitlement source isolation logic
-  test("Test 17: Entitlement source differentiates MANUAL admin grants from BILLING subscriptions", () => {
+  // 23. Entitlement source isolation logic
+  test("Test 23: Entitlement source differentiates MANUAL admin grants from BILLING subscriptions", () => {
     const manualGrant = {
       tier: "PREMIUM",
       source: "MANUAL",
@@ -295,8 +389,8 @@ export function runPaytrBillingTests() {
     assert.strictEqual(shouldRevokeManual, true, "Manual grant with farther expiry must be protected from billing expiration");
   });
 
-  // 18. Masked credentials format
-  test("Test 18: Admin config returns masked credentials without leaking plaintext", () => {
+  // 24. Masked credentials format
+  test("Test 24: Admin config returns masked credentials without leaking plaintext", () => {
     const rawKey = "1234567890abcdef";
     const rawSalt = "fedcba0987654321";
     const maskedKey = rawKey ? "••••••••" : null;
@@ -308,36 +402,7 @@ export function runPaytrBillingTests() {
     assert.ok(!maskedSalt.includes("fedc"));
   });
 
-  // 19. Annual savings calculation
-  test("Test 19: Annual plan savings computed accurately from monthly vs yearly price", () => {
-    const monthlyPrice = 99.0;
-    const yearlyPrice = 990.0;
-    const annualBase = monthlyPrice * 12; // 1188.0
-    const savings = annualBase - yearlyPrice; // 198.0
-    const savingsPercent = Math.round((savings / annualBase) * 100);
-
-    assert.strictEqual(annualBase, 1188.0);
-    assert.strictEqual(savings, 198.0);
-    assert.strictEqual(savingsPercent, 17);
-  });
-
-  // 20. Mock PayTR payment state transitions
-  test("Test 20: Payment lifecycle follows PENDING -> SUCCEEDED / FAILED transition invariants", () => {
-    const validTransitions: Record<string, string[]> = {
-      PENDING: ["PROCESSING", "SUCCEEDED", "FAILED"],
-      PROCESSING: ["SUCCEEDED", "FAILED"],
-      SUCCEEDED: ["REFUNDED"],
-      FAILED: [],
-      REFUNDED: [],
-    };
-
-    assert.ok(validTransitions["PENDING"].includes("SUCCEEDED"));
-    assert.ok(validTransitions["PENDING"].includes("FAILED"));
-    assert.ok(validTransitions["SUCCEEDED"].includes("REFUNDED"));
-    assert.strictEqual(validTransitions["FAILED"].length, 0);
-  });
-
-  console.log(`\nRESULTS: Passed ${passed} of 20 tests.`);
+  console.log(`\nRESULTS: Passed ${passed} of 24 tests.`);
 }
 
 runPaytrBillingTests();

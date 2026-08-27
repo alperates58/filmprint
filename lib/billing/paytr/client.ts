@@ -85,11 +85,13 @@ export async function getPaytrConfig(): Promise<PaytrConfig> {
   const billingEnabled = settingsMap.get("admin_billing_enabled") === "true";
   const testMode = settingsMap.get("paytr_test_mode") !== "false"; // Default testMode: true
 
-  const rawMonthly = parseFloat(settingsMap.get("paytr_monthly_price") || "99.00");
-  const monthlyPrice = isNaN(rawMonthly) ? null : rawMonthly;
+  const monthlyStr = settingsMap.get("paytr_monthly_price");
+  const rawMonthly = monthlyStr ? parseFloat(monthlyStr) : null;
+  const monthlyPrice = rawMonthly !== null && !isNaN(rawMonthly) && rawMonthly > 0 ? rawMonthly : null;
 
-  const rawYearly = parseFloat(settingsMap.get("paytr_yearly_price") || "990.00");
-  const yearlyPrice = isNaN(rawYearly) ? null : rawYearly;
+  const yearlyStr = settingsMap.get("paytr_yearly_price");
+  const rawYearly = yearlyStr ? parseFloat(yearlyStr) : null;
+  const yearlyPrice = rawYearly !== null && !isNaN(rawYearly) && rawYearly > 0 ? rawYearly : null;
 
   const currency = settingsMap.get("paytr_currency") || "TRY";
   const rawGrace = parseInt(settingsMap.get("paytr_grace_period_days") || "3", 10);
@@ -142,9 +144,21 @@ export function computePaytrLifecycle(config: PaytrConfig): PaytrProviderLifecyc
   if (config.lastProviderError) {
     return "ERROR";
   }
-  if (config.lastTestedAt) {
-    return config.billingEnabled ? "ACTIVE" : "TESTED";
+
+  const hasValidPricing = Boolean(
+    config.monthlyPrice && config.monthlyPrice > 0 &&
+    config.yearlyPrice && config.yearlyPrice > 0
+  );
+
+  // ACTIVE state requires credentials + enabled + explicit billingEnabled + valid pricing
+  if (config.billingEnabled && hasValidPricing) {
+    return "ACTIVE";
   }
+
+  if (config.lastTestedAt) {
+    return "TESTED";
+  }
+
   return "CONFIGURED";
 }
 
@@ -187,8 +201,8 @@ export async function savePaytrConfig(input: {
   testMode?: boolean;
   enabled?: boolean;
   billingEnabled?: boolean;
-  monthlyPrice?: number;
-  yearlyPrice?: number;
+  monthlyPrice?: number | null;
+  yearlyPrice?: number | null;
   currency?: string;
   gracePeriodDays?: number;
   recurringEnabled?: boolean;
@@ -250,13 +264,25 @@ export async function savePaytrConfig(input: {
   if (typeof input.billingEnabled === "boolean") {
     settingsToUpsert.push(["admin_billing_enabled", input.billingEnabled ? "true" : "false"]);
   }
-  if (typeof input.monthlyPrice === "number") {
-    settingsToUpsert.push(["paytr_monthly_price", input.monthlyPrice.toFixed(2)]);
-    settingsToUpsert.push(["premium_monthly_price", input.monthlyPrice.toFixed(2)]);
+  if (input.monthlyPrice !== undefined) {
+    if (input.monthlyPrice === null || isNaN(input.monthlyPrice) || input.monthlyPrice <= 0) {
+      await db.systemSetting.deleteMany({
+        where: { key: { in: ["paytr_monthly_price", "premium_monthly_price"] } },
+      }).catch(() => {});
+    } else {
+      settingsToUpsert.push(["paytr_monthly_price", input.monthlyPrice.toFixed(2)]);
+      settingsToUpsert.push(["premium_monthly_price", input.monthlyPrice.toFixed(2)]);
+    }
   }
-  if (typeof input.yearlyPrice === "number") {
-    settingsToUpsert.push(["paytr_yearly_price", input.yearlyPrice.toFixed(2)]);
-    settingsToUpsert.push(["premium_annual_price", input.yearlyPrice.toFixed(2)]);
+  if (input.yearlyPrice !== undefined) {
+    if (input.yearlyPrice === null || isNaN(input.yearlyPrice) || input.yearlyPrice <= 0) {
+      await db.systemSetting.deleteMany({
+        where: { key: { in: ["paytr_yearly_price", "premium_annual_price"] } },
+      }).catch(() => {});
+    } else {
+      settingsToUpsert.push(["paytr_yearly_price", input.yearlyPrice.toFixed(2)]);
+      settingsToUpsert.push(["premium_annual_price", input.yearlyPrice.toFixed(2)]);
+    }
   }
   if (input.currency) {
     settingsToUpsert.push(["paytr_currency", input.currency.trim().toUpperCase()]);

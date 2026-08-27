@@ -76,7 +76,13 @@ export default function PremiumPage() {
   };
 
   const isPremium = data?.summary?.isPremium === true;
-  const hasConfiguredPricing = Boolean(data?.pricing?.monthlyPrice || data?.pricing?.annualPrice);
+  const hasConfiguredPricing = Boolean(
+    data?.billingReadiness?.isReady &&
+    data?.pricing?.monthlyPrice &&
+    data?.pricing?.monthlyPrice.trim() !== "" &&
+    data?.pricing?.annualPrice &&
+    data?.pricing?.annualPrice.trim() !== ""
+  );
 
   return (
     <div className="min-h-screen bg-[#090a0f] text-zinc-100 flex flex-col selection:bg-purple-600 selection:text-white font-sans">

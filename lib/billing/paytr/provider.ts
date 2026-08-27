@@ -14,7 +14,7 @@ export class PaytrBillingProvider implements BillingProvider {
   async isReady(): Promise<boolean> {
     const config = await getPaytrConfig();
     const lifecycle = computePaytrLifecycle(config);
-    return (lifecycle === "ACTIVE" || lifecycle === "TESTED") && config.billingEnabled;
+    return lifecycle === "ACTIVE";
   }
 
   async createCheckoutSession(userId: string, plan: BillingPlan): Promise<CheckoutSessionResult> {

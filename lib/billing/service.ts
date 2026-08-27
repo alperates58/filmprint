@@ -41,7 +41,11 @@ export async function getEffectiveBillingReadiness(): Promise<EffectiveBillingRe
 
   const providerReady = await paytrProvider.isReady();
   const adminEnabled = Boolean(settings.adminBillingEnabled);
-  const isReady = adminEnabled && providerReady;
+  const hasValidPricing = Boolean(
+    paytrConfig.monthlyPrice && paytrConfig.monthlyPrice > 0 &&
+    paytrConfig.yearlyPrice && paytrConfig.yearlyPrice > 0
+  );
+  const isReady = adminEnabled && providerReady && hasValidPricing;
 
   return {
     isReady,

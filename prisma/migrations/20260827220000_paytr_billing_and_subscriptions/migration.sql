@@ -106,6 +106,9 @@ CREATE INDEX "Subscription_currentPeriodEnd_idx" ON "Subscription"("currentPerio
 -- CreateIndex
 CREATE INDEX "Subscription_userId_status_idx" ON "Subscription"("userId", "status");
 
+-- CreateIndex (Unique single active subscription per user/provider/planKey)
+CREATE UNIQUE INDEX "Subscription_user_active_unique" ON "Subscription"("userId", "provider", "planKey") WHERE "status" IN ('ACTIVE', 'PAST_DUE', 'CANCEL_AT_PERIOD_END');
+
 -- CreateIndex
 CREATE UNIQUE INDEX "BillingPayment_merchantOid_key" ON "BillingPayment"("merchantOid");
 
@@ -121,8 +124,8 @@ CREATE INDEX "BillingPayment_merchantOid_idx" ON "BillingPayment"("merchantOid")
 -- CreateIndex
 CREATE INDEX "BillingPayment_subscriptionId_idx" ON "BillingPayment"("subscriptionId");
 
--- CreateIndex
-CREATE INDEX "BillingPayment_renewalKey_idx" ON "BillingPayment"("renewalKey");
+-- CreateIndex (Unique non-null renewalKey for duplicate renewal prevention)
+CREATE UNIQUE INDEX "BillingPayment_renewalKey_key" ON "BillingPayment"("renewalKey") WHERE "renewalKey" IS NOT NULL;
 
 -- CreateIndex
 CREATE UNIQUE INDEX "BillingWebhookEvent_provider_merchantOid_payloadHash_key" ON "BillingWebhookEvent"("provider", "merchantOid", "payloadHash");

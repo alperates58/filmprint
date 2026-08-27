@@ -20,6 +20,32 @@ export async function PUT(req: NextRequest) {
     await requireAdminSession();
     const body = await req.json();
 
+    let monthlyPrice: number | null | undefined = undefined;
+    if (body.monthlyPrice !== undefined) {
+      if (body.monthlyPrice === null || body.monthlyPrice === "") {
+        monthlyPrice = null;
+      } else {
+        const val = typeof body.monthlyPrice === "number" ? body.monthlyPrice : parseFloat(body.monthlyPrice);
+        if (isNaN(val) || val <= 0) {
+          return NextResponse.json({ error: "Aylık fiyat 0'dan büyük olmalıdır veya boş bırakılmalıdır." }, { status: 400 });
+        }
+        monthlyPrice = val;
+      }
+    }
+
+    let yearlyPrice: number | null | undefined = undefined;
+    if (body.yearlyPrice !== undefined) {
+      if (body.yearlyPrice === null || body.yearlyPrice === "") {
+        yearlyPrice = null;
+      } else {
+        const val = typeof body.yearlyPrice === "number" ? body.yearlyPrice : parseFloat(body.yearlyPrice);
+        if (isNaN(val) || val <= 0) {
+          return NextResponse.json({ error: "Yıllık fiyat 0'dan büyük olmalıdır veya boş bırakılmalıdır." }, { status: 400 });
+        }
+        yearlyPrice = val;
+      }
+    }
+
     await savePaytrConfig({
       merchantId: body.merchantId,
       merchantKey: body.merchantKey,
@@ -27,8 +53,8 @@ export async function PUT(req: NextRequest) {
       testMode: body.testMode,
       enabled: body.enabled,
       billingEnabled: body.billingEnabled,
-      monthlyPrice: typeof body.monthlyPrice === "number" ? body.monthlyPrice : undefined,
-      yearlyPrice: typeof body.yearlyPrice === "number" ? body.yearlyPrice : undefined,
+      monthlyPrice,
+      yearlyPrice,
       currency: body.currency,
       gracePeriodDays: typeof body.gracePeriodDays === "number" ? body.gracePeriodDays : undefined,
       recurringEnabled: body.recurringEnabled,

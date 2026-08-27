@@ -60,8 +60,16 @@ export default function AdminIntegrationsPage() {
           if (typeof p.testMode === "boolean") setPaytrTestMode(p.testMode);
           if (typeof p.enabled === "boolean") setPaytrEnabled(p.enabled);
           if (typeof p.billingEnabled === "boolean") setPaytrBillingEnabled(p.billingEnabled);
-          if (typeof p.monthlyPrice === "number") setPaytrMonthlyPrice(p.monthlyPrice.toString());
-          if (typeof p.yearlyPrice === "number") setPaytrYearlyPrice(p.yearlyPrice.toString());
+          if (typeof p.monthlyPrice === "number") {
+            setPaytrMonthlyPrice(p.monthlyPrice.toString());
+          } else {
+            setPaytrMonthlyPrice("");
+          }
+          if (typeof p.yearlyPrice === "number") {
+            setPaytrYearlyPrice(p.yearlyPrice.toString());
+          } else {
+            setPaytrYearlyPrice("");
+          }
           if (p.currency) setPaytrCurrency(p.currency);
           if (typeof p.gracePeriodDays === "number") setPaytrGracePeriodDays(p.gracePeriodDays);
           if (typeof p.recurringEnabled === "boolean") setPaytrRecurringEnabled(p.recurringEnabled);
@@ -179,6 +187,20 @@ export default function AdminIntegrationsPage() {
     setIsSavingPaytr(true);
     setPaytrStatusMsg(null);
 
+    const parsedMonthly = paytrMonthlyPrice.trim() ? parseFloat(paytrMonthlyPrice.trim()) : null;
+    const parsedYearly = paytrYearlyPrice.trim() ? parseFloat(paytrYearlyPrice.trim()) : null;
+
+    if (parsedMonthly !== null && (isNaN(parsedMonthly) || parsedMonthly <= 0)) {
+      setPaytrStatusMsg({ type: "error", text: "Aylık fiyat 0'dan büyük bir sayı olmalıdır veya boş bırakılmalıdır." });
+      setIsSavingPaytr(false);
+      return;
+    }
+    if (parsedYearly !== null && (isNaN(parsedYearly) || parsedYearly <= 0)) {
+      setPaytrStatusMsg({ type: "error", text: "Yıllık fiyat 0'dan büyük bir sayı olmalıdır veya boş bırakılmalıdır." });
+      setIsSavingPaytr(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/admin/integrations/paytr", {
         method: "PUT",
@@ -190,8 +212,8 @@ export default function AdminIntegrationsPage() {
           testMode: paytrTestMode,
           enabled: paytrEnabled,
           billingEnabled: paytrBillingEnabled,
-          monthlyPrice: parseFloat(paytrMonthlyPrice) || 99.0,
-          yearlyPrice: parseFloat(paytrYearlyPrice) || 990.0,
+          monthlyPrice: parsedMonthly,
+          yearlyPrice: parsedYearly,
           currency: paytrCurrency,
           gracePeriodDays: paytrGracePeriodDays,
           recurringEnabled: paytrRecurringEnabled,
@@ -222,13 +244,13 @@ export default function AdminIntegrationsPage() {
       const res = await fetch("/api/admin/integrations/paytr/test", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        setPaytrStatusMsg({ type: "success", text: data.message || "PayTR yapılandırma testi başarılı." });
+        setPaytrStatusMsg({ type: "success", text: data.message || "PayTR yapılandırma doğrulaması başarılı." });
         fetchIntegrations();
       } else {
-        setPaytrStatusMsg({ type: "error", text: data.error || data.message || "Test başarısız." });
+        setPaytrStatusMsg({ type: "error", text: data.error || data.message || "Doğrulama başarısız." });
       }
     } catch {
-      setPaytrStatusMsg({ type: "error", text: "Test sırasında bağlantı hatası oluştu." });
+      setPaytrStatusMsg({ type: "error", text: "Doğrulama sırasında bağlantı hatası oluştu." });
     } finally {
       setIsTestingPaytr(false);
     }
@@ -469,11 +491,11 @@ export default function AdminIntegrationsPage() {
                   }
                   label={
                     integrations?.paytr?.status === "ACTIVE"
-                      ? "Aktif & Canlı"
+                      ? "Aktif & Satış Açık"
                       : integrations?.paytr?.status === "TESTED"
-                      ? "Test Edildi (Faturalandırma Kapalı)"
+                      ? "Yapılandırma Doğrulandı"
                       : integrations?.paytr?.status === "CONFIGURED"
-                      ? "Yapılandırıldı (Test Bekliyor)"
+                      ? "Yapılandırıldı"
                       : integrations?.paytr?.status === "DISABLED"
                       ? "Devre Dışı"
                       : integrations?.paytr?.status === "ERROR"
@@ -649,7 +671,7 @@ export default function AdminIntegrationsPage() {
                   </div>
                   {integrations?.paytr?.lastTestedAt && (
                     <div className="flex justify-between">
-                      <span>Son Bağlantı Testi:</span>
+                       <span>Son Yapılandırma Doğrulaması:</span>
                       <span className="text-text-primary font-mono">{new Date(integrations.paytr.lastTestedAt).toLocaleString("tr-TR")}</span>
                     </div>
                   )}
@@ -682,7 +704,7 @@ export default function AdminIntegrationsPage() {
                     disabled={isTestingPaytr || !integrations?.paytr?.merchantId}
                     className="min-h-[40px] px-4 py-2 rounded-xl bg-surface-2 border border-border text-text-primary font-medium text-xs hover:bg-surface-3 transition-all disabled:opacity-50"
                   >
-                    {isTestingPaytr ? "Test Ediliyor..." : "Bağlantıyı Test Et"}
+                    {isTestingPaytr ? "Doğrulanıyor..." : "Yapılandırmayı Doğrula"}
                   </button>
                 </div>
               </form>

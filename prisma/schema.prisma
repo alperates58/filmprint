@@ -887,7 +887,7 @@ model BillingPayment {
   failureCode           String?
   failureMessage        String?
   paidAt                DateTime?
-  renewalKey            String?
+  renewalKey            String?       @unique
   metadata              Json          @default("{}")
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
@@ -899,7 +899,6 @@ model BillingPayment {
   @@index([status])
   @@index([merchantOid])
   @@index([subscriptionId])
-  @@index([renewalKey])
 }
 
 model BillingWebhookEvent {

@@ -1,5 +1,6 @@
 services:
   web:
+    image: filmprint-app
     build:
       context: .
       dockerfile: Dockerfile
@@ -34,9 +35,7 @@ services:
     restart: unless-stopped
 
   catalog-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: filmprint-app
     entrypoint: ["node", "dist/catalog-worker.js"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-filmprint}:${POSTGRES_PASSWORD:-filmprint_secure_password}@postgres:5432/${POSTGRES_DB:-filmprint}?schema=public

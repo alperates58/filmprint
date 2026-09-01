@@ -284,9 +284,21 @@ export function Header({
               )}
 
               <div className="flex flex-col items-start text-left">
-                <span className="text-xs font-semibold text-text-primary line-clamp-1 max-w-[120px]">
-                  {displayName || "Hesabım"}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-text-primary line-clamp-1 max-w-[100px]">
+                    {displayName || "Hesabım"}
+                  </span>
+                  {isPremium ? (
+                    <span className="px-1.5 py-0.2 rounded-full bg-purple-950/90 border border-purple-500/50 text-purple-300 text-[9px] font-mono font-bold flex items-center gap-0.5 shadow-sm">
+                      <span>👑</span>
+                      <span>PREMIUM</span>
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.2 rounded bg-surface-3 text-text-muted text-[9px] font-mono">
+                      FREE
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] font-mono text-text-muted">
                   {progression.currentRank.label}
                 </span>
@@ -390,7 +402,7 @@ export function Header({
         <div className="flex items-center md:hidden relative flex-shrink-0">
           <button
             onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-            className="flex items-center justify-center p-1 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border min-h-[36px] min-w-[36px] sm:min-h-[38px] sm:min-w-[38px] cursor-pointer flex-shrink-0 active:scale-95 transition-all shadow-sm"
+            className="flex items-center gap-1 p-1 pr-1.5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border min-h-[36px] min-w-[36px] sm:min-h-[38px] sm:min-w-[38px] cursor-pointer flex-shrink-0 active:scale-95 transition-all shadow-sm"
             aria-label="Profil Menüsü"
           >
             {avatar ? (
@@ -403,6 +415,11 @@ export function Header({
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-accent-subtle border border-accent/30 text-accent font-bold text-xs flex items-center justify-center">
                 {displayName ? displayName.charAt(0).toUpperCase() : "👤"}
               </div>
+            )}
+            {isPremium && (
+              <span className="text-[11px] leading-none" title="SINEAI Premium">
+                👑
+              </span>
             )}
           </button>
 

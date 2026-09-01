@@ -102,7 +102,12 @@ export default async function AdminUserDetailPage({
         </div>
 
         {/* User Entitlement Management Card */}
-        <AdminUserEntitlementManager userId={user.id} initialSummary={user.entitlement} />
+        <AdminUserEntitlementManager
+          userId={user.id}
+          initialSummary={user.entitlement}
+          subscription={user.subscription}
+          payments={user.payments}
+        />
 
         {/* Film & TV Stats Grids */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

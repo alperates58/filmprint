@@ -10,7 +10,7 @@ import { AdminUserActions } from "@/components/admin/AdminUserActions";
 export const dynamic = "force-dynamic";
 
 interface AdminUsersPageProps {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; membership?: string }>;
 }
 
 export default async function AdminUsersPage({ searchParams }: AdminUsersPageProps) {
@@ -19,13 +19,22 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
 
   const resolvedParams = await searchParams;
   const searchQuery = resolvedParams.q || "";
+  const membershipFilter = (resolvedParams.membership || "ALL").toUpperCase();
   const currentPage = parseInt(resolvedParams.page || "1", 10) || 1;
 
-  const data = await getAdminUsersData(searchQuery, currentPage, 50);
+  const data = await getAdminUsersData(searchQuery, currentPage, 50, membershipFilter);
+
+  const filterTabs = [
+    { label: "Tümü", value: "ALL" },
+    { label: "Free", value: "FREE" },
+    { label: "👑 Premium", value: "PREMIUM" },
+    { label: "Billing Premium", value: "BILLING" },
+    { label: "Manual Premium", value: "MANUAL" },
+  ];
 
   return (
     <AdminLayout adminEmail={session.email}>
-      <div className="space-y-6">
+      <div className="space-y-6 font-sans">
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
           <div className="space-y-1">
@@ -35,37 +44,62 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
             <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
               Kullanıcı Yönetimi
             </h1>
-            <p className="text-xs text-text-secondary font-sans">
+            <p className="text-xs text-text-secondary">
               Sistemdeki tüm kayıtlı ve anonim SineAI kullanıcıları ({data.totalCount} Kullanıcı)
             </p>
           </div>
 
           {/* Search Form */}
           <form method="GET" className="flex items-center gap-2 w-full sm:w-auto">
+            {membershipFilter !== "ALL" && (
+              <input type="hidden" name="membership" value={membershipFilter} />
+            )}
             <input
               type="text"
               name="q"
               defaultValue={searchQuery}
               placeholder="Ad, e-posta veya UUID ara..."
-              className="flex-1 sm:w-72 px-3.5 py-2 rounded-xl bg-surface-1 border border-border text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent font-sans min-h-[40px]"
+              className="flex-1 sm:w-72 px-3.5 py-2 rounded-xl bg-surface-1 border border-border text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent min-h-[40px]"
             />
             <button
               type="submit"
-              className="min-h-[40px] px-4 py-2 rounded-xl bg-accent text-white font-sans text-xs font-semibold hover:bg-accent-hover transition-colors flex-shrink-0"
+              className="min-h-[40px] px-4 py-2 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-colors flex-shrink-0"
             >
               Ara
             </button>
           </form>
         </div>
 
+        {/* Filter Pills */}
+        <div className="flex flex-wrap items-center gap-2">
+          {filterTabs.map((tab) => {
+            const isActive = membershipFilter === tab.value;
+            const queryUrl = `/admin/users?membership=${tab.value}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ""}`;
+            return (
+              <Link
+                key={tab.value}
+                href={queryUrl}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                  isActive
+                    ? "bg-accent text-white border-accent shadow-sm"
+                    : "bg-surface-1 text-text-muted hover:text-text-primary border-border hover:bg-surface-2"
+                }`}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+        </div>
+
         {/* Users Table / Card List */}
         <div className="rounded-2xl bg-surface-1 border border-border overflow-hidden shadow-sm">
           {/* Desktop Table View (hidden md:block) */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left border-collapse font-sans">
+            <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-border bg-surface-2 text-[11px] font-mono text-text-muted uppercase tracking-wider">
                   <th className="py-3 px-4 font-semibold">Kullanıcı</th>
+                  <th className="py-3 px-3 font-semibold">Üyelik</th>
                   <th className="py-3 px-3 font-semibold">Film Rütbesi</th>
                   <th className="py-3 px-3 font-semibold">Dizi Rütbesi</th>
                   <th className="py-3 px-3 font-semibold">Hesap Türü</th>
@@ -78,11 +112,11 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                   <th className="py-3 px-4 text-right font-semibold">İşlem</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/60 text-xs">
+              <tbody className="divide-y border-border/60 text-xs">
                 {data.users.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="py-12 text-center text-text-muted font-sans text-xs">
-                      Arama kriterlerine uygun kullanıcı bulunamadı.
+                    <td colSpan={12} className="py-12 text-center text-text-muted text-xs">
+                      Arama ve filtre kriterlerine uygun kullanıcı bulunamadı.
                     </td>
                   </tr>
                 ) : (
@@ -110,6 +144,27 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                             </p>
                           </div>
                         </div>
+                      </td>
+
+                      {/* Üyelik (Membership) Column */}
+                      <td className="py-3 px-3">
+                        {user.isPremium ? (
+                          <div className="flex flex-col items-start gap-0.5">
+                            <span className="px-2 py-0.5 rounded-lg bg-purple-950/80 border border-purple-500/40 text-purple-300 text-[10px] font-bold inline-flex items-center gap-1 shadow-sm">
+                              <span>👑</span>
+                              <span>PREMIUM</span>
+                            </span>
+                            {user.membershipSource && (
+                              <span className="text-[9px] font-mono text-purple-400/80 pl-1 uppercase">
+                                {user.membershipSource}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-lg bg-surface-2 border border-border text-text-muted text-[10px] font-medium font-mono">
+                            FREE
+                          </span>
+                        )}
                       </td>
 
                       {/* Film Rank Badge Column */}
@@ -144,7 +199,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
 
                       {/* Movie count */}
                       <td className="py-3 px-2 text-center font-mono font-semibold text-text-primary">
-                        <span title={`İzlenen: ${user.movieWatchedCount} / Toplam Değerlendirilen: ${user.movieInteractionCount}`}>
+                        <span title={`İzlenen: ${user.movieWatchedCount} / Toplam: ${user.movieInteractionCount}`}>
                           {user.movieWatchedCount}{" "}
                           <span className="text-[10px] text-text-muted font-normal">/ {user.movieInteractionCount}</span>
                         </span>
@@ -152,7 +207,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
 
                       {/* TV count */}
                       <td className="py-3 px-2 text-center font-mono font-semibold text-accent">
-                        <span title={`İzlenen: ${user.tvWatchedCount} / Toplam Değerlendirilen: ${user.tvInteractionCount}`}>
+                        <span title={`İzlenen: ${user.tvWatchedCount} / Toplam: ${user.tvInteractionCount}`}>
                           {user.tvWatchedCount}{" "}
                           <span className="text-[10px] text-text-muted font-normal">/ {user.tvInteractionCount}</span>
                         </span>
@@ -208,7 +263,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
           </div>
 
           {/* Mobile Card List View (block md:hidden) */}
-          <div className="block md:hidden divide-y divide-border/60 font-sans">
+          <div className="block md:hidden divide-y border-border/60 font-sans">
             {data.users.length === 0 ? (
               <div className="p-8 text-center text-text-muted text-xs">
                 Kullanıcı bulunamadı.
@@ -230,18 +285,32 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                         </div>
                       )}
                       <div>
-                        <p className="font-semibold text-text-primary text-xs">
-                          {user.name || "Anonim Kullanıcı"}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-semibold text-text-primary text-xs">
+                            {user.name || "Anonim Kullanıcı"}
+                          </p>
+                          {user.isPremium && (
+                            <span className="text-[10px]" title="SINEAI Premium">
+                              👑
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] font-mono text-text-muted truncate max-w-[180px]">
                           {user.email || user.id}
                         </p>
                       </div>
                     </div>
 
-                    <AdminStatusBadge
-                      status={user.accountType === "REGISTERED" ? "REGISTERED" : "ANONYMOUS"}
-                    />
+                    <div className="flex items-center gap-1.5">
+                      {user.isPremium && (
+                        <span className="px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-500/40 text-purple-300 text-[10px] font-bold">
+                          PREMIUM
+                        </span>
+                      )}
+                      <AdminStatusBadge
+                        status={user.accountType === "REGISTERED" ? "REGISTERED" : "ANONYMOUS"}
+                      />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-[11px]">
@@ -282,7 +351,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
               <div className="flex items-center gap-2">
                 {currentPage > 1 && (
                   <Link
-                    href={`/admin/users?q=${searchQuery}&page=${currentPage - 1}`}
+                    href={`/admin/users?membership=${membershipFilter}&q=${encodeURIComponent(searchQuery)}&page=${currentPage - 1}`}
                     className="px-3 py-1.5 rounded-lg bg-surface-1 border border-border text-text-primary hover:bg-surface-3 transition-colors"
                   >
                     ← Önceki
@@ -290,7 +359,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                 )}
                 {currentPage < data.totalPages && (
                   <Link
-                    href={`/admin/users?q=${searchQuery}&page=${currentPage + 1}`}
+                    href={`/admin/users?membership=${membershipFilter}&q=${encodeURIComponent(searchQuery)}&page=${currentPage + 1}`}
                     className="px-3 py-1.5 rounded-lg bg-surface-1 border border-border text-text-primary hover:bg-surface-3 transition-colors"
                   >
                     Sonraki →

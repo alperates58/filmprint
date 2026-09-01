@@ -387,18 +387,88 @@ export async function getAdminOverviewData() {
   };
 }
 
-export async function getAdminUsersData(search?: string, page: number = 1, pageSize: number = 50) {
+export async function getAdminUsersData(
+  search?: string,
+  page: number = 1,
+  pageSize: number = 50,
+  membershipFilter: string = "ALL"
+) {
   const skip = (page - 1) * pageSize;
+  const now = new Date();
 
-  const whereCondition = search && search.trim().length > 0
-    ? {
-        OR: [
-          { name: { contains: search.trim(), mode: "insensitive" as const } },
-          { email: { contains: search.trim(), mode: "insensitive" as const } },
-          { id: { contains: search.trim(), mode: "insensitive" as const } },
-        ],
-      }
-    : {};
+  const searchConditions: any[] = [];
+  if (search && search.trim().length > 0) {
+    searchConditions.push({
+      OR: [
+        { name: { contains: search.trim(), mode: "insensitive" as const } },
+        { email: { contains: search.trim(), mode: "insensitive" as const } },
+        { id: { contains: search.trim(), mode: "insensitive" as const } },
+      ],
+    });
+  }
+
+  const filterConditions: any[] = [];
+  if (membershipFilter === "PREMIUM") {
+    filterConditions.push({
+      OR: [
+        {
+          entitlement: {
+            tier: "PREMIUM",
+            OR: [{ validUntil: null }, { validUntil: { gt: now } }],
+          },
+        },
+        {
+          subscriptions: {
+            some: {
+              status: { in: ["ACTIVE", "PAST_DUE", "CANCEL_AT_PERIOD_END"] },
+              currentPeriodEnd: { gt: now },
+            },
+          },
+        },
+      ],
+    });
+  } else if (membershipFilter === "FREE") {
+    filterConditions.push({
+      AND: [
+        {
+          OR: [
+            { entitlement: null },
+            { entitlement: { tier: "FREE" } },
+            { entitlement: { validUntil: { lte: now } } },
+          ],
+        },
+        {
+          subscriptions: {
+            none: {
+              status: { in: ["ACTIVE", "PAST_DUE", "CANCEL_AT_PERIOD_END"] },
+              currentPeriodEnd: { gt: now },
+            },
+          },
+        },
+      ],
+    });
+  } else if (membershipFilter === "BILLING") {
+    filterConditions.push({
+      subscriptions: {
+        some: {
+          status: { in: ["ACTIVE", "PAST_DUE", "CANCEL_AT_PERIOD_END"] },
+          currentPeriodEnd: { gt: now },
+        },
+      },
+    });
+  } else if (membershipFilter === "MANUAL") {
+    filterConditions.push({
+      entitlement: {
+        tier: "PREMIUM",
+        source: "MANUAL",
+        OR: [{ validUntil: null }, { validUntil: { gt: now } }],
+      },
+    });
+  }
+
+  const whereCondition = {
+    AND: [...searchConditions, ...filterConditions],
+  };
 
   const [users, totalCount] = await Promise.all([
     db.user.findMany({
@@ -409,12 +479,20 @@ export async function getAdminUsersData(search?: string, page: number = 1, pageS
       include: {
         tasteProfile: true,
         tvTasteProfile: true,
+        entitlement: true,
+        subscriptions: {
+          where: {
+            status: { in: ["ACTIVE", "PAST_DUE", "CANCEL_AT_PERIOD_END"] },
+            currentPeriodEnd: { gt: now },
+          },
+          select: { status: true, billingInterval: true, currentPeriodEnd: true },
+        },
         _count: {
           select: { interactions: true, tvInteractions: true },
         },
       },
-    }),
-    db.user.count({ where: whereCondition }),
+    }).catch(() => []),
+    db.user.count({ where: whereCondition }).catch(() => 0),
   ]);
 
   const userIds = users.map((u: any) => u.id);
@@ -423,12 +501,12 @@ export async function getAdminUsersData(search?: string, page: number = 1, pageS
       by: ["userId"],
       where: { userId: { in: userIds }, status: "WATCHED" },
       _count: { movieId: true },
-    }),
+    }).catch(() => []),
     db.tvInteraction.groupBy({
       by: ["userId"],
       where: { userId: { in: userIds }, status: "WATCHED" },
       _count: { tvShowId: true },
-    }),
+    }).catch(() => []),
   ]);
 
   const movieWatchedMap = new Map(movieWatchedCounts.map((w: any) => [w.userId, Number(w._count.movieId) || 0]));
@@ -438,6 +516,18 @@ export async function getAdminUsersData(search?: string, page: number = 1, pageS
     users: users.map((u: any) => {
       const movieWatched = movieWatchedMap.get(u.id) || 0;
       const tvWatched = tvWatchedMap.get(u.id) || 0;
+
+      const hasActiveSub = u.subscriptions && u.subscriptions.length > 0;
+      const hasActiveEntitlement =
+        u.entitlement?.tier === "PREMIUM" &&
+        (!u.entitlement.validUntil || new Date(u.entitlement.validUntil) > now);
+
+      const isPremium = Boolean(hasActiveSub || hasActiveEntitlement);
+      const membershipTier = isPremium ? "PREMIUM" : "FREE";
+      const membershipSource = hasActiveSub
+        ? "BILLING"
+        : (u.entitlement?.source || (isPremium ? "MANUAL" : null));
+
       return {
         id: u.id,
         name: u.name,
@@ -458,6 +548,9 @@ export async function getAdminUsersData(search?: string, page: number = 1, pageS
         tvConfidence: u.tvTasteProfile?.confidence || 0.0,
         rank: getRankForCount(movieWatched),
         tvRank: getTvRankForCount(tvWatched),
+        membershipTier,
+        membershipSource,
+        isPremium,
       };
     }),
     totalCount,
@@ -572,7 +665,18 @@ export async function getAdminUserDetailData(id: string) {
   const totalTvRecommendationFeedbacks =
     tvWatchLaterCount + tvNotInterestedCount + tvAlreadyWatchedCount + tvWatchedFromRecCount;
 
-  const entitlement = await getUserEntitlementSummary(user.id);
+  const [entitlement, activeSub, userPayments] = await Promise.all([
+    getUserEntitlementSummary(user.id),
+    db.subscription.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+    }).catch(() => null),
+    db.billingPayment.findMany({
+      where: { userId: user.id },
+      take: 10,
+      orderBy: { createdAt: "desc" },
+    }).catch(() => []),
+  ]);
 
   return {
     user: {
@@ -587,6 +691,24 @@ export async function getAdminUserDetailData(id: string) {
       progression,
       tvProgression,
       entitlement,
+      subscription: activeSub
+        ? {
+            id: activeSub.id,
+            status: activeSub.status,
+            interval: activeSub.billingInterval,
+            currentPeriodStart: activeSub.currentPeriodStart,
+            currentPeriodEnd: activeSub.currentPeriodEnd,
+            cancelAtPeriodEnd: activeSub.cancelAtPeriodEnd,
+          }
+        : null,
+      payments: userPayments.map((p) => ({
+        id: p.id,
+        merchantOid: p.merchantOid,
+        amount: p.amount,
+        currency: p.currency,
+        status: p.status,
+        createdAt: p.createdAt,
+      })),
       stats: {
         totalInteractions: totalMovieInteractionCount,
         watched,

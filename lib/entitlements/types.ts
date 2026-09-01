@@ -138,6 +138,7 @@ export interface UserEntitlementSummary {
   tier: SubscriptionTierType;
   isPremium: boolean;
   isAdFree: boolean;
+  source?: "MANUAL" | "BILLING" | "PROMOTIONAL" | "SYSTEM" | string | null;
   validUntil: string | null;
   features: Record<FeatureEntitlement, boolean>;
   aiDiscoverQuota?: DailyQuotaCheckResult;

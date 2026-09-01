@@ -27,6 +27,7 @@ export default function PremiumPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">("annual");
   const [ctaNotice, setCtaNotice] = useState<string | null>(null);
+  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
 
   useEffect(() => {
     trackEvent({ name: "premium_page_view", params: { source: "navigation" } });
@@ -41,8 +42,6 @@ export default function PremiumPage() {
       .catch(() => {})
       .finally(() => setIsLoading(false));
   }, []);
-
-  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
 
   const handleCtaClick = async (plan: "monthly" | "annual") => {
     trackEvent({
@@ -76,13 +75,15 @@ export default function PremiumPage() {
   };
 
   const isPremium = data?.summary?.isPremium === true;
-  const hasConfiguredPricing = Boolean(
-    data?.billingReadiness?.isReady &&
-    data?.pricing?.monthlyPrice &&
-    data?.pricing?.monthlyPrice.trim() !== "" &&
-    data?.pricing?.annualPrice &&
-    data?.pricing?.annualPrice.trim() !== ""
-  );
+
+  // Real discount calculation strictly from non-empty prices
+  let calculatedDiscountLabel: string | null = null;
+  const mPrice = data?.pricing?.monthlyPrice ? parseFloat(data.pricing.monthlyPrice) : null;
+  const yPrice = data?.pricing?.annualPrice ? parseFloat(data.pricing.annualPrice) : null;
+  if (mPrice && yPrice && mPrice > 0 && yPrice > 0 && yPrice < mPrice * 12) {
+    const savePercent = Math.round(((mPrice * 12 - yPrice) / (mPrice * 12)) * 100);
+    calculatedDiscountLabel = `%${savePercent} Tasarruf`;
+  }
 
   return (
     <div className="min-h-screen bg-[#090a0f] text-zinc-100 flex flex-col selection:bg-purple-600 selection:text-white font-sans">
@@ -109,7 +110,7 @@ export default function PremiumPage() {
           </h1>
 
           <p className="text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-            SINEAI'nin ücretsiz temel özellikleri her zaman yanınızda. Premium ile zevkinizi derinleştirin, sınırsız AI keşfi yapın ve ortak izleme kararlarını kusursuzlaştırın.
+            SINEAI'nin ücretsiz temel özellikleri her zaman yanınızda. Premium ile zevkinizi derinleştirin, yüksek limitli AI keşfi yapın ve ortak izleme kararlarını kusursuzlaştırın.
           </p>
 
           {/* Current Membership Status Badge */}
@@ -135,21 +136,21 @@ export default function PremiumPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* 1. AI Discover */}
+            {/* 1. AI Discover (Corrected Fair-Use Copy) */}
             <div className="p-6 rounded-3xl bg-zinc-900/80 border border-purple-500/30 shadow-xl space-y-4 hover:border-purple-500/50 transition-all">
               <div className="w-12 h-12 rounded-2xl bg-purple-950/80 border border-purple-500/40 flex items-center justify-center text-2xl shadow-inner">
                 ✨
               </div>
               <div className="space-y-1.5">
                 <h3 className="text-base font-bold text-white font-display">
-                  Sınırsız AI ile Keşfet
+                  Yüksek Limitli AI ile Keşfet
                 </h3>
                 <p className="text-xs text-zinc-400 leading-relaxed">
-                  Günlük arama kotalarına takılmadan ruh halinizi, aklınızdaki sahneyi veya aradığınız deneyimi doğal dille anlatın.
+                  Genişletilmiş arama kotalarıyla ruh halinizi, aklınızdaki sahneyi veya aradığınız deneyimi doğal dille anlatın.
                 </p>
               </div>
               <div className="pt-2 text-[11px] font-mono text-purple-300">
-                ✓ Günlük sınır yok • Derin analiz
+                ✓ Yüksek günlük fair-use limiti • Derin analiz
               </div>
             </div>
 
@@ -230,7 +231,7 @@ export default function PremiumPage() {
                 <tr>
                   <td className="py-3.5 px-3 text-zinc-200 font-medium">AI ile Keşfet (Doğal Dil Arama)</td>
                   <td className="py-3.5 px-3 text-center text-zinc-400">Günlük 5 Arama</td>
-                  <td className="py-3.5 px-3 text-center text-purple-300 font-bold">Sınırsız (Fair-Use)</td>
+                  <td className="py-3.5 px-3 text-center text-purple-300 font-bold">Yüksek Limit (Fair-Use)</td>
                 </tr>
                 <tr>
                   <td className="py-3.5 px-3 text-zinc-200 font-medium">Movie Night Grup Uyum Motoru</td>
@@ -292,84 +293,174 @@ export default function PremiumPage() {
           </div>
         </div>
 
-        {/* Pricing / Status Box */}
-        <div className="max-w-xl mx-auto p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-purple-950/40 via-zinc-900 to-zinc-950 border border-purple-500/30 shadow-2xl text-center space-y-6">
-          <div className="space-y-2">
-            <h3 className="text-xl font-bold text-white font-display">
-              {hasConfiguredPricing ? "Planını Seç" : "Premium Çok Yakında"}
-            </h3>
-            <p className="text-xs text-zinc-400">
-              {hasConfiguredPricing
-                ? "Dilediğin zaman iptal edebilir veya planını değiştirebilirsin."
-                : "Abonelik entegrasyonu tamamlandığında anında erişime açılacaktır."}
-            </p>
-          </div>
+        {/* Pricing & Subscription Section */}
+        {isPremium ? (
+          /* Active Premium User Card */
+          <div className="max-w-xl mx-auto p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-purple-950/40 via-zinc-900 to-zinc-950 border border-purple-500/40 shadow-2xl text-center space-y-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold">
+                <span>👑 SINEAI Premium Aktif</span>
+              </div>
+              <h3 className="text-xl font-bold text-white font-display">
+                Ayrıcalıklarınızın Keyfini Çıkarın
+              </h3>
+              <p className="text-xs text-zinc-400">
+                Premium üyeliğiniz Film ve Dizi deneyiminizin tamamında geçerlidir.
+              </p>
+            </div>
 
-          {/* If commercial pricing is configured */}
-          {hasConfiguredPricing && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
-                <button
-                  type="button"
-                  onClick={() => setSelectedPlan("monthly")}
-                  className={`p-3 rounded-xl text-xs font-semibold transition-all ${
-                    selectedPlan === "monthly"
-                      ? "bg-purple-600 text-white shadow"
-                      : "text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  Aylık Plan
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPlan("annual")}
-                  className={`p-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                    selectedPlan === "annual"
-                      ? "bg-purple-600 text-white shadow"
-                      : "text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  <span>Yıllık Plan</span>
-                  {data?.pricing?.annualDiscountLabel && (
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px]">
-                      {data.pricing.annualDiscountLabel}
-                    </span>
+            <div className="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-left space-y-2.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Üyelik Durumu:</span>
+                <span className="text-emerald-400 font-semibold font-mono">Aktif (SINEAI Premium)</span>
+              </div>
+              {data?.summary?.validUntil && (
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Geçerlilik / Yenilenme:</span>
+                  <span className="text-zinc-200 font-mono">
+                    {new Date(data.summary.validUntil).toLocaleDateString("tr-TR", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+              )}
+              {data?.summary?.source && (
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Yetki Kaynağı:</span>
+                  <span className="text-purple-300 font-mono">{data.summary.source}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2">
+              <Link
+                href="/account"
+                className="inline-block w-full py-3.5 px-6 rounded-2xl bg-surface-2 hover:bg-surface-3 border border-border text-white font-bold text-xs transition-colors shadow-sm"
+              >
+                Hesap & Abonelik Yönetimi ⚙️
+              </Link>
+            </div>
+          </div>
+        ) : (
+          /* Non-Premium Plan Selection & Checkout CTA */
+          <div className="max-w-2xl mx-auto space-y-6">
+            <div className="text-center space-y-2">
+              <h3 className="text-xl sm:text-2xl font-bold text-white font-display">
+                Planını Seç
+              </h3>
+              <p className="text-xs text-zinc-400">
+                Dilediğin zaman iptal edebilir veya planını değiştirebilirsin.
+              </p>
+            </div>
+
+            {/* Plan Selector Grid (Always visible!) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Monthly Card */}
+              <div
+                onClick={() => setSelectedPlan("monthly")}
+                className={`p-5 rounded-2xl border transition-all cursor-pointer space-y-3 relative flex flex-col justify-between ${
+                  selectedPlan === "monthly"
+                    ? "bg-purple-950/40 border-purple-500 shadow-lg shadow-purple-600/20 ring-1 ring-purple-500"
+                    : "bg-zinc-900/60 border-zinc-800 hover:border-zinc-700 text-zinc-400"
+                }`}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-sm text-white">Aylık Plan</h4>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">Aylık</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400">Esnek, istediğin zaman iptal et</p>
+                </div>
+
+                <div className="py-2">
+                  {data?.pricing?.monthlyPrice ? (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-extrabold text-white font-display">
+                        {data.pricing.monthlyPrice}
+                      </span>
+                      <span className="text-xs text-zinc-400">/ ay</span>
+                    </div>
+                  ) : (
+                    <span className="text-sm font-semibold text-zinc-400 font-mono">Fiyat yakında</span>
                   )}
-                </button>
+                </div>
+
+                <div className="text-[11px] text-zinc-400 flex items-center gap-1">
+                  <span>✓</span>
+                  <span>Tüm Premium özellikler dahil</span>
+                </div>
               </div>
 
-              <div className="py-2">
-                <span className="text-3xl font-extrabold text-white font-display">
-                  {selectedPlan === "monthly"
-                    ? data?.pricing?.monthlyPrice
-                    : data?.pricing?.annualPrice}
-                </span>
-                <span className="text-xs text-zinc-400 ml-1">
-                  {selectedPlan === "monthly" ? "/ ay" : "/ yıl"}
-                </span>
+              {/* Annual Card */}
+              <div
+                onClick={() => setSelectedPlan("annual")}
+                className={`p-5 rounded-2xl border transition-all cursor-pointer space-y-3 relative flex flex-col justify-between ${
+                  selectedPlan === "annual"
+                    ? "bg-purple-950/40 border-purple-500 shadow-lg shadow-purple-600/20 ring-1 ring-purple-500"
+                    : "bg-zinc-900/60 border-zinc-800 hover:border-zinc-700 text-zinc-400"
+                }`}
+              >
+                {calculatedDiscountLabel && (
+                  <div className="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-emerald-500 text-black text-[10px] font-bold uppercase tracking-wide shadow-sm">
+                    {calculatedDiscountLabel}
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-sm text-white">Yıllık Plan</h4>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold">En Popüler</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400">Yıllık faturalandırılır • Kesintisiz</p>
+                </div>
+
+                <div className="py-2">
+                  {data?.pricing?.annualPrice ? (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-extrabold text-white font-display">
+                        {data.pricing.annualPrice}
+                      </span>
+                      <span className="text-xs text-zinc-400">/ yıl</span>
+                    </div>
+                  ) : (
+                    <span className="text-sm font-semibold text-zinc-400 font-mono">Fiyat yakında</span>
+                  )}
+                </div>
+
+                <div className="text-[11px] text-purple-300 flex items-center gap-1 font-medium">
+                  <span>✓</span>
+                  <span>Film + TV tek hesap avantajı</span>
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Controlled CTA Button */}
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => handleCtaClick(selectedPlan)}
-              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-purple-600/30 transition-all active:scale-98"
-            >
-              {data?.billingReadiness?.isReady
-                ? "Premium'a Yükselt"
-                : "✨ Premium Çok Yakında — Bilgi Al"}
-            </button>
+            {/* Controlled CTA Box */}
+            <div className="p-6 rounded-3xl bg-gradient-to-b from-purple-950/30 via-zinc-900 to-zinc-950 border border-purple-500/30 text-center space-y-3">
+              <button
+                type="button"
+                onClick={() => handleCtaClick(selectedPlan)}
+                disabled={isProcessingCheckout}
+                className={`w-full py-3.5 px-6 rounded-2xl font-bold text-sm shadow-xl transition-all active:scale-98 ${
+                  data?.billingReadiness?.isReady
+                    ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-600/30 cursor-pointer"
+                    : "bg-zinc-800 text-zinc-400 border border-zinc-700 cursor-pointer hover:bg-zinc-750"
+                }`}
+              >
+                {data?.billingReadiness?.isReady
+                  ? (selectedPlan === "annual" ? "Yıllık Premium'a Yükselt" : "Aylık Premium'a Yükselt")
+                  : "✨ Premium Çok Yakında — Bilgi Al"}
+              </button>
 
-            {ctaNotice && (
-              <div className="p-3 rounded-xl bg-purple-950/60 border border-purple-500/30 text-xs text-purple-200 animate-fade-in">
-                {ctaNotice}
-              </div>
-            )}
+              {ctaNotice && (
+                <div className="p-3 rounded-xl bg-purple-950/60 border border-purple-500/30 text-xs text-purple-200 animate-fade-in">
+                  {ctaNotice}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
       <Footer />

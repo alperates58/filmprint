@@ -50,6 +50,7 @@ import { runTvDiscoveryQualityTests } from "./tv_discovery_quality.test";
 import { runPaytrBillingTests } from "./paytr_billing.test";
 import { runFilmTvPremiumParityTests } from "./film_tv_premium_parity.test";
 import { runBomScanTest } from "./migration_bom.test";
+import { runPremiumUxAndAdminTests } from "./premium_ux_and_admin.test";
 
 async function runAllUnitAndRegressionTests() {
   console.log("===============================================================");
@@ -108,6 +109,7 @@ async function runAllUnitAndRegressionTests() {
     { name: "Phase P2 PayTR Billing & Subscription Tests", fn: runPaytrBillingTests },
     { name: "Phase P2 Film + TV Single Premium Parity & Regression Tests", fn: runFilmTvPremiumParityTests },
     { name: "Phase P2 Repository Migration UTF-8 BOM Validation", fn: runBomScanTest },
+    { name: "Phase P2 Premium UX & Admin Operations Completion Tests", fn: runPremiumUxAndAdminTests },
   ];
 
   let passedSuites = 0;

@@ -141,14 +141,14 @@ export function AccountBillingSection() {
         <div className="p-4 rounded-xl bg-surface-2 border border-border space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div>
-              <span className="text-text-muted block text-[11px]">Plan Türü</span>
+              <span className="text-text-muted block text-[11px]">Üyelik & Plan</span>
               <span className="text-text-primary font-semibold">
                 SINEAI Premium ({sub.interval === "YEARLY" ? "Yıllık" : "Aylık"})
               </span>
             </div>
             <div>
               <span className="text-text-muted block text-[11px]">
-                {sub.cancelAtPeriodEnd ? "Bitiş Tarihi" : "Yenilenme Tarihi"}
+                {sub.cancelAtPeriodEnd ? "Dönem Bitiş Tarihi" : "Yenilenme Tarihi"}
               </span>
               <span className="text-text-primary font-semibold">
                 {new Date(sub.currentPeriodEnd).toLocaleDateString("tr-TR", {
@@ -159,9 +159,9 @@ export function AccountBillingSection() {
               </span>
             </div>
             <div>
-              <span className="text-text-muted block text-[11px]">Kayıtlı Kart</span>
+              <span className="text-text-muted block text-[11px]">Durum & Kart</span>
               <span className="text-text-primary font-semibold">
-                {data?.hasSavedCard ? "✓ PayTR Güvenli Kayıtlı Kart" : "Tek Seferlik Ödeme"}
+                {sub.cancelAtPeriodEnd ? "Dönem Sonunda İptal" : (data?.hasSavedCard ? "✓ PayTR Kayıtlı Kart" : "Aktif")}
               </span>
             </div>
           </div>
@@ -179,12 +179,30 @@ export function AccountBillingSection() {
             </div>
           )}
         </div>
+      ) : data?.entitlementSource === "MANUAL" || data?.entitlementSource === "PROMOTIONAL" ? (
+        <div className="p-4 rounded-xl bg-surface-2 border border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <h4 className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+              <span>👑</span>
+              <span>SINEAI Premium (Özel Yetki)</span>
+            </h4>
+            <p className="text-[11px] text-text-muted">
+              Hesabınıza yönetici tarafından özel Premium yetkisi tanımlanmıştır. Tüm Film & Dizi ayrıcalıklarından yararlanabilirsiniz.
+            </p>
+          </div>
+          <Link
+            href="/premium"
+            className="px-4 py-2 rounded-xl bg-surface-3 hover:bg-surface-4 text-text-primary font-semibold text-xs transition-colors whitespace-nowrap shadow-sm border border-border"
+          >
+            Ayrıcalıkları Gör
+          </Link>
+        </div>
       ) : (
         <div className="p-4 rounded-xl bg-surface-2 border border-border flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="space-y-1 text-center sm:text-left">
-            <h4 className="text-xs font-bold text-text-primary">Henüz Premium Üyeliğiniz Yok</h4>
+            <h4 className="text-xs font-bold text-text-primary">Üyelik: SINEAI Free</h4>
             <p className="text-[11px] text-text-muted">
-              Sınırsız AI keşfi, gelişmiş Movie Night ve reklamsız deneyim için Premium'a geçebilirsiniz.
+              Yüksek limitli AI keşfi, gelişmiş Movie Night ve reklamsız deneyim için Premium'a geçebilirsiniz.
             </p>
           </div>
           <Link

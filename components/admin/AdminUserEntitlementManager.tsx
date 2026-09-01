@@ -6,27 +6,52 @@ import { UserEntitlementSummary } from "@/lib/entitlements/types";
 interface AdminUserEntitlementManagerProps {
   userId: string;
   initialSummary?: UserEntitlementSummary | null;
+  subscription?: {
+    id: string;
+    status: string;
+    interval: string;
+    currentPeriodStart: string | Date;
+    currentPeriodEnd: string | Date;
+    cancelAtPeriodEnd: boolean;
+  } | null;
+  payments?: Array<{
+    id: string;
+    merchantOid: string;
+    amount: number;
+    currency: string;
+    status: string;
+    createdAt: string | Date;
+  }>;
 }
 
 export function AdminUserEntitlementManager({
   userId,
   initialSummary,
+  subscription,
+  payments,
 }: AdminUserEntitlementManagerProps) {
   const [summary, setSummary] = useState<UserEntitlementSummary | null>(initialSummary || null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [validUntilInput, setValidUntilInput] = useState("");
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const handleGrantPremium = async () => {
+  const handleGrant = async (days: number | null) => {
     setIsUpdating(true);
     setStatusMessage(null);
     try {
+      let targetDate: Date | null = null;
+      if (days !== null) {
+        targetDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+      } else if (validUntilInput) {
+        targetDate = new Date(validUntilInput);
+      }
+
       const res = await fetch(`/api/admin/users/${userId}/entitlement`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tier: "PREMIUM",
-          validUntil: validUntilInput ? new Date(validUntilInput).toISOString() : null,
+          validUntil: targetDate ? targetDate.toISOString() : null,
         }),
       });
 
@@ -36,7 +61,10 @@ export function AdminUserEntitlementManager({
       }
 
       setSummary(json.summary);
-      setStatusMessage({ type: "success", text: "Kullanıcıya başarıyla Premium yetkisi tanımlandı." });
+      setStatusMessage({
+        type: "success",
+        text: `Kullanıcıya başarıyla Premium yetkisi tanımlandı (${days ? days + " gün" : targetDate ? targetDate.toLocaleDateString("tr-TR") : "Süresiz"}).`,
+      });
     } catch (e: any) {
       setStatusMessage({ type: "error", text: e.message || "İşlem sırasında hata oluştu." });
     } finally {
@@ -44,8 +72,8 @@ export function AdminUserEntitlementManager({
     }
   };
 
-  const handleRevokePremium = async () => {
-    if (!confirm("Kullanıcının Premium yetkisi iptal edilip ÜCRETSİZ plana çekilecek. Emin misiniz?")) {
+  const handleRevoke = async () => {
+    if (!confirm("Kullanıcının manuel Premium yetkisi kaldırılacak. (Eğer aktif bir PayTR aboneliği varsa abonelik korunacaktır). Onaylıyor musunuz?")) {
       return;
     }
 
@@ -62,7 +90,7 @@ export function AdminUserEntitlementManager({
       }
 
       setSummary(json.summary);
-      setStatusMessage({ type: "success", text: "Kullanıcının Premium yetkisi iptal edildi (FREE)." });
+      setStatusMessage({ type: "success", text: "Kullanıcı yetki durumu güncellendi." });
     } catch (e: any) {
       setStatusMessage({ type: "error", text: e.message || "İşlem sırasında hata oluştu." });
     } finally {
@@ -82,7 +110,7 @@ export function AdminUserEntitlementManager({
               Yetkilendirme & Abonelik Katmanı (Entitlements)
             </h2>
             <p className="text-[11px] text-text-muted">
-              Kullanıcının SINEAI Premium yetkisi ve AI arama kotası
+              Kullanıcının SINEAI Premium yetkisi, abonelik durumu ve AI arama kotası
             </p>
           </div>
         </div>
@@ -112,12 +140,22 @@ export function AdminUserEntitlementManager({
       )}
 
       {/* Details Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
         <div className="p-3 rounded-xl bg-surface-2 border border-border space-y-1">
           <span className="text-text-muted block text-[10px] uppercase font-mono">AKTİF KATMAN</span>
           <span className="font-bold text-text-primary text-sm font-mono">{summary?.tier || "FREE"}</span>
           <span className="text-[10px] text-text-muted block">
             {isPremium ? "Tüm Premium motorlar açık" : "Standart kotalı"}
+          </span>
+        </div>
+
+        <div className="p-3 rounded-xl bg-surface-2 border border-border space-y-1">
+          <span className="text-text-muted block text-[10px] uppercase font-mono">YETKİ KAYNAĞI</span>
+          <span className="font-bold text-text-primary text-sm font-mono">
+            {summary?.source || (subscription ? "BILLING" : "SYSTEM")}
+          </span>
+          <span className="text-[10px] text-text-muted block">
+            {summary?.source === "BILLING" || subscription ? "PayTR Aboneliği" : summary?.source === "MANUAL" ? "Yönetici Tanımlı" : "Varsayılan"}
           </span>
         </div>
 
@@ -142,40 +180,111 @@ export function AdminUserEntitlementManager({
         </div>
       </div>
 
+      {/* Subscription Card if exists */}
+      {subscription && (
+        <div className="p-3.5 rounded-xl bg-purple-950/30 border border-purple-500/30 text-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-purple-300 flex items-center gap-1.5">
+              <span>💳</span>
+              <span>PayTR Abonelik Kaydı</span>
+            </span>
+            <span className="px-2 py-0.5 rounded bg-purple-900/60 text-purple-200 text-[10px] font-mono font-semibold">
+              {subscription.status}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-text-secondary">
+            <div>
+              <span className="text-text-muted block">Plan Aralığı:</span>
+              <span className="font-mono text-text-primary">{subscription.interval === "YEARLY" ? "Yıllık" : "Aylık"}</span>
+            </div>
+            <div>
+              <span className="text-text-muted block">Dönem Sonu / Yenilenme:</span>
+              <span className="font-mono text-text-primary">{new Date(subscription.currentPeriodEnd).toLocaleDateString("tr-TR")}</span>
+            </div>
+            <div>
+              <span className="text-text-muted block">Dönem Sonu İptal:</span>
+              <span className="font-mono text-text-primary">{subscription.cancelAtPeriodEnd ? "Evet" : "Hayır"}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Admin Action Controls */}
-      <div className="pt-2 border-t border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        {!isPremium ? (
-          <div className="flex flex-wrap items-center gap-2.5">
-            <input
-              type="date"
-              value={validUntilInput}
-              onChange={(e) => setValidUntilInput(e.target.value)}
-              className="px-3 py-1.5 rounded-xl bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
-              title="Opsiyonel Bitiş Tarihi"
-            />
+      <div className="pt-2 border-t border-border space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1.5">
+            <span className="text-xs font-semibold text-text-primary block">Hızlı Premium Tanımla:</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={() => handleGrant(7)}
+                className="px-2.5 py-1 rounded-lg bg-surface-2 hover:bg-purple-950/60 border border-border hover:border-purple-500/40 text-text-primary hover:text-purple-300 text-xs font-mono transition-colors disabled:opacity-50"
+              >
+                +7 Gün
+              </button>
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={() => handleGrant(30)}
+                className="px-2.5 py-1 rounded-lg bg-surface-2 hover:bg-purple-950/60 border border-border hover:border-purple-500/40 text-text-primary hover:text-purple-300 text-xs font-mono transition-colors disabled:opacity-50"
+              >
+                +30 Gün
+              </button>
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={() => handleGrant(90)}
+                className="px-2.5 py-1 rounded-lg bg-surface-2 hover:bg-purple-950/60 border border-border hover:border-purple-500/40 text-text-primary hover:text-purple-300 text-xs font-mono transition-colors disabled:opacity-50"
+              >
+                +90 Gün
+              </button>
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={() => handleGrant(null)}
+                className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors disabled:opacity-50 shadow-sm"
+              >
+                Süresiz Premium Ver
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {isPremium && (
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={handleRevoke}
+                className="px-3.5 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-500/40 text-rose-300 font-semibold text-xs transition-all disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <span>⚠️</span>
+                <span>Yetkiyi İptal Et / Free</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Custom Expiry Input */}
+        <div className="flex items-center gap-2 pt-1">
+          <span className="text-[11px] text-text-muted">Özel Bitiş Tarihi:</span>
+          <input
+            type="date"
+            value={validUntilInput}
+            onChange={(e) => setValidUntilInput(e.target.value)}
+            className="px-2.5 py-1 rounded-lg bg-surface-2 border border-border text-xs text-text-primary font-mono focus:outline-none focus:border-accent"
+          />
+          {validUntilInput && (
             <button
               type="button"
               disabled={isUpdating}
-              onClick={handleGrantPremium}
-              className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition-all shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+              onClick={() => handleGrant(0)}
+              className="px-3 py-1 rounded-lg bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-colors disabled:opacity-50"
             >
-              <span>👑</span>
-              <span>{isUpdating ? "Yetkilendiriliyor..." : "Premium Yetkisi Ver"}</span>
+              Tarihi Uygula
             </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={isUpdating}
-              onClick={handleRevokePremium}
-              className="px-4 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-500/40 text-rose-300 font-semibold text-xs transition-all disabled:opacity-50 flex items-center gap-1.5"
-            >
-              <span>⚠️</span>
-              <span>{isUpdating ? "İptal Ediliyor..." : "Premium Yetkisini İptal Et (Free Yap)"}</span>
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

@@ -86,9 +86,25 @@ export async function getUserEntitlement(userId: string): Promise<UserEntitlemen
   }
 
   const now = new Date();
-  const isPremiumValid =
+  let isPremiumValid =
     record?.tier === SubscriptionTier.PREMIUM &&
     (!record.validUntil || record.validUntil > now);
+
+  if (!isPremiumValid && userId) {
+    try {
+      const activeBillingSub = await db.subscription.findFirst({
+        where: {
+          userId,
+          provider: "PAYTR",
+          status: { in: ["ACTIVE", "CANCEL_AT_PERIOD_END", "PAST_DUE"] },
+          currentPeriodEnd: { gt: now },
+        },
+      });
+      if (activeBillingSub) {
+        isPremiumValid = true;
+      }
+    } catch {}
+  }
 
   const tier: SubscriptionTierType = isPremiumValid ? "PREMIUM" : "FREE";
 
@@ -688,10 +704,22 @@ export async function getUserEntitlementSummary(userId: string): Promise<UserEnt
     getDailyQuotaStatus(userId, "AI_DISCOVER"),
   ]);
 
+  let source: string | null = null;
+  if (userId) {
+    try {
+      const record = await db.userEntitlement.findUnique({
+        where: { userId },
+        select: { source: true },
+      });
+      source = record?.source || null;
+    } catch {}
+  }
+
   return {
     tier: entitlement.tier,
     isPremium: entitlement.isPremium,
     isAdFree: entitlement.features.AD_FREE === true,
+    source,
     validUntil: entitlement.validUntil ? entitlement.validUntil.toISOString() : null,
     features: entitlement.features,
     aiDiscoverQuota: quota,
@@ -756,14 +784,63 @@ export async function adminGrantUserEntitlement(
 }
 
 /**
- * Admin action: Revokes user Premium entitlement back to FREE.
- * Throws in production if database write fails.
+ * Admin action: Revokes manual Premium entitlement.
+ * If user has an active billing subscription, safely falls back to BILLING instead of breaking paid access.
  */
 export async function adminRevokeUserEntitlement(userId: string) {
   if (isTestEnvironment()) {
     inMemoryEntitlements.delete(userId);
   }
 
+  const now = new Date();
+  let activeBillingSub: any = null;
+  try {
+    activeBillingSub = await db.subscription.findFirst({
+      where: {
+        userId,
+        provider: "PAYTR",
+        status: { in: ["ACTIVE", "CANCEL_AT_PERIOD_END", "PAST_DUE"] },
+        currentPeriodEnd: { gt: now },
+      },
+      orderBy: { currentPeriodEnd: "desc" },
+    });
+  } catch {}
+
+  if (activeBillingSub) {
+    // User pays for Premium via PayTR -> preserve their active billing entitlement
+    try {
+      const record = await db.userEntitlement.upsert({
+        where: { userId },
+        update: {
+          tier: SubscriptionTier.PREMIUM,
+          source: "BILLING",
+          validUntil: activeBillingSub.currentPeriodEnd,
+        },
+        create: {
+          userId,
+          tier: SubscriptionTier.PREMIUM,
+          source: "BILLING",
+          validUntil: activeBillingSub.currentPeriodEnd,
+        },
+      });
+      return record;
+    } catch (err) {
+      if (isTestEnvironment()) {
+        return {
+          id: `mem_${userId}`,
+          userId,
+          tier: SubscriptionTier.PREMIUM,
+          source: "BILLING",
+          validUntil: activeBillingSub.currentPeriodEnd,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+      }
+      throw err;
+    }
+  }
+
+  // No active billing subscription: clean revoke to FREE
   try {
     const record = await db.userEntitlement.upsert({
       where: { userId },

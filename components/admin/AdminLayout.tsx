@@ -21,6 +21,7 @@ export function AdminLayout({ children, adminEmail }: AdminLayoutProps) {
         { label: "Genel Bakış", href: "/admin", icon: "📊" },
         { label: "İçerik Kataloğu", href: "/admin/media", icon: "🎬" },
         { label: "Kullanıcılar", href: "/admin/users", icon: "👥" },
+        { label: "Premium & Billing", href: "/admin/billing", icon: "💳" },
       ],
     },
     {
@@ -59,6 +60,7 @@ export function AdminLayout({ children, adminEmail }: AdminLayoutProps) {
     if (pathname === "/admin") return "Genel Bakış";
     if (pathname.startsWith("/admin/media")) return "Film & Dizi Katalog Yönetimi";
     if (pathname.startsWith("/admin/users")) return "Kullanıcı Yönetimi";
+    if (pathname.startsWith("/admin/billing")) return "Premium & Faturalandırma Yönetimi";
     if (pathname.startsWith("/admin/growth")) return "Growth & SEO Yönetim Merkezi";
     if (pathname.startsWith("/admin/catalog-ingestion")) return "Katalog İçe Aktarma Motoru";
     if (pathname.startsWith("/admin/integrations")) return "API & Servis Entegrasyonları";

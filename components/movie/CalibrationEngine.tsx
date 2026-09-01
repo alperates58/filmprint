@@ -67,6 +67,7 @@ export function CalibrationEngine({
   const [showRankUpModal, setShowRankUpModal] = useState<boolean>(false);
 
   const isFetchingRef = useRef<boolean>(false);
+  const seenMovieIdsRef = useRef<Set<string>>(new Set(initialMovies.map((m) => m.id)));
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Fetch user info
@@ -109,6 +110,11 @@ export function CalibrationEngine({
           params.set("genreIds", selectedGenreIds.join(","));
         }
 
+        const excludeList = Array.from(seenMovieIdsRef.current).slice(-100);
+        if (excludeList.length > 0) {
+          params.set("excludeIds", excludeList.join(","));
+        }
+
         const res = await fetch(`/api/movies/queue?${params.toString()}`);
         if (!res.ok) throw new Error("Failed to load queue");
 
@@ -123,11 +129,13 @@ export function CalibrationEngine({
 
         setQueue((prev) => {
           if (replace) {
+            newMovies.forEach((m) => seenMovieIdsRef.current.add(m.id));
             preloadUpcomingImages(newMovies);
             return newMovies;
           }
           const existingIds = new Set(prev.map((m) => m.id));
-          const filtered = newMovies.filter((m) => !existingIds.has(m.id));
+          const filtered = newMovies.filter((m) => !existingIds.has(m.id) && !seenMovieIdsRef.current.has(m.id));
+          filtered.forEach((m) => seenMovieIdsRef.current.add(m.id));
           const updated = [...prev, ...filtered];
           preloadUpcomingImages(updated);
           return updated;
@@ -200,6 +208,7 @@ export function CalibrationEngine({
     if (queue.length === 0 || isTransitioning) return;
 
     const currentMovie = queue[0];
+    seenMovieIdsRef.current.add(currentMovie.id);
     const prevWatchedCount = watchedCount;
 
     // Optimistic UI updates
@@ -264,6 +273,7 @@ export function CalibrationEngine({
     item: CalibrationSearchResultItem,
     rating: "LOVE" | "LIKE" | "NEUTRAL" | "DISLIKE"
   ) => {
+    seenMovieIdsRef.current.add(item.id);
     setSearchRatedMap((prev) => ({
       ...prev,
       [item.id]: { status: "WATCHED", rating },

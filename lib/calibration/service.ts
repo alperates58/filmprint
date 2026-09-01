@@ -40,6 +40,7 @@ export interface QueueMovieResponseItem {
 export interface CalibrationQueueOptions {
   mode?: "SMART" | "GENRE" | "SEARCH";
   genreIds?: number[];
+  excludeIds?: string[];
   limit?: number;
 }
 
@@ -74,7 +75,7 @@ export async function getIntelligentCalibrationQueue(
   userId: string,
   options: CalibrationQueueOptions = {}
 ): Promise<CalibrationQueueResult> {
-  const { mode = "SMART", genreIds = [], limit = 5 } = options;
+  const { mode = "SMART", genreIds = [], excludeIds = [], limit = 5 } = options;
 
   // 1. Fetch answered interactions for current user
   const answeredInteractions = await db.movieInteraction.findMany({
@@ -97,6 +98,7 @@ export async function getIntelligentCalibrationQueue(
 
   const answeredMovieIds = new Set(answeredInteractions.map((i: any) => i.movieId));
   const evaluationCount = answeredMovieIds.size;
+  const effectiveExcludedIds = new Set([...Array.from(answeredMovieIds), ...excludeIds]);
 
   // Separate watchedCount (distinct watched) and tasteEvidenceCount (watched with valid rating)
   const watchedInteractions = answeredInteractions.filter((i: any) => i.status === "WATCHED");
@@ -189,7 +191,7 @@ export async function getIntelligentCalibrationQueue(
     take: number;
   }) {
     const whereConditions: any = {
-      id: { notIn: Array.from(answeredMovieIds) },
+      id: { notIn: Array.from(effectiveExcludedIds) },
       posterPath: { not: null },
       safetyLevel: {
         notIn: ["ADULT", "EROTIC", "SEXUAL_CONTENT"],

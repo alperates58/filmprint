@@ -46,7 +46,7 @@ interface DiscoveryHomeProps {
 }
 
 const MOOD_SHORTCUTS = [
-  { id: "top-picks", targetModuleId: "top-hero", label: "Günün Önerileri", icon: "✨", fallbackHref: "/recommendations" },
+  { id: "top-picks", targetModuleId: "top-picks", label: "Günün Önerileri", icon: "✨", fallbackHref: "/recommendations" },
   { id: "watchlist", targetModuleId: "user_watchlist", label: "İzleme Listem", icon: "🔖", fallbackHref: "/library?mediaType=FILM&state=WATCHLIST" },
   { id: "mind-bending", targetModuleId: "mind-bending", label: "Zihin Büken", icon: "🌀", fallbackHref: "/recommendations" },
   { id: "hidden-gems", targetModuleId: "gems", label: "Gizli Kalmışlar", icon: "💎", fallbackHref: "/recommendations" },
@@ -93,17 +93,21 @@ export function DiscoveryHome({
   };
 
   const handleShortcutClick = (shortcut: typeof MOOD_SHORTCUTS[number]) => {
-    if (shortcut.targetModuleId === "top-hero") {
+    const el = document.getElementById(`module-${shortcut.targetModuleId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (shortcut.targetModuleId === "top-picks" || shortcut.targetModuleId === "top-hero") {
       const heroEl = document.getElementById("top-hero-match");
       if (heroEl) {
         heroEl.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
     }
-    const el = document.getElementById(`module-${shortcut.targetModuleId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else if (shortcut.fallbackHref) {
+
+    if (shortcut.fallbackHref) {
       router.push(shortcut.fallbackHref);
     }
   };

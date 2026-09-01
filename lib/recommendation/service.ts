@@ -15,6 +15,7 @@ import {
 } from "./evidence";
 import { calculateQualityScore } from "./quality";
 import { filterEligibleMovies } from "../movies/eligibility";
+import { resolveGenreNamesFromIds } from "../catalog/genres";
 import type { CandidateMovie } from "../calibration/types";
 import type { FilmDnaResult } from "../profile/types";
 import type {
@@ -224,6 +225,15 @@ export async function getPersonalizedRecommendations(
   // Format all candidate movies with source tag
   const formatCandidate = (m: any, source: CandidateSource): CandidateMovie & { candidateSource: CandidateSource; metadata?: any; adult?: boolean; voteCount?: number } => {
     const meta = (m.metadata as Record<string, unknown>) || {};
+    let genres: string[] = [];
+    if (Array.isArray(m.genreIds) && m.genreIds.length > 0) {
+      genres = resolveGenreNamesFromIds(m.genreIds, "FILM");
+    } else if (Array.isArray(m.genres) && m.genres.length > 0) {
+      genres = m.genres;
+    } else if (Array.isArray(meta.genres)) {
+      genres = meta.genres as string[];
+    }
+
     return {
       id: m.id,
       tmdbId: m.tmdbId,
@@ -234,8 +244,8 @@ export async function getPersonalizedRecommendations(
       voteAverage: m.voteAverage,
       posterPath: m.posterPath,
       backdropPath: m.backdropPath,
-      genres: (Array.isArray(m.genres) && m.genres.length > 0) ? m.genres : ((meta.genres as string[]) || []),
-      overview: m.overview || (meta.overview as string) || "",
+      genres,
+      overview: (meta.overview as string) || "",
       candidateSource: source,
       adult: m.adult === true || (meta.adult as boolean) || false,
       voteCount: m.voteCount || (meta.voteCount as number) || undefined,

@@ -46,6 +46,7 @@ export interface QueueTvShowResponseItem {
 export interface TvCalibrationQueueOptions {
   mode?: "SMART" | "GENRE" | "SEARCH";
   genreIds?: number[];
+  excludeIds?: string[];
   limit?: number;
 }
 
@@ -80,7 +81,7 @@ export async function getTvCalibrationQueue(
   userId: string,
   options: TvCalibrationQueueOptions = {}
 ): Promise<TvCalibrationQueueResult> {
-  const { mode = "SMART", genreIds = [], limit = 5 } = options;
+  const { mode = "SMART", genreIds = [], excludeIds = [], limit = 5 } = options;
 
   // 1. Fetch all answered TV interaction records for current user
   const answeredInteractions = await db.tvInteraction.findMany({
@@ -104,6 +105,7 @@ export async function getTvCalibrationQueue(
 
   const answeredTvShowIds = new Set(answeredInteractions.map((i: any) => i.tvShowId));
   const evaluationCount = answeredTvShowIds.size;
+  const effectiveExcludedIds = new Set([...Array.from(answeredTvShowIds), ...excludeIds]);
 
   // Separate watchedCount (distinct fully watched) and tasteEvidenceCount (watched with rating)
   const watchedInteractions = answeredInteractions.filter((i: any) => i.status === "WATCHED");
@@ -206,7 +208,7 @@ export async function getTvCalibrationQueue(
     take: number;
   }) {
     const baseWhere: any = {
-      id: { notIn: Array.from(answeredTvShowIds) },
+      id: { notIn: Array.from(effectiveExcludedIds) },
     };
 
     if (mode === "GENRE" && genreIds.length > 0) {

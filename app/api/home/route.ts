@@ -19,6 +19,7 @@ import { filterEligibleMovies } from "@/lib/movies/eligibility";
 import { CandidateMovie } from "@/lib/calibration/types";
 import { FilmDnaResult } from "@/lib/profile/types";
 import { EditorialCategoryMode } from "@/lib/recommendation/types";
+import { resolveGenreNamesFromIds } from "@/lib/catalog/genres";
 
 export async function GET() {
   try {
@@ -62,19 +63,38 @@ export async function GET() {
       ...blockedFeedbackIds,
     ]);
 
-    // 2. Fetch top hero recommendation match (Fast non-blocking)
-    const topRecommendations = await getPersonalizedRecommendations(userId, 1, 0, false, {
+    // 2. Fetch top hero recommendation candidates and rotate daily (Fast non-blocking)
+    const topRecommendations = await getPersonalizedRecommendations(userId, 12, 0, false, {
       allowHybrid: false,
     });
-    const topHeroMatch = topRecommendations.recommendations?.[0] || null;
+    const candidateList = topRecommendations.recommendations || [];
+    let topHeroMatch = null;
+    if (candidateList.length > 0) {
+      // Filter out short films (< 40m) if full feature films are available
+      const featureFilms = candidateList.filter((c) => {
+        const runtime = (c.movie as any).runtime || (c.movie as any).metadata?.runtime;
+        return !runtime || runtime >= 40;
+      });
+      const eligibleHeroPool = featureFilms.length >= 3 ? featureFilms : candidateList;
+      const today = new Date().toISOString().slice(0, 10);
+      const hashStr = `${userId}:${today}`;
+      let hash = 0;
+      for (let i = 0; i < hashStr.length; i++) {
+        hash = (hash << 5) - hash + hashStr.charCodeAt(i);
+        hash |= 0;
+      }
+      const pool = eligibleHeroPool.slice(0, Math.min(8, eligibleHeroPool.length));
+      const dailyIndex = Math.abs(hash) % pool.length;
+      topHeroMatch = pool[dailyIndex] || pool[0];
+    }
 
-    // 3. Primary Candidate Pool (take up to 1000 eligible movies from local DB catalog)
+    // 3. Primary Candidate Pool (take up to 1500 eligible movies from local DB catalog)
     const rawCandidates = await db.movie.findMany({
       where: {
         id: { notIn: Array.from(excludedMovieIds) },
       },
-      orderBy: [{ voteAverage: "desc" }, { popularity: "desc" }],
-      take: 1000,
+      orderBy: [{ popularity: "desc" }, { voteAverage: "desc" }],
+      take: 1500,
     });
 
     const candidatesMap = new Map<string, CandidateMovie & { candidateSource: string; knownUnwatched: boolean; metadata?: any; adult?: boolean; voteCount?: number; matchScore?: number }>();
@@ -82,6 +102,13 @@ export async function GET() {
     for (const m of rawCandidates) {
       const meta = (m.metadata as Record<string, unknown>) || {};
       const isKnownUnwatched = notWatchedMovieIds.has(m.id);
+      let genres: string[] = [];
+      if (Array.isArray(m.genreIds) && m.genreIds.length > 0) {
+        genres = resolveGenreNamesFromIds(m.genreIds, "FILM");
+      } else if (Array.isArray(meta.genres)) {
+        genres = meta.genres as string[];
+      }
+
       candidatesMap.set(m.id, {
         id: m.id,
         tmdbId: m.tmdbId,
@@ -92,12 +119,12 @@ export async function GET() {
         voteAverage: m.voteAverage,
         posterPath: m.posterPath,
         backdropPath: m.backdropPath,
-        genres: (meta.genres as string[]) || [],
+        genres,
         overview: (meta.overview as string) || "",
         candidateSource: isKnownUnwatched ? "KNOWN_UNWATCHED" : "FRESH_DISCOVERY",
         knownUnwatched: isKnownUnwatched,
         adult: (meta.adult as boolean) || false,
-        voteCount: (meta.voteCount as number) || undefined,
+        voteCount: m.voteCount || (meta.voteCount as number) || undefined,
         metadata: meta,
       });
     }
@@ -164,6 +191,28 @@ export async function GET() {
       return scored;
     };
 
+    // Helper to score top personalized matches across the entire catalog
+    const scoreTopPicks = (): (CandidateMovie & { matchScore?: number })[] => {
+      return allCandidates
+        .map((candidate) => {
+          const matchRes = calculateMovieMatch(candidate, profile);
+          const dislikePenalty = calculateDislikePenalty(candidate, tasteEvidenceProfile);
+          const qualityScore = calculateQualityScore(candidate);
+          const finalScore = matchRes.displayMatchScore * 0.70 + qualityScore * 30 - dislikePenalty;
+          return {
+            candidate: {
+              ...candidate,
+              matchScore: Math.round(matchRes.displayMatchScore),
+            },
+            finalScore,
+          };
+        })
+        .filter((item) => (item.candidate.matchScore || 0) >= 60)
+        .sort((a, b) => b.finalScore - a.finalScore)
+        .slice(0, 16)
+        .map((item) => item.candidate);
+    };
+
     const formatMovie = (m: CandidateMovie & { matchScore?: number }) => ({
       id: m.id,
       tmdbId: m.tmdbId,
@@ -181,6 +230,13 @@ export async function GET() {
 
     // 4. Build candidate lists for all editorial categories in meaningful sequence
     const rawModules = [
+      {
+        id: "top-picks",
+        title: "Senin İçin Seçtiklerimiz",
+        icon: "✨",
+        description: "Film DNA profiliniz ve beğenilerinizle en yüksek uyumu gösteren seçkin yapımlar.",
+        movies: scoreTopPicks(),
+      },
       {
         id: "known-unwatched",
         title: "Bunu İzlemediğini Söylemiştin",
@@ -263,8 +319,8 @@ export async function GET() {
     // 5. Global Soft Cross-Row Deduplication (allowSoftScarcity = true)
     const deduplicated = deduplicateHomeModules(rawModules, true);
 
-    // 6. Minimum Supply Filter (Hide rows with fewer than 4 movies after all fallbacks)
-    const validModules = deduplicated.filter((mod) => mod.movies.length >= 4);
+    // 6. Minimum Supply Filter (Hide rows with fewer than 3 movies after all fallbacks)
+    const validModules = deduplicated.filter((mod) => mod.movies.length >= 3);
 
     const modules = validModules.map((mod) => ({
       ...mod,

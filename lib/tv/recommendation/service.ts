@@ -17,6 +17,7 @@ import {
   TV_MATCH_ENGINE_VERSION,
   TV_DEFAULT_QUALITY_FLOOR,
 } from "./constants";
+import { resolveGenreNamesFromIds } from "@/lib/catalog/genres";
 import type {
   CandidateTvShow,
   PersonalizedTvRecommendationItem,
@@ -49,9 +50,12 @@ export interface TvRecommendationOptions {
 export function normalizeDbTvShowToCandidate(tvShow: any): CandidateTvShow {
   const meta = (tvShow.metadata as Record<string, unknown>) || {};
   const rawGenres = meta.genres || [];
-  const genres: string[] = Array.isArray(rawGenres)
-    ? rawGenres.map((g: any) => (typeof g === "string" ? g : g.name || "")).filter(Boolean)
-    : [];
+  let genres: string[] = [];
+  if (Array.isArray(tvShow.genreIds) && tvShow.genreIds.length > 0) {
+    genres = resolveGenreNamesFromIds(tvShow.genreIds, "TV");
+  } else if (Array.isArray(rawGenres)) {
+    genres = rawGenres.map((g: any) => (typeof g === "string" ? g : g.name || "")).filter(Boolean);
+  }
 
   return {
     id: tvShow.id,

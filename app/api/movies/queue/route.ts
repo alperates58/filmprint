@@ -21,9 +21,16 @@ export async function GET(request: Request) {
       .map((id) => parseInt(id.trim(), 10))
       .filter((id) => !isNaN(id) && id > 0);
 
+    const rawExcludeIds = searchParams.get("excludeIds") || "";
+    const excludeIds = rawExcludeIds
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+
     const result = await getIntelligentCalibrationQueue(userId, {
       mode,
       genreIds,
+      excludeIds,
       limit,
     });
 

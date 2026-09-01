@@ -68,6 +68,7 @@ export function TvCalibrationEngine({
   const [showRankUpModal, setShowRankUpModal] = useState<boolean>(false);
 
   const isFetchingRef = useRef<boolean>(false);
+  const seenTvShowIdsRef = useRef<Set<string>>(new Set(initialTvShows.map((s) => s.id)));
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Fetch authenticated user info
@@ -110,6 +111,11 @@ export function TvCalibrationEngine({
           params.set("genreIds", selectedGenreIds.join(","));
         }
 
+        const excludeList = Array.from(seenTvShowIdsRef.current).slice(-100);
+        if (excludeList.length > 0) {
+          params.set("excludeIds", excludeList.join(","));
+        }
+
         const response = await fetch(`/api/tv/calibration?${params.toString()}`);
         if (!response.ok) {
           throw new Error("Failed to load TV calibration queue");
@@ -125,11 +131,13 @@ export function TvCalibrationEngine({
 
         setQueue((prev) => {
           if (replace) {
+            newShows.forEach((s) => seenTvShowIdsRef.current.add(s.id));
             preloadUpcomingImages(newShows);
             return newShows;
           }
           const existingIds = new Set(prev.map((s) => s.id));
-          const filtered = newShows.filter((s) => !existingIds.has(s.id));
+          const filtered = newShows.filter((s) => !existingIds.has(s.id) && !seenTvShowIdsRef.current.has(s.id));
+          filtered.forEach((s) => seenTvShowIdsRef.current.add(s.id));
           const updated = [...prev, ...filtered];
           preloadUpcomingImages(updated);
           return updated;
@@ -202,6 +210,7 @@ export function TvCalibrationEngine({
     if (queue.length === 0 || isTransitioning) return;
 
     const currentShow = queue[0];
+    seenTvShowIdsRef.current.add(currentShow.id);
     const prevWatchedCount = watchedCount;
 
     // Optimistic UI updates
@@ -265,6 +274,7 @@ export function TvCalibrationEngine({
     item: CalibrationSearchResultItem,
     rating: "LOVE" | "LIKE" | "NEUTRAL" | "DISLIKE"
   ) => {
+    seenTvShowIdsRef.current.add(item.id);
     setSearchRatedMap((prev) => ({
       ...prev,
       [item.id]: { status: "WATCHED", rating },

@@ -765,7 +765,37 @@ export async function adminGrantUserEntitlement(
     });
 
     return record;
-  } catch (err) {
+  } catch (err: any) {
+    // Auto-heal: If database enum is missing 'PREMIUM', alter the enum type and retry
+    if (
+      err?.message?.includes('SubscriptionTier') ||
+      err?.message?.includes('22P02') ||
+      err?.code === '22P02'
+    ) {
+      try {
+        await db.$executeRawUnsafe(`ALTER TYPE "SubscriptionTier" ADD VALUE IF NOT EXISTS 'PREMIUM';`);
+        const retryRecord = await db.userEntitlement.upsert({
+          where: { userId },
+          update: {
+            tier: prismaTier,
+            source: "MANUAL",
+            validUntil: validUntil !== undefined ? validUntil : null,
+            customLimits: customLimits !== undefined ? (customLimits as any) : undefined,
+          },
+          create: {
+            userId,
+            tier: prismaTier,
+            source: "MANUAL",
+            validUntil: validUntil !== undefined ? validUntil : null,
+            customLimits: customLimits !== undefined ? (customLimits as any) : {},
+          },
+        });
+        return retryRecord;
+      } catch (healErr) {
+        console.error("[adminGrantUserEntitlement Self-Heal Error]:", healErr);
+      }
+    }
+
     if (isTestEnvironment()) {
       return {
         id: `mem_${userId}`,

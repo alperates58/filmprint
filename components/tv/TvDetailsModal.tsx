@@ -607,17 +607,41 @@ export function TvDetailsModal({
             {details && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-border/60 font-sans text-xs">
                 {details.creators && details.creators.length > 0 && (
-                  <div className="p-3 rounded-xl bg-surface-2/50 border border-border/40 space-y-0.5">
+                  <div className="p-3 rounded-xl bg-surface-2/50 border border-border/40 space-y-1">
                     <span className="text-text-muted block text-[11px] font-medium">YARATICI / YAPIMCI</span>
-                    <span className="font-semibold text-text-primary">{details.creators.join(", ")}</span>
+                    <div className="flex flex-wrap gap-1 font-semibold text-text-primary">
+                      {details.creators.map((c, i) => (
+                        <Link
+                          key={i}
+                          href={`/arama?q=${encodeURIComponent(c)}&mediaType=TV`}
+                          className="hover:text-accent transition-colors hover:underline"
+                          onClick={() => {
+                            isNavigatingRef.current = true;
+                          }}
+                        >
+                          {c}{i < details.creators.length - 1 ? "," : ""}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 )}
                 {details.cast && details.cast.length > 0 && (
-                  <div className="p-3 rounded-xl bg-surface-2/50 border border-border/40 space-y-0.5">
+                  <div className="p-3 rounded-xl bg-surface-2/50 border border-border/40 space-y-1">
                     <span className="text-text-muted block text-[11px] font-medium">BAŞROL OYUNCULARI</span>
-                    <span className="font-semibold text-text-primary">
-                      {details.cast.slice(0, 4).map((c) => c.name).join(", ")}
-                    </span>
+                    <div className="flex flex-wrap gap-1.5 font-semibold text-text-primary">
+                      {details.cast.slice(0, 4).map((c, i) => (
+                        <Link
+                          key={i}
+                          href={`/arama?oyuncu=${encodeURIComponent(c.name)}&mediaType=TV`}
+                          className="hover:text-accent transition-colors hover:underline"
+                          onClick={() => {
+                            isNavigatingRef.current = true;
+                          }}
+                        >
+                          {c.name}{i < Math.min(details.cast.length, 4) - 1 ? "," : ""}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

@@ -583,15 +583,34 @@ export function MovieDetailsModal({
                 {details.director && (
                   <div className="p-3 rounded-xl bg-surface-2/50 border border-border/40 space-y-0.5">
                     <span className="text-text-muted block text-[11px] font-medium">YÖNETMEN</span>
-                    <span className="font-semibold text-text-primary">{details.director}</span>
+                    <Link
+                      href={`/arama?q=${encodeURIComponent(details.director)}`}
+                      className="font-semibold text-text-primary hover:text-accent transition-colors inline-block"
+                      onClick={() => {
+                        isNavigatingRef.current = true;
+                      }}
+                    >
+                      {details.director} ↗
+                    </Link>
                   </div>
                 )}
                 {details.cast && details.cast.length > 0 && (
-                  <div className="p-3 rounded-xl bg-surface-2/50 border border-border/40 space-y-0.5">
+                  <div className="p-3 rounded-xl bg-surface-2/50 border border-border/40 space-y-1">
                     <span className="text-text-muted block text-[11px] font-medium">BAŞROL OYUNCULARI</span>
-                    <span className="font-semibold text-text-primary">
-                      {details.cast.slice(0, 4).map((c) => c.name).join(", ")}
-                    </span>
+                    <div className="flex flex-wrap gap-1.5 font-semibold text-text-primary">
+                      {details.cast.slice(0, 4).map((c, i) => (
+                        <Link
+                          key={i}
+                          href={`/arama?oyuncu=${encodeURIComponent(c.name)}`}
+                          className="hover:text-accent transition-colors hover:underline"
+                          onClick={() => {
+                            isNavigatingRef.current = true;
+                          }}
+                        >
+                          {c.name}{i < Math.min(details.cast.length, 4) - 1 ? "," : ""}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

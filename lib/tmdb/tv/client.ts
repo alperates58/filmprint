@@ -116,10 +116,11 @@ export class TMDBTvClient {
       }
 
       // Extract top 8 cast members
-      const cast: { name: string; character: string; profilePath: string | null }[] = [];
+      const cast: { id?: number; name: string; character: string; profilePath: string | null }[] = [];
       if (data.credits?.cast && Array.isArray(data.credits.cast)) {
         data.credits.cast.slice(0, 8).forEach((actor: any) => {
           cast.push({
+            id: actor.id || undefined,
             name: actor.name,
             character: actor.character || "",
             profilePath: actor.profile_path || null,

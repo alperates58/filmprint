@@ -64,6 +64,23 @@ async function getMovieForPublicPage(slug: string) {
       cast = details.cast || cast;
       trailer = details.trailer !== undefined ? details.trailer : trailer;
       runtime = details.runtime || runtime;
+
+      // Persist enriched details to PostgreSQL so future visits hit local database directly
+      const updatedMeta = {
+        ...meta,
+        director,
+        cast,
+        trailer,
+        runtime,
+        overview: details.localization?.overview || overview,
+      };
+
+      db.movie
+        .update({
+          where: { id: movie.id },
+          data: { metadata: updatedMeta },
+        })
+        .catch((err) => console.error("[Film Page Metadata Persistence Error]:", err));
     } catch {
       // Fallback
     }
@@ -383,18 +400,20 @@ export default async function PublicMoviePage({ params }: PageProps) {
               {movie.cast.map((actor: any, idx: number) => {
                 const profileUrl = actor.profilePath ? getTmdbImageUrl(actor.profilePath, "w185") : null;
                 return (
-                  <div
+                  <Link
                     key={idx}
-                    className="p-3 rounded-2xl bg-surface-1 border border-border/80 flex flex-col items-center text-center space-y-2"
+                    href={`/arama?oyuncu=${encodeURIComponent(actor.name)}`}
+                    className="group p-3 rounded-2xl bg-surface-1 border border-border/80 hover:border-accent/60 flex flex-col items-center text-center space-y-2 transition-all hover:scale-105 hover:shadow-lg active:scale-95"
+                    title={`${actor.name} filmlerini ara`}
                   >
-                    <div className="w-14 h-14 rounded-full overflow-hidden bg-surface-2 relative border border-border">
+                    <div className="w-14 h-14 rounded-full overflow-hidden bg-surface-2 relative border border-border group-hover:border-accent transition-colors">
                       {profileUrl ? (
                         <Image
                           src={profileUrl}
                           alt={actor.name}
                           fill
                           sizes="60px"
-                          className="object-cover"
+                          className="object-cover group-hover:scale-110 transition-transform duration-300"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-text-muted text-xs font-mono">
@@ -403,12 +422,14 @@ export default async function PublicMoviePage({ params }: PageProps) {
                       )}
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-text-primary font-sans line-clamp-1">{actor.name}</p>
+                      <p className="text-xs font-semibold text-text-primary group-hover:text-accent font-sans line-clamp-1 transition-colors">
+                        {actor.name}
+                      </p>
                       {actor.character && (
                         <p className="text-[11px] text-text-muted font-sans line-clamp-1">{actor.character}</p>
                       )}
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>

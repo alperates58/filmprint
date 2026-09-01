@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getProgressionForCount, getTvProgressionForCount } from "@/lib/progression/service";
+import { LiveSearchBox } from "@/components/search/LiveSearchBox";
 
 interface HeaderProps {
   progressCount?: number;
@@ -23,6 +24,7 @@ export function Header({
   const pathname = usePathname();
   const isTvMode = pathname.startsWith("/tv");
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [displayName, setDisplayName] = useState(userName);
   const [avatar, setAvatar] = useState(userAvatar);
   const [email, setEmail] = useState(userEmail);
@@ -179,6 +181,19 @@ export function Header({
                 </Link>
 
                 <Link
+                  href="/arama"
+                  className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+                    pathname === "/arama"
+                      ? "bg-surface-2 text-text-primary font-semibold border border-border-strong"
+                      : "text-text-secondary hover:text-text-primary"
+                  }`}
+                  title="Detaylı Film & Dizi Arama"
+                >
+                  <span>🔍</span>
+                  <span>Arama</span>
+                </Link>
+
+                <Link
                   href="/kesfet"
                   className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 font-semibold text-xs tracking-wide ${
                     pathname === "/kesfet"
@@ -250,6 +265,19 @@ export function Header({
                 </Link>
 
                 <Link
+                  href="/arama?mediaType=TV"
+                  className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+                    pathname === "/arama"
+                      ? "bg-surface-2 text-text-primary font-semibold border border-border-strong"
+                      : "text-text-secondary hover:text-text-primary"
+                  }`}
+                  title="Detaylı Dizi Arama"
+                >
+                  <span>🔍</span>
+                  <span>Arama</span>
+                </Link>
+
+                <Link
                   href="/kesfet"
                   className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 font-semibold text-xs tracking-wide ${
                     pathname === "/kesfet"
@@ -263,6 +291,11 @@ export function Header({
               </>
             )}
           </nav>
+
+          {/* Desktop Live Search Box */}
+          <div className="w-44 lg:w-56 xl:w-72">
+            <LiveSearchBox placeholder={isTvMode ? "Dizi ara..." : "Film ara..."} />
+          </div>
 
           {/* User Profile & Rank Dropdown */}
           <div className="relative">
@@ -398,8 +431,17 @@ export function Header({
           </div>
         </div>
 
-        {/* Mobile Header Right: User Profile Avatar */}
-        <div className="flex items-center md:hidden relative flex-shrink-0">
+        {/* Mobile Header Right: Search Toggle & User Profile Avatar */}
+        <div className="flex items-center gap-1.5 md:hidden relative flex-shrink-0">
+          {/* Mobile Search Toggle Button */}
+          <button
+            onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
+            className="p-2 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border min-h-[36px] min-w-[36px] flex items-center justify-center text-text-secondary hover:text-text-primary text-sm active:scale-95 transition-all shadow-sm"
+            aria-label="Arama Çubuğu"
+          >
+            {mobileSearchOpen ? "✕" : "🔍"}
+          </button>
+
           <button
             onClick={() => setUserDropdownOpen(!userDropdownOpen)}
             className="flex items-center gap-1 p-1 pr-1.5 rounded-xl bg-surface-2 hover:bg-surface-3 border border-border min-h-[36px] min-w-[36px] sm:min-h-[38px] sm:min-w-[38px] cursor-pointer flex-shrink-0 active:scale-95 transition-all shadow-sm"
@@ -513,6 +555,16 @@ export function Header({
           )}
         </div>
       </div>
+
+      {/* Mobile Expandable Search Bar */}
+      {mobileSearchOpen && (
+        <div className="md:hidden px-3 pb-3 pt-1 border-t border-border/60 bg-surface-1 animate-fadeIn">
+          <LiveSearchBox
+            placeholder={isTvMode ? "Dizi ara..." : "Film ara..."}
+            onSelect={() => setMobileSearchOpen(false)}
+          />
+        </div>
+      )}
     </header>
   );
 }

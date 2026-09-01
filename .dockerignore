@@ -34,8 +34,3 @@ tsconfig.tsbuildinfo
 docs/
 artifacts/
 NEW_CHAT_PROMPT.txt
-
-# Docker config
-Dockerfile
-.dockerignore
-docker-compose.yml

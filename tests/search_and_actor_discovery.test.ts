@@ -1,7 +1,7 @@
 import assert from "assert";
 
 // Ensure test environment in-memory mode is active when DB is offline
-process.env.NODE_ENV = "test";
+(process.env as Record<string, string | undefined>).NODE_ENV = "test";
 
 import { generateSearchNormalizedTitle } from "@/lib/calibration/priority";
 import { generateMovieSlug, generateTvSlug } from "@/lib/growth/seo/slug";
@@ -44,7 +44,7 @@ export async function runSearchAndActorDiscoveryTests() {
   console.log("✅ Search and Actor Discovery Test Suite Passed Successfully!");
 }
 
-if (require.main === module) {
+if (typeof require !== "undefined" && require.main === module) {
   runSearchAndActorDiscoveryTests().catch((err) => {
     console.error("Test failed:", err);
     process.exit(1);

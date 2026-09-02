@@ -13,6 +13,14 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
+
+    if (!body.legalConsentAccepted) {
+      return NextResponse.json(
+        { error: "LEGAL_CONSENT_REQUIRED: Mesafeli Satış Sözleşmesi ve Ön Bilgilendirme koşullarını onaylamanız gerekmektedir." },
+        { status: 400 }
+      );
+    }
+
     const interval = body.interval === "YEARLY" ? "YEARLY" : "MONTHLY";
 
     const forwardedFor = req.headers.get("x-forwarded-for");

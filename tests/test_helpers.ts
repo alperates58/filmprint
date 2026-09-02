@@ -5,7 +5,12 @@ let dbAvailable: boolean | null = null;
 export async function isDbAvailable(): Promise<boolean> {
   if (dbAvailable !== null) return dbAvailable;
   try {
-    await db.$queryRaw`SELECT 1`;
+    if (!db?.user?.findFirst || !db?.tvShow?.findFirst) {
+      dbAvailable = false;
+      return false;
+    }
+    await db.user.findFirst();
+    await db.tvShow.findFirst();
     dbAvailable = true;
   } catch {
     dbAvailable = false;

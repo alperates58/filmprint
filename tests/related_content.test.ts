@@ -124,7 +124,7 @@ export async function runRelatedContentTests() {
   }
 }
 
-if (require.main === module) {
+if (typeof require !== "undefined" && require.main === module) {
   runRelatedContentTests()
     .then(() => {
       console.log("All related content tests passed successfully!");

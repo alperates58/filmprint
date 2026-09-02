@@ -23,11 +23,27 @@ import {
 } from "@/lib/growth/seo/json-ld";
 import { getMovieGenreBySlug, getTvGenreBySlug, MOVIE_GENRES, TV_GENRES } from "@/lib/growth/seo/genres";
 import { verifyGoogleGrowthState, GOOGLE_GROWTH_SCOPES } from "@/lib/growth/google/oauth";
-import { verifyBingGrowthState } from "@/lib/growth/bing/oauth";
+import {
+  verifyBingGrowthState,
+  buildBingGrowthAuthUrl,
+  BING_WEBMASTER_AUTH_URL,
+  BING_WEBMASTER_TOKEN_URL,
+  BING_WEBMASTER_SCOPE,
+  getBingGrowthConfigSync,
+} from "@/lib/growth/bing/oauth";
 import { verifyYandexGrowthState } from "@/lib/growth/yandex/oauth";
 import { sanitizeEventParams } from "@/lib/analytics/events";
 import { hasAnalyticsConsent, trackEvent } from "@/lib/analytics/client";
 import { encryptSecret, decryptSecret } from "@/lib/security/crypto";
+import { getUrlHash } from "@/lib/growth/indexnow/service";
+import {
+  getAppBaseUrl,
+  getGoogleGrowthRedirectUri,
+  getBingGrowthRedirectUri,
+  getYandexGrowthRedirectUri,
+  getGrowthUrlsDiagnostics,
+} from "@/lib/growth/urls";
+import { getGrowthCredentialSync } from "@/lib/growth/credentials";
 
 export async function runGrowthAndSeoTests() {
   console.log("--> 1. Testing Turkish Slug Generation & ID Parsing");
@@ -250,7 +266,6 @@ export async function runGrowthAndSeoTests() {
     assert.equal(verifyGoogleGrowthState("user:1000:nonce:invalid_signature"), false);
 
     // Official Bing Webmaster OAuth Endpoints verification
-    const { buildBingGrowthAuthUrl, BING_WEBMASTER_AUTH_URL, BING_WEBMASTER_TOKEN_URL, BING_WEBMASTER_SCOPE } = require("@/lib/growth/bing/oauth");
     assert.equal(BING_WEBMASTER_AUTH_URL, "https://www.bing.com/webmasters/OAuth/authorize");
     assert.equal(BING_WEBMASTER_TOKEN_URL, "https://www.bing.com/webmasters/oauth/token");
     assert.equal(BING_WEBMASTER_SCOPE, "webmaster.manage");
@@ -319,7 +334,6 @@ export async function runGrowthAndSeoTests() {
 
   console.log("--> 9. Testing IndexNow URL Hashing & Dedicated Queue Model");
   {
-    const { getUrlHash } = require("@/lib/growth/indexnow/service");
     const hash1 = getUrlHash("https://sineai.com.tr/film/interstellar-157336");
     const hash2 = getUrlHash("https://sineai.com.tr/film/interstellar-157336");
     const hash3 = getUrlHash("https://sineai.com.tr/dizi/dark-70523");
@@ -333,14 +347,6 @@ export async function runGrowthAndSeoTests() {
 
   console.log("--> 10. Testing Centralized Redirect URIs & Setup Diagnostics");
   {
-    const {
-      getAppBaseUrl,
-      getGoogleGrowthRedirectUri,
-      getBingGrowthRedirectUri,
-      getYandexGrowthRedirectUri,
-      getGrowthUrlsDiagnostics,
-    } = require("@/lib/growth/urls");
-
     const defaultBase = getAppBaseUrl();
     assert.ok(defaultBase.startsWith("http"), "App base URL must be valid HTTP/HTTPS string");
     assert.equal(defaultBase.endsWith("/"), false, "App base URL must not have trailing slash");
@@ -431,13 +437,11 @@ export async function runGrowthAndSeoTests() {
 
   console.log("--> 12. Testing Database/Env Credentials Resolution & AdSense Settings");
   {
-    const { getGrowthCredentialSync } = require("@/lib/growth/credentials");
     const cred = getGrowthCredentialSync("bing");
     assert.equal(typeof cred.isConfigured, "boolean");
     assert.equal(typeof cred.source, "string");
 
     // Test masked formatting
-    const { getBingGrowthConfigSync } = require("@/lib/growth/bing/oauth");
     const bingSync = getBingGrowthConfigSync();
     assert.equal(typeof bingSync.redirectUri, "string");
     assert.ok(bingSync.redirectUri.includes("/api/admin/growth/bing/callback"));

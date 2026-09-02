@@ -1,4 +1,5 @@
 import assert from "assert";
+import crypto from "node:crypto";
 import {
   generatePaytrIframeToken,
   verifyPaytrCallbackHash,
@@ -240,7 +241,6 @@ export function runPaytrBillingTests() {
     const status = "success";
     const totalAmount = "9900";
 
-    const crypto = require("crypto");
     const hashStr = merchantOid + merchantSalt + status + totalAmount;
     const hmac = crypto.createHmac("sha256", merchantKey);
     hmac.update(hashStr);

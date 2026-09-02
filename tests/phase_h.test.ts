@@ -19,6 +19,9 @@ import {
 } from "@/lib/entitlements/service";
 import { ContentSafetyLevel } from "@prisma/client";
 import { CandidateMovie, UserTasteProfileInput } from "@/lib/calibration/types";
+import { COVERAGE_THRESHOLDS } from "@/lib/calibration/coverage";
+import { resolveLegacyAdultSignal } from "@/scripts/backfill-phase-h";
+import { resolveCanonicalGenreIds } from "@/lib/catalog/genres";
 
 export function runPhaseHTests() {
   console.log("=== SINEAI — PHASE H MASTER INTELLIGENCE, SAFETY & RANK V2 TESTS ===\n");
@@ -172,15 +175,12 @@ export function runPhaseHTests() {
   assert(recoveryScore.score > deepeningScore.score, "FAMILIARITY_RECOVERY boosts high popularity candidate over DEEPENING");
 
   // Coverage Threshold Invariants
-  const { COVERAGE_THRESHOLDS } = require("@/lib/calibration/coverage");
   assert(COVERAGE_THRESHOLDS.MIN_PROCESSED_COVERAGE === 0.95, "Minimum processed coverage is exactly 95%");
   assert(COVERAGE_THRESHOLDS.MIN_SEARCH_COVERAGE === 0.90, "Minimum search coverage is exactly 90%");
   assert(COVERAGE_THRESHOLDS.MIN_GENRE_COVERAGE === 0.85, "Minimum genre coverage is exactly 85%");
   assert(COVERAGE_THRESHOLDS.MAX_FAILED_RATIO === 0.01, "Maximum failed ratio is exactly 1%");
 
   // Legacy Adult Signal Resolution Tests
-  const { resolveLegacyAdultSignal } = require("@/scripts/backfill-phase-h");
-  
   // A. Legacy Movie: physical adult=false, metadata adult=true -> resolved adult=true
   const legacyMovieAdult = resolveLegacyAdultSignal(false, { adult: true });
   assert(legacyMovieAdult === true, "Legacy Movie with metadata adult=true resolves to adult=true");
@@ -236,8 +236,6 @@ export function runPhaseHTests() {
   assert(testStats.mature === 1, "MATURE increments mature count separately");
 
   // TV Genre Aliases Regression Tests
-  const { resolveCanonicalGenreIds } = require("@/lib/catalog/genres");
-  
   // Required TV aliases
   const realityIds = resolveCanonicalGenreIds(["Gerçeklik"], "TV");
   assert(realityIds.length === 1 && realityIds[0] === 10764, "Gerçeklik resolves to canonical TV Reality ID 10764");

@@ -337,6 +337,6 @@ export function runMovieNightVotingTests() {
   }
 }
 
-if (require.main === module) {
+if (typeof require !== "undefined" && require.main === module) {
   runMovieNightVotingTests();
 }

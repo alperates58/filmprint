@@ -430,7 +430,7 @@ async function main() {
   }
 }
 
-if (require.main === module) {
+if (typeof require !== "undefined" && require.main === module) {
   main()
     .then(() => process.exit(0))
     .catch((err) => {

@@ -29,6 +29,13 @@ export function middleware(request: NextRequest) {
   const isPublicApiRoute =
     pathname.startsWith("/api/auth") ||
     pathname === "/api/health" ||
+    pathname === "/api/version" ||
+    pathname === "/api/home" ||
+    pathname.startsWith("/api/search") ||
+    pathname.startsWith("/api/entitlements/me") ||
+    pathname.startsWith("/api/monetization/config") ||
+    pathname.startsWith("/api/billing/paytr/callback") ||
+    pathname.startsWith("/api/billing/status") ||
     pathname.startsWith("/api/admin");
 
   if (isApiRoute) {
@@ -56,8 +63,42 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 5. Unauthenticated user visiting protected UI routes -> Redirect to /auth
-  if (!authSessionToken) {
+  // 5. Public UI Routes allowlist (Accessible without login)
+  const isPublicUiRoute =
+    pathname === "/" ||
+    pathname === "/auth" ||
+    pathname === "/hakkimizda" ||
+    pathname === "/about" ||
+    pathname === "/iletisim" ||
+    pathname === "/contact" ||
+    pathname === "/gizlilik" ||
+    pathname === "/kvkk" ||
+    pathname === "/kullanim-kosullari" ||
+    pathname === "/mesafeli-satis-sozlesmesi" ||
+    pathname === "/iptal-iade" ||
+    pathname === "/teslimat" ||
+    pathname === "/cerez-politikasi" ||
+    pathname === "/premium" ||
+    pathname === "/how-it-works" ||
+    pathname === "/arama" ||
+    pathname === "/kesfet" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml" ||
+    pathname.startsWith("/legal/") ||
+    pathname.startsWith("/film/") ||
+    pathname.startsWith("/movie/") ||
+    pathname.startsWith("/dizi/") ||
+    pathname.startsWith("/tv/show/") ||
+    pathname.startsWith("/filmler/tur/") ||
+    pathname.startsWith("/diziler/tur/") ||
+    pathname.startsWith("/p/") ||
+    pathname.startsWith("/sitemaps/") ||
+    pathname.startsWith("/indexnow/") ||
+    pathname.startsWith("/billing/success") ||
+    pathname.startsWith("/billing/failed");
+
+  // 6. Unauthenticated user visiting protected UI routes -> Redirect to /auth
+  if (!isPublicUiRoute && !authSessionToken) {
     const authUrl = new URL("/auth", request.url);
     if (pathname !== "/") {
       authUrl.searchParams.set("returnTo", pathname);

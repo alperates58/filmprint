@@ -28,6 +28,7 @@ export default function PremiumPage() {
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual">("annual");
   const [ctaNotice, setCtaNotice] = useState<string | null>(null);
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
+  const [legalConsentAccepted, setLegalConsentAccepted] = useState(false);
 
   useEffect(() => {
     trackEvent({ name: "premium_page_view", params: { source: "navigation" } });
@@ -50,13 +51,20 @@ export default function PremiumPage() {
     });
 
     if (data?.billingReadiness?.isReady) {
+      if (!legalConsentAccepted) {
+        setCtaNotice("Lütfen devam etmeden önce Mesafeli Satış Sözleşmesi ve Ön Bilgilendirme koşullarını onaylayınız.");
+        return;
+      }
       setIsProcessingCheckout(true);
       setCtaNotice("Güvenli PayTR ödeme sayfasına yönlendiriliyorsunuz...");
       try {
         const res = await fetch("/api/billing/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ interval: plan === "monthly" ? "MONTHLY" : "YEARLY" }),
+          body: JSON.stringify({
+            interval: plan === "monthly" ? "MONTHLY" : "YEARLY",
+            legalConsentAccepted: true,
+          }),
         });
         const json = await res.json();
         if (res.ok && json.checkoutUrl) {
@@ -437,7 +445,34 @@ export default function PremiumPage() {
             </div>
 
             {/* Controlled CTA Box */}
-            <div className="p-6 rounded-3xl bg-gradient-to-b from-purple-950/30 via-zinc-900 to-zinc-950 border border-purple-500/30 text-center space-y-3">
+            <div className="p-6 rounded-3xl bg-gradient-to-b from-purple-950/30 via-zinc-900 to-zinc-950 border border-purple-500/30 text-center space-y-4">
+              {data?.billingReadiness?.isReady && (
+                <div className="p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-left space-y-3 text-xs">
+                  <div className="font-bold text-zinc-200 border-b border-zinc-800 pb-2 flex items-center justify-between">
+                    <span>Sipariş Özeti & Dijital Teslimat</span>
+                    <span className="text-xs font-mono font-bold text-purple-300">
+                      {selectedPlan === "annual" ? data?.pricing?.annualPrice : data?.pricing?.monthlyPrice} {data?.pricing?.currency || "TL"}
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 text-zinc-400 text-[11px]">
+                    <p>• <strong>Dijital İfa:</strong> Ödeme onayıyla birlikte Premium özellikler hesabınıza anında tanımlanır.</p>
+                    <p>• <strong>Yenileme:</strong> {selectedPlan === "annual" ? "Yıllık periyotlarla" : "Aylık periyotlarla"} otomatik yenilenir, dilediğiniz an iptal edebilirsiniz.</p>
+                    <p>• <strong>İptal:</strong> İptal durumunda dönem sonuna kadar erişiminiz kesintisiz sürer.</p>
+                  </div>
+                  <label className="flex items-start gap-2.5 pt-2 border-t border-zinc-800 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={legalConsentAccepted}
+                      onChange={(e) => setLegalConsentAccepted(e.target.checked)}
+                      className="mt-0.5 rounded border-zinc-700 text-purple-600 focus:ring-purple-500 bg-zinc-800 cursor-pointer"
+                    />
+                    <span className="text-[11px] text-zinc-300 leading-snug">
+                      <Link href="/mesafeli-satis-sozlesmesi" target="_blank" className="text-purple-400 hover:underline font-medium">Mesafeli Satış Sözleşmesi</Link> ve <Link href="/teslimat" target="_blank" className="text-purple-400 hover:underline font-medium">Ön Bilgilendirme / Dijital Teslimat</Link> koşullarını okudum ve kabul ediyorum.
+                    </span>
+                  </label>
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={() => handleCtaClick(selectedPlan)}

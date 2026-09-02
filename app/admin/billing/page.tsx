@@ -42,6 +42,71 @@ export default async function AdminBillingPage() {
           </div>
         </div>
 
+        {/* 0. PayTR Merchant Review Readiness Card */}
+        <div className="p-6 rounded-2xl bg-surface-1 border border-accent/30 space-y-4 shadow-sm font-sans">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">🛡️</span>
+              <div>
+                <h2 className="font-display text-base font-bold text-text-primary">
+                  PayTR İnceleme Hazırlığı (Merchant Review Readiness)
+                </h2>
+                <p className="text-xs text-text-muted">
+                  Bireysel / Freelancer başvuru modeli ve yasal uyumluluk denetim paneli
+                </p>
+              </div>
+            </div>
+
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-mono font-semibold">
+              <span>👤</span>
+              <span>{data.reviewReadiness.operatorBadge}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            {data.reviewReadiness.checks.map((check) => (
+              <div
+                key={check.key}
+                className="p-3 rounded-xl bg-surface-2 border border-border flex flex-col justify-between space-y-1.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-text-primary text-[11px] truncate">
+                    {check.label}
+                  </span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                      check.status === "READY"
+                        ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                        : check.status === "INFO"
+                        ? "bg-blue-500/15 text-blue-400 border border-blue-500/30"
+                        : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                    }`}
+                  >
+                    {check.status === "READY"
+                      ? "✓ HAZIR"
+                      : check.status === "INFO"
+                      ? "BİLGİ"
+                      : "BEKLİYOR"}
+                  </span>
+                </div>
+                <div className="text-[11px] text-text-muted">
+                  {check.href ? (
+                    <Link
+                      href={check.href}
+                      target="_blank"
+                      className="text-accent hover:underline font-mono text-[10px]"
+                    >
+                      {check.detail} ↗
+                    </Link>
+                  ) : (
+                    <span className="font-mono text-[10px]">{check.detail}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* 1. PayTR Provider Status Card */}
         <div className="p-6 rounded-2xl bg-surface-1 border border-border space-y-4 shadow-sm font-sans">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">

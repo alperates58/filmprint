@@ -226,6 +226,6 @@ export function runTvDiscoveryQualityTests() {
   }
 }
 
-if (require.main === module) {
+if (typeof require !== "undefined" && require.main === module) {
   runTvDiscoveryQualityTests();
 }

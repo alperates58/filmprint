@@ -11,7 +11,7 @@ export function Footer() {
   return (
     <footer className="w-full border-t border-border/80 bg-surface-1/80 backdrop-blur-md mt-16 text-text-secondary">
       <div className="max-w-6xl mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           {/* Brand Col */}
           <div className="space-y-4 md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5 group">
@@ -31,7 +31,7 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Nav Links */}
+          {/* Keşfet */}
           <div className="space-y-3">
             <h4 className="font-display text-xs font-bold text-text-primary uppercase tracking-wider">
               Keşfet
@@ -58,56 +58,76 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href={isTvMode ? "/library?mediaType=TV" : "/library?mediaType=FILM"} className="hover:text-accent transition-colors">
-                  📚 {isTvMode ? "Dizilerim" : "Filmlerim"}
+                <Link href="/premium" className="hover:text-accent transition-colors text-accent font-semibold">
+                  👑 SINEAI Premium
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Engine & Science */}
+          {/* Kurumsal */}
           <div className="space-y-3">
             <h4 className="font-display text-xs font-bold text-text-primary uppercase tracking-wider">
-              Sistem & Bilim
+              Kurumsal
             </h4>
             <ul className="space-y-2 text-xs font-sans font-medium">
               <li>
-                <Link href="/how-it-works" className="hover:text-accent transition-colors font-semibold text-accent">
-                  🧪 Nasıl Çalışıyor? (Formüller)
+                <Link href="/hakkimizda" className="hover:text-accent transition-colors">
+                  🏢 Hakkımızda
                 </Link>
               </li>
               <li>
-                <Link href="/about" className="hover:text-accent transition-colors">
-                  🏢 Biz Kimiz?
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="hover:text-accent transition-colors">
+                <Link href="/iletisim" className="hover:text-accent transition-colors">
                   📬 İletişim & Destek
                 </Link>
               </li>
+              <li>
+                <Link href="/how-it-works" className="hover:text-accent transition-colors">
+                  🧪 Nasıl Çalışıyor? (Formüller)
+                </Link>
+              </li>
             </ul>
           </div>
 
-          {/* Legal & Copyright */}
+          {/* Yasal */}
           <div className="space-y-3">
             <h4 className="font-display text-xs font-bold text-text-primary uppercase tracking-wider">
-              Yasal & Telif
+              Yasal
             </h4>
             <ul className="space-y-2 text-xs font-sans font-medium">
               <li>
-                <Link href="/legal/terms" className="hover:text-accent transition-colors">
+                <Link href="/kullanim-kosullari" className="hover:text-accent transition-colors">
                   📜 Kullanım Koşulları
                 </Link>
               </li>
               <li>
-                <Link href="/legal/privacy" className="hover:text-accent transition-colors">
-                  🔒 Gizlilik Politikası & KVKK
+                <Link href="/gizlilik" className="hover:text-accent transition-colors">
+                  🔒 Gizlilik Politikası
                 </Link>
               </li>
               <li>
-                <Link href="/legal/copyright" className="hover:text-accent transition-colors">
-                  ⚖️ Telif Hakları & Bildirimler
+                <Link href="/kvkk" className="hover:text-accent transition-colors">
+                  ⚖️ KVKK Aydınlatma Metni
+                </Link>
+              </li>
+              <li>
+                <Link href="/mesafeli-satis-sozlesmesi" className="hover:text-accent transition-colors">
+                  📋 Mesafeli Satış Sözleşmesi
+                </Link>
+              </li>
+              <li>
+                <Link href="/iptal-iade" className="hover:text-accent transition-colors">
+                  🔄 İptal ve İade Koşulları
+                </Link>
+              </li>
+              <li>
+                <Link href="/teslimat" className="hover:text-accent transition-colors">
+                  ⚡ Dijital Hizmet Teslimatı
+                </Link>
+              </li>
+              <li>
+                <Link href="/cerez-politikasi" className="hover:text-accent transition-colors">
+                  🍪 Çerez Politikası
                 </Link>
               </li>
             </ul>
@@ -117,7 +137,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="pt-6 border-t border-border/60 flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-sans text-text-muted">
           <div>
-            SINEAI &copy; {new Date().getFullYear()} — Tüm Hakları Saklıdır.
+            SINEAI &copy; {new Date().getFullYear()} — Bireysel Dijital Hizmet Platformu. Tüm Hakları Saklıdır.
           </div>
           <div className="text-xs text-text-muted text-center md:text-right font-mono">
             Matematiksel Modeller • Şeffaf Algoritma • Kişiselleştirilmiş Öneri
@@ -127,3 +147,4 @@ export function Footer() {
     </footer>
   );
 }
+

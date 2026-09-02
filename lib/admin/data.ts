@@ -497,16 +497,20 @@ export async function getAdminUsersData(
 
   const userIds = users.map((u: any) => u.id);
   const [movieWatchedCounts, tvWatchedCounts] = await Promise.all([
-    db.movieInteraction.groupBy({
-      by: ["userId"],
-      where: { userId: { in: userIds }, status: "WATCHED" },
-      _count: { movieId: true },
-    }).catch(() => []),
-    db.tvInteraction.groupBy({
-      by: ["userId"],
-      where: { userId: { in: userIds }, status: "WATCHED" },
-      _count: { tvShowId: true },
-    }).catch(() => []),
+    db?.movieInteraction?.groupBy
+      ? db.movieInteraction.groupBy({
+          by: ["userId"],
+          where: { userId: { in: userIds }, status: "WATCHED" },
+          _count: { movieId: true },
+        }).catch(() => [])
+      : [],
+    db?.tvInteraction?.groupBy
+      ? db.tvInteraction.groupBy({
+          by: ["userId"],
+          where: { userId: { in: userIds }, status: "WATCHED" },
+          _count: { tvShowId: true },
+        }).catch(() => [])
+      : [],
   ]);
 
   const movieWatchedMap = new Map(movieWatchedCounts.map((w: any) => [w.userId, Number(w._count.movieId) || 0]));

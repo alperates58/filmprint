@@ -1,6 +1,6 @@
 import { db } from "@/lib/db/client";
 import { encryptSecret, decryptSecret } from "@/lib/security/crypto";
-import {
+import type {
   PaytrConfig,
   MaskedPaytrConfig,
   PaytrProviderLifecycle,

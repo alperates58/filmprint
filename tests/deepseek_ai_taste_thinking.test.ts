@@ -6,15 +6,8 @@ export async function runDeepSeekAiTasteThinkingTests() {
   console.log("\n🧪 Running DeepSeek AI Taste Thinking & Structured Output Tests...");
 
   const originalFetch = global.fetch;
-  const originalGetConfig = configService.getDeepSeekConfig;
-
-  // Mock config
-  (configService as any).getDeepSeekConfig = async () => ({
-    enabled: true,
-    apiKey: "sk-test-secret-key-123456",
-    baseUrl: "https://api.deepseek.com",
-    modelId: "deepseek-v4-flash",
-  });
+  const originalEnvApiKey = process.env.DEEPSEEK_API_KEY;
+  process.env.DEEPSEEK_API_KEY = "sk-test-secret-key-123456";
 
   const validTasteJson = {
     schemaVersion: 1,
@@ -249,6 +242,10 @@ export async function runDeepSeekAiTasteThinkingTests() {
     console.log("  ✅ All DeepSeek AI Taste Thinking & Structured Output Tests Passed!\n");
   } finally {
     global.fetch = originalFetch;
-    (configService as any).getDeepSeekConfig = originalGetConfig;
+    if (originalEnvApiKey !== undefined) {
+      process.env.DEEPSEEK_API_KEY = originalEnvApiKey;
+    } else {
+      delete process.env.DEEPSEEK_API_KEY;
+    }
   }
 }

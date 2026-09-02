@@ -107,14 +107,14 @@ export function Header({
         </div>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-2 lg:gap-4 flex-shrink-0">
-          <nav className="flex items-center gap-1 text-sm font-sans font-medium">
+        <div className="hidden md:flex items-center gap-1.5 lg:gap-2.5 xl:gap-3.5 flex-shrink min-w-0">
+          <nav className="flex items-center gap-0.5 xl:gap-1 text-xs xl:text-sm font-sans font-medium">
             {!isTvMode ? (
               // Movie Mode Navigation Links
               <>
                 <Link
                   href="/"
-                  className={`px-3 py-2 rounded-xl transition-all ${
+                  className={`px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl transition-all whitespace-nowrap ${
                     pathname === "/"
                       ? "bg-surface-2 text-text-primary font-semibold border border-border-strong"
                       : "text-text-secondary hover:text-text-primary"
@@ -125,7 +125,7 @@ export function Header({
 
                 <Link
                   href="/calibrate"
-                  className={`px-3 py-2 rounded-xl transition-all ${
+                  className={`px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl transition-all whitespace-nowrap ${
                     pathname === "/calibrate"
                       ? "bg-surface-2 text-text-primary font-semibold border border-border-strong"
                       : "text-text-secondary hover:text-text-primary"
@@ -136,7 +136,7 @@ export function Header({
 
                 <Link
                   href="/profile"
-                  className={`px-3 py-2 rounded-xl transition-all ${
+                  className={`px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl transition-all whitespace-nowrap ${
                     pathname === "/profile"
                       ? "bg-accent-subtle text-accent font-semibold border border-accent/30"
                       : "text-text-secondary hover:text-text-primary"
@@ -147,7 +147,7 @@ export function Header({
 
                 <Link
                   href="/recommendations"
-                  className={`px-3 py-2 rounded-xl transition-all ${
+                  className={`px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl transition-all whitespace-nowrap ${
                     pathname === "/recommendations"
                       ? "bg-surface-2 text-text-primary font-semibold border border-border-strong"
                       : "text-text-secondary hover:text-text-primary"
@@ -159,7 +159,7 @@ export function Header({
                 {/* Regression fixed: Filmlerim points to /library?mediaType=FILM */}
                 <Link
                   href="/library?mediaType=FILM"
-                  className={`px-3 py-2 rounded-xl transition-all ${
+                  className={`px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl transition-all whitespace-nowrap ${
                     pathname.startsWith("/library")
                       ? "bg-surface-2 text-text-primary font-semibold border border-border-strong"
                       : "text-text-secondary hover:text-text-primary"
@@ -170,7 +170,7 @@ export function Header({
 
                 <Link
                   href="/night"
-                  className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl transition-all items-center gap-1 whitespace-nowrap hidden lg:flex ${
                     pathname.startsWith("/night")
                       ? "bg-accent-secondary-subtle text-accent-secondary font-semibold border border-accent-secondary/30"
                       : "text-accent-secondary hover:bg-accent-secondary-subtle/50"
@@ -181,28 +181,15 @@ export function Header({
                 </Link>
 
                 <Link
-                  href="/arama"
-                  className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
-                    pathname === "/arama"
-                      ? "bg-surface-2 text-text-primary font-semibold border border-border-strong"
-                      : "text-text-secondary hover:text-text-primary"
-                  }`}
-                  title="Detaylı Film & Dizi Arama"
-                >
-                  <span>🔍</span>
-                  <span>Arama</span>
-                </Link>
-
-                <Link
                   href="/kesfet"
-                  className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 font-semibold text-xs tracking-wide ${
+                  className={`px-2.5 py-1.5 xl:px-3.5 xl:py-2 rounded-xl transition-all flex items-center gap-1 font-semibold text-xs tracking-wide whitespace-nowrap ${
                     pathname === "/kesfet"
                       ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30 border border-purple-400"
                       : "bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 hover:text-white border border-purple-500/30"
                   }`}
                 >
                   <span className="animate-pulse">✨</span>
-                  <span>AI İle Keşfet</span>
+                  <span>AI Keşfet</span>
                 </Link>
               </>
             ) : (
@@ -210,7 +197,7 @@ export function Header({
               <>
                 <Link
                   href="/tv"
-                  className={`px-3 py-2 rounded-xl transition-all ${
+                  className={`px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl transition-all whitespace-nowrap ${
                     pathname === "/tv"
                       ? "bg-surface-2 text-text-primary font-semibold border border-border-strong"
                       : "text-text-secondary hover:text-text-primary"
@@ -221,7 +208,7 @@ export function Header({
 
                 <Link
                   href="/tv/calibration"
-                  className={`px-3 py-2 rounded-xl transition-all ${
+                  className={`px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl transition-all whitespace-nowrap ${
                     pathname === "/tv/calibration"
                       ? "bg-surface-2 text-text-primary font-semibold border border-border-strong"
                       : "text-text-secondary hover:text-text-primary"
@@ -232,7 +219,7 @@ export function Header({
 
                 <Link
                   href="/tv/profile"
-                  className={`px-3 py-2 rounded-xl transition-all ${
+                  className={`px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl transition-all whitespace-nowrap ${
                     pathname === "/tv/profile"
                       ? "bg-accent-subtle text-accent font-semibold border border-accent/30"
                       : "text-text-secondary hover:text-text-primary"
@@ -243,7 +230,7 @@ export function Header({
 
                 <Link
                   href="/tv/recommendations"
-                  className={`px-3 py-2 rounded-xl transition-all ${
+                  className={`px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl transition-all whitespace-nowrap ${
                     pathname === "/tv/recommendations"
                       ? "bg-surface-2 text-text-primary font-semibold border border-border-strong"
                       : "text-text-secondary hover:text-text-primary"
@@ -255,7 +242,7 @@ export function Header({
                 {/* Regression fixed: Dizilerim points to /library?mediaType=TV */}
                 <Link
                   href="/library?mediaType=TV"
-                  className={`px-3 py-2 rounded-xl transition-all ${
+                  className={`px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl transition-all whitespace-nowrap ${
                     pathname.startsWith("/library")
                       ? "bg-surface-2 text-text-primary font-semibold border border-border-strong"
                       : "text-text-secondary hover:text-text-primary"
@@ -265,74 +252,61 @@ export function Header({
                 </Link>
 
                 <Link
-                  href="/arama?mediaType=TV"
-                  className={`px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
-                    pathname === "/arama"
-                      ? "bg-surface-2 text-text-primary font-semibold border border-border-strong"
-                      : "text-text-secondary hover:text-text-primary"
-                  }`}
-                  title="Detaylı Dizi Arama"
-                >
-                  <span>🔍</span>
-                  <span>Arama</span>
-                </Link>
-
-                <Link
                   href="/kesfet"
-                  className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 font-semibold text-xs tracking-wide ${
+                  className={`px-2.5 py-1.5 xl:px-3.5 xl:py-2 rounded-xl transition-all flex items-center gap-1 font-semibold text-xs tracking-wide whitespace-nowrap ${
                     pathname === "/kesfet"
                       ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30 border border-purple-400"
                       : "bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 hover:text-white border border-purple-500/30"
                   }`}
                 >
                   <span className="animate-pulse">✨</span>
-                  <span>AI İle Keşfet</span>
+                  <span>AI Keşfet</span>
                 </Link>
               </>
             )}
           </nav>
 
           {/* Desktop Live Search Box */}
-          <div className="w-44 lg:w-56 xl:w-72">
+          <div className="w-36 md:w-40 lg:w-48 xl:w-60 min-w-[130px] flex-shrink">
             <LiveSearchBox placeholder={isTvMode ? "Dizi ara..." : "Film ara..."} />
           </div>
 
           {/* User Profile & Rank Dropdown */}
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <button
               onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-              className="flex items-center gap-2.5 p-1.5 pr-3 rounded-2xl bg-surface-2 border border-border hover:border-accent/40 transition-all text-xs font-sans"
+              className="flex items-center gap-2 p-1.5 pr-2.5 rounded-2xl bg-surface-2 border border-border hover:border-accent/40 transition-all text-xs font-sans flex-shrink-0"
               aria-label="Kullanıcı Menüsü"
             >
               {avatar ? (
                 <img
                   src={avatar}
                   alt={displayName}
-                  className="w-7 h-7 rounded-xl object-cover border border-border"
+                  className="w-7 h-7 rounded-xl object-cover border border-border flex-shrink-0"
                 />
               ) : (
-                <div className="w-7 h-7 rounded-xl bg-accent-subtle border border-accent/30 text-accent font-bold flex items-center justify-center">
+                <div className="w-7 h-7 rounded-xl bg-accent-subtle border border-accent/30 text-accent font-bold flex items-center justify-center flex-shrink-0">
                   {displayName ? displayName.charAt(0).toUpperCase() : "👤"}
                 </div>
               )}
 
-              <div className="flex flex-col items-start text-left">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-text-primary line-clamp-1 max-w-[100px]">
+              <div className="flex flex-col items-start text-left min-w-0">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-semibold text-text-primary truncate max-w-[70px] lg:max-w-[95px] xl:max-w-[120px]">
                     {displayName || "Hesabım"}
                   </span>
                   {isPremium ? (
-                    <span className="px-1.5 py-0.2 rounded-full bg-purple-950/90 border border-purple-500/50 text-purple-300 text-[9px] font-mono font-bold flex items-center gap-0.5 shadow-sm">
+                    <span className="px-1.5 py-0.5 rounded-full bg-purple-950/90 border border-purple-500/50 text-purple-300 text-[9px] font-mono font-bold flex items-center gap-0.5 shadow-sm">
                       <span>👑</span>
                       <span>PREMIUM</span>
                     </span>
                   ) : (
-                    <span className="px-1.5 py-0.2 rounded bg-surface-3 text-text-muted text-[9px] font-mono">
+                    <span className="px-1.5 py-0.5 rounded bg-surface-3 text-text-muted text-[9px] font-mono">
                       FREE
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] font-mono text-text-muted">
+                <span className="text-[10px] font-mono text-text-muted truncate max-w-[70px] lg:max-w-[95px] xl:max-w-[120px]">
                   {progression.currentRank.label}
                 </span>
               </div>
@@ -558,7 +532,7 @@ export function Header({
 
       {/* Mobile Expandable Search Bar */}
       {mobileSearchOpen && (
-        <div className="md:hidden px-3 pb-3 pt-1 border-t border-border/60 bg-surface-1 animate-fadeIn">
+        <div className="md:hidden px-3 pb-3 pt-2 border-t border-border/80 bg-[#121622] animate-fadeIn shadow-2xl relative z-50">
           <LiveSearchBox
             placeholder={isTvMode ? "Dizi ara..." : "Film ara..."}
             onSelect={() => setMobileSearchOpen(false)}

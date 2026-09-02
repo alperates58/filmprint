@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
@@ -165,8 +165,8 @@ export function LiveSearchBox({
 
       {/* Autocomplete Dropdown Menu */}
       {isOpen && query.trim().length >= 2 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-surface-1/95 backdrop-blur-xl border border-border/80 rounded-2xl shadow-2xl overflow-hidden z-50 animate-fadeIn max-h-[420px] flex flex-col">
-          <div className="overflow-y-auto overscroll-contain divide-y divide-border/40 scrollbar-none flex-1">
+        <div className="absolute top-full left-0 sm:left-auto sm:right-0 mt-2 w-full sm:w-[420px] md:w-[460px] bg-[#121622] border border-white/15 rounded-2xl shadow-2xl overflow-hidden z-50 animate-fadeIn max-h-[75vh] sm:max-h-[460px] flex flex-col">
+          <div className="overflow-y-auto overscroll-contain divide-y divide-white/5 scrollbar-none flex-1">
             {results.length > 0 ? (
               results.map((item, index) => {
                 const posterUrl = item.posterPath ? getTmdbImageUrl(item.posterPath, "w185") : null;
@@ -180,85 +180,97 @@ export function LiveSearchBox({
                       setIsOpen(false);
                       if (onSelect) onSelect();
                     }}
-                    className={`flex items-center gap-3 p-2.5 sm:p-3 transition-colors ${
-                      isSelected ? "bg-accent/15" : "hover:bg-surface-2/80"
+                    className={`flex items-center gap-3 p-3 transition-colors group ${
+                      isSelected ? "bg-accent/20 border-l-2 border-accent" : "hover:bg-white/[0.05]"
                     }`}
                   >
                     {/* Poster Thumbnail */}
-                    <div className="w-9 h-13 sm:w-10 sm:h-14 rounded-lg bg-surface-2 overflow-hidden relative flex-shrink-0 border border-border/60">
+                    <div className="w-11 h-16 rounded-lg bg-[#191e2d] overflow-hidden relative flex-shrink-0 border border-white/10 shadow-sm">
                       {posterUrl ? (
                         <Image
                           src={posterUrl}
                           alt={item.title}
                           fill
-                          sizes="40px"
-                          className="object-cover"
+                          sizes="44px"
+                          className="object-cover group-hover:scale-105 transition-transform"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs text-text-muted">
-                          🎬
+                        <div className="w-full h-full flex items-center justify-center text-base text-text-muted">
+                          {item.mediaType === "FILM" ? "🎬" : "📺"}
                         </div>
                       )}
                     </div>
 
                     {/* Metadata */}
-                    <div className="flex-1 min-w-0 space-y-0.5">
+                    <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`px-1.5 py-0.2 text-[9px] font-mono font-bold rounded ${
+                          className={`px-1.5 py-0.5 text-[9px] font-mono font-bold rounded ${
                             item.mediaType === "FILM"
-                              ? "bg-blue-500/15 text-blue-400 border border-blue-500/30"
-                              : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                              ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                              : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
                           }`}
                         >
                           {item.mediaType === "FILM" ? "FİLM" : "DİZİ"}
                         </span>
                         {item.releaseYear && (
-                          <span className="text-[11px] font-mono text-text-muted">
+                          <span className="text-xs font-mono text-text-muted">
                             {item.releaseYear}
                           </span>
                         )}
                         {item.voteAverage > 0 && (
-                          <span className="text-[11px] font-bold text-amber-400 flex items-center gap-0.5">
+                          <span className="text-xs font-bold text-amber-400 flex items-center gap-0.5">
                             <span>★</span>
                             <span>{item.voteAverage.toFixed(1)}</span>
                           </span>
                         )}
                       </div>
 
-                      <p className="text-xs sm:text-sm font-semibold text-text-primary truncate font-sans">
+                      <p className="text-xs sm:text-sm font-bold text-text-primary group-hover:text-accent transition-colors truncate font-sans">
                         {item.title}
                       </p>
 
-                      {item.originalTitle && item.originalTitle !== item.title && (
-                        <p className="text-[11px] text-text-muted italic truncate font-sans">
-                          {item.originalTitle}
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2 text-[11px] text-text-muted truncate">
+                        {item.originalTitle && item.originalTitle !== item.title && (
+                          <span className="italic truncate max-w-[140px]">
+                            {item.originalTitle}
+                          </span>
+                        )}
+                        {item.genres && item.genres.length > 0 && (
+                          <span className="text-text-secondary truncate">
+                            {item.genres.slice(0, 3).join(", ")}
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    <span className="text-text-muted group-hover:text-accent text-xs transition-colors flex-shrink-0">
+                      →
+                    </span>
                   </Link>
                 );
               })
             ) : !isLoading ? (
-              <div className="p-6 text-center text-text-muted text-xs space-y-1">
-                <p>Eşleşen sonuç bulunamadı.</p>
-                <p className="text-[11px] text-text-secondary">Farklı bir arama terimi veya oyuncu adı deneyin.</p>
+              <div className="p-6 text-center text-text-muted text-xs space-y-1.5">
+                <div className="text-xl">🔍</div>
+                <p className="font-semibold text-text-secondary">Eşleşen sonuç bulunamadı.</p>
+                <p className="text-[11px]">Farklı bir arama terimi veya oyuncu adı deneyin.</p>
               </div>
             ) : null}
           </div>
 
           {/* Footer Action: Detailed Search */}
-          <div className="p-2.5 bg-surface-2/60 border-t border-border/60 flex items-center justify-between text-xs font-sans">
+          <div className="p-2.5 bg-[#161b2a] border-t border-white/10 flex items-center justify-between text-xs font-sans">
             <Link
               href={`/arama?q=${encodeURIComponent(query.trim())}`}
               onClick={() => {
                 setIsOpen(false);
                 if (onSelect) onSelect();
               }}
-              className="w-full text-center py-1.5 px-3 rounded-xl bg-accent-subtle hover:bg-accent/20 border border-accent/30 text-accent font-semibold flex items-center justify-center gap-1.5 transition-all"
+              className="w-full text-center py-2 px-3 rounded-xl bg-accent-subtle hover:bg-accent/20 border border-accent/30 text-accent font-semibold flex items-center justify-center gap-2 transition-all"
             >
               <span>🔍</span>
-              <span>"{query.trim()}" için Detaylı Arama Yap →</span>
+              <span className="truncate">"{query.trim()}" için Detaylı Arama Yap →</span>
             </Link>
           </div>
         </div>

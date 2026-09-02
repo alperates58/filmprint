@@ -3,6 +3,28 @@
 @tailwind utilities;
 
 :root {
+  /* RGB channel definitions for Tailwind opacity modifier support */
+  --bg-base-rgb: 11, 13, 20;
+  --bg-subtle-rgb: 15, 18, 26;
+  --surface-rgb: 18, 22, 34;
+  --surface-1-rgb: 18, 22, 34;
+  --surface-2-rgb: 25, 30, 45;
+  --surface-3-rgb: 34, 40, 58;
+  --surface-elevated-rgb: 25, 30, 45;
+  --accent-rgb: 124, 92, 252;
+  --accent-hover-rgb: 146, 119, 255;
+  --accent-secondary-rgb: 255, 101, 79;
+  --accent-secondary-hover-rgb: 255, 124, 104;
+  --text-primary-rgb: 248, 250, 252;
+  --text-secondary-rgb: 148, 163, 184;
+  --text-muted-rgb: 100, 116, 139;
+  --border-rgb: 255, 255, 255;
+  --border-focused-rgb: 124, 92, 252;
+  --success-rgb: 40, 215, 161;
+  --warning-rgb: 245, 158, 11;
+  --destructive-rgb: 239, 68, 68;
+  --info-rgb: 56, 189, 248;
+
   /* V2 Base Canvas & Surfaces (Deep Midnight Navy & Graphite) */
   --bg-base: #0b0d14;
   --bg-subtle: #0f121a;

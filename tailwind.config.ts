@@ -1,5 +1,14 @@
 import type { Config } from "tailwindcss";
 
+function withOpacity(variableName: string, rgbVarName: string) {
+  return ({ opacityValue }: { opacityValue?: string }) => {
+    if (opacityValue !== undefined) {
+      return `rgba(var(${rgbVarName}), ${opacityValue})`;
+    }
+    return `var(${variableName})`;
+  };
+}
+
 const config: Config = {
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -9,32 +18,32 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        "bg-base": "var(--bg-base)",
-        "bg-subtle": "var(--bg-subtle)",
-        surface: "var(--surface)",
-        "surface-1": "var(--surface-1)",
-        "surface-2": "var(--surface-2)",
-        "surface-3": "var(--surface-3)",
-        "surface-elevated": "var(--surface-elevated)",
+        background: withOpacity("--background", "--bg-base-rgb"),
+        "bg-base": withOpacity("--bg-base", "--bg-base-rgb"),
+        "bg-subtle": withOpacity("--bg-subtle", "--bg-subtle-rgb"),
+        surface: withOpacity("--surface", "--surface-rgb"),
+        "surface-1": withOpacity("--surface-1", "--surface-1-rgb"),
+        "surface-2": withOpacity("--surface-2", "--surface-2-rgb"),
+        "surface-3": withOpacity("--surface-3", "--surface-3-rgb"),
+        "surface-elevated": withOpacity("--surface-elevated", "--surface-elevated-rgb"),
         "surface-glass": "var(--surface-glass)",
         border: "var(--border)",
         "border-subtle": "var(--border-subtle)",
         "border-strong": "var(--border-strong)",
-        "border-focused": "var(--border-focused)",
-        "text-primary": "var(--text-primary)",
-        "text-secondary": "var(--text-secondary)",
-        "text-muted": "var(--text-muted)",
-        accent: "var(--accent)",
-        "accent-hover": "var(--accent-hover)",
+        "border-focused": withOpacity("--border-focused", "--border-focused-rgb"),
+        "text-primary": withOpacity("--text-primary", "--text-primary-rgb"),
+        "text-secondary": withOpacity("--text-secondary", "--text-secondary-rgb"),
+        "text-muted": withOpacity("--text-muted", "--text-muted-rgb"),
+        accent: withOpacity("--accent", "--accent-rgb"),
+        "accent-hover": withOpacity("--accent-hover", "--accent-hover-rgb"),
         "accent-subtle": "var(--accent-subtle)",
-        "accent-secondary": "var(--accent-secondary)",
-        "accent-secondary-hover": "var(--accent-secondary-hover)",
+        "accent-secondary": withOpacity("--accent-secondary", "--accent-secondary-rgb"),
+        "accent-secondary-hover": withOpacity("--accent-secondary-hover", "--accent-secondary-hover-rgb"),
         "accent-secondary-subtle": "var(--accent-secondary-subtle)",
-        success: "var(--success)",
-        warning: "var(--warning)",
-        destructive: "var(--destructive)",
-        info: "var(--info)",
+        success: withOpacity("--success", "--success-rgb"),
+        warning: withOpacity("--warning", "--warning-rgb"),
+        destructive: withOpacity("--destructive", "--destructive-rgb"),
+        info: withOpacity("--info", "--info-rgb"),
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],

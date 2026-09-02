@@ -217,7 +217,7 @@ export async function handlePaytrCallback(payload: PaytrCallbackPayload): Promis
 
   // 3. Atomic Database Transaction
   try {
-    await db.$transaction(async (tx) => {
+    await db.$transaction(async (tx: any) => {
       // A. Upsert Webhook Event
       await tx.billingWebhookEvent.upsert({
         where: {
@@ -343,7 +343,7 @@ export async function handlePaytrCallback(payload: PaytrCallbackPayload): Promis
         });
 
         const isManualWithFartherEnd =
-          existingEntitlement?.source === EntitlementSource.MANUAL &&
+          existingEntitlement?.source === EntitlementSource.ADMIN_MANUAL &&
           existingEntitlement?.validUntil &&
           existingEntitlement.validUntil > periodEnd;
 
@@ -352,13 +352,13 @@ export async function handlePaytrCallback(payload: PaytrCallbackPayload): Promis
             where: { userId: payment.userId },
             update: {
               tier: SubscriptionTier.PREMIUM,
-              source: EntitlementSource.BILLING,
+              source: EntitlementSource.PAYTR_BILLING,
               validUntil: periodEnd,
             },
             create: {
               userId: payment.userId,
               tier: SubscriptionTier.PREMIUM,
-              source: EntitlementSource.BILLING,
+              source: EntitlementSource.PAYTR_BILLING,
               validUntil: periodEnd,
             },
           });

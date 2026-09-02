@@ -264,7 +264,7 @@ export async function reserveDailyQuota(
   const reservationId = `res_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 
   try {
-    const result = await db.$transaction(async (tx) => {
+    const result = await db.$transaction(async (tx: any) => {
       // 1. Ensure daily usage record exists
       await tx.featureUsageDaily.upsert({
         where: {
@@ -467,7 +467,7 @@ export async function refundDailyQuotaReservation(reservationId: string): Promis
   if (!reservationId) return false;
 
   try {
-    return await db.$transaction(async (tx) => {
+    return await db.$transaction(async (tx: any) => {
       // 1. Atomic conditional transition: RESERVED -> REFUNDED
       const updated = await tx.quotaReservation.updateMany({
         where: {

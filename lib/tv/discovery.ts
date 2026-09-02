@@ -20,9 +20,9 @@ export const TV_DISCOVERY_EXCLUDED_GENRE_IDS = [10762, 10763, 10767] as const;
  * - RELATED / SIMILAR
  */
 export function buildAutomaticTvDiscoveryWhere(
-  extraWhere: Prisma.TvShowWhereInput = {}
-): Prisma.TvShowWhereInput {
-  const notConditions: Prisma.TvShowWhereInput[] = [];
+  extraWhere: Record<string, any> = {}
+): Record<string, any> {
+  const notConditions: any[] = [];
 
   // Exclude canonical hard genres at the physical DB level
   notConditions.push({

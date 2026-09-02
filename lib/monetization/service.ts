@@ -197,7 +197,7 @@ export async function getPlacements(): Promise<SafePlacementConfig[]> {
       orderBy: { position: "asc" },
     }).catch(() => []);
 
-    const dbMap = new Map<string, (typeof dbPlacements)[0]>(dbPlacements.map((p) => [p.key, p]));
+    const dbMap = new Map<string, any>((dbPlacements as any[]).map((p: any) => [p.key, p]));
 
     const result: SafePlacementConfig[] = [];
 
@@ -498,7 +498,7 @@ export async function getAdSenseInventoryUnits(): Promise<AdSenseInventoryUnitSu
     orderBy: { displayName: "asc" },
   });
 
-  return units.map((u) => ({
+  return (units as any[]).map((u: any) => ({
     id: u.id,
     providerResourceName: u.providerResourceName,
     reportingDimensionId: u.reportingDimensionId,

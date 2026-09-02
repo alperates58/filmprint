@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     }
 
     // Upsert interaction in database transaction
-    await db.$transaction(async (tx) => {
+    await db.$transaction(async (tx: any) => {
       await tx.movieInteraction.upsert({
         where: {
           userId_movieId: {

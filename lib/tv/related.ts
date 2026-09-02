@@ -95,7 +95,7 @@ export async function getRelatedTvShowsForShow(
       for (const rec of tmdbRecommendations) {
         if (!rec.id || seenTmdbIds.has(rec.id) || !rec.poster_path || rec.adult) continue;
 
-        let dbShow = await db.tvShow.findUnique({
+        let dbShow: RelatedTvResult | null = await db.tvShow.findUnique({
           where: { tmdbId: rec.id },
           select: { id: true, tmdbId: true, name: true, posterPath: true, firstAirDate: true },
         });

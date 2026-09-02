@@ -49,7 +49,7 @@ export async function getPaytrConfig(): Promise<PaytrConfig> {
     }).catch(() => []),
   ]);
 
-  const settingsMap = new Map(settings.map((s) => [s.key, s.value]));
+  const settingsMap = new Map((settings as any[]).map((s: any) => [s.key, s.value]));
 
   let merchantId: string | null = null;
   let merchantKey: string | null = null;

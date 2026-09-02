@@ -96,7 +96,7 @@ export async function getRelatedMoviesForMovie(
         if (!rec.id || seenTmdbIds.has(rec.id) || !rec.poster_path || rec.adult) continue;
 
         // Check if exists in DB or sync it
-        let dbMovie = await db.movie.findUnique({
+        let dbMovie: RelatedMovieResult | null = await db.movie.findUnique({
           where: { tmdbId: rec.id },
           select: { id: true, tmdbId: true, title: true, posterPath: true, releaseYear: true },
         });

@@ -343,7 +343,7 @@ export async function handlePaytrCallback(payload: PaytrCallbackPayload): Promis
         });
 
         const isManualWithFartherEnd =
-          existingEntitlement?.source === EntitlementSource.ADMIN_MANUAL &&
+          existingEntitlement?.source === EntitlementSource.MANUAL &&
           existingEntitlement?.validUntil &&
           existingEntitlement.validUntil > periodEnd;
 
@@ -352,13 +352,13 @@ export async function handlePaytrCallback(payload: PaytrCallbackPayload): Promis
             where: { userId: payment.userId },
             update: {
               tier: SubscriptionTier.PREMIUM,
-              source: EntitlementSource.PAYTR_BILLING,
+              source: EntitlementSource.BILLING,
               validUntil: periodEnd,
             },
             create: {
               userId: payment.userId,
               tier: SubscriptionTier.PREMIUM,
-              source: EntitlementSource.PAYTR_BILLING,
+              source: EntitlementSource.BILLING,
               validUntil: periodEnd,
             },
           });

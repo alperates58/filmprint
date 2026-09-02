@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getOrCreateSession } from '@/lib/session';
 import { getUserEntitlementSummary } from '@/lib/entitlements/service';
 import { getEffectiveBillingReadiness } from '@/lib/billing/service';

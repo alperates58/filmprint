@@ -7,6 +7,8 @@ interface TvRedirectPageProps {
   params: Promise<{ id: string }>;
 }
 
+export const dynamic = "force-dynamic";
+
 export default async function TvRedirectPage({ params }: TvRedirectPageProps) {
   const { id } = await params;
   const numId = Number(id);

@@ -23,6 +23,8 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+export const dynamic = "force-dynamic";
+
 /**
  * Safely fetches and resolves TV show details on the server without AI runtime.
  */

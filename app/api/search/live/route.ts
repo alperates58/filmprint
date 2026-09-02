@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { generateSearchNormalizedTitle } from "@/lib/calibration/priority";
 import { generateMovieSlug, generateTvSlug } from "@/lib/growth/seo/slug";

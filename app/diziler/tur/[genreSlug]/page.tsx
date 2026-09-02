@@ -19,6 +19,8 @@ interface PageProps {
   searchParams: Promise<{ page?: string }>;
 }
 
+export const dynamic = "force-dynamic";
+
 const PAGE_SIZE = 18;
 
 export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {

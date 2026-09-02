@@ -23,6 +23,8 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+export const dynamic = "force-dynamic";
+
 /**
  * Helper to fetch and resolve movie data safely on the server.
  */

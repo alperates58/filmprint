@@ -7,6 +7,8 @@ interface MovieRedirectPageProps {
   params: Promise<{ id: string }>;
 }
 
+export const dynamic = "force-dynamic";
+
 export default async function MovieRedirectPage({ params }: MovieRedirectPageProps) {
   const { id } = await params;
   const numId = Number(id);

@@ -19,6 +19,8 @@ interface PublicProfilePageProps {
   params: Promise<{ id: string }>;
 }
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: PublicProfilePageProps): Promise<Metadata> {
   const { id } = await params;
   const user = await db.user.findUnique({
